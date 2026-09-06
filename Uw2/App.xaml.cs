@@ -11,6 +11,16 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        new SeaMapWindow().Show();
+
+        // 게임처럼 첫 메뉴부터 연다. 주인공을 고르면 그 시작 항구를 띄운다.
+        var title = new TitleWindow();
+        title.HeroChosen += hero =>
+        {
+            var map = new SeaMapWindow();
+            map.Show();
+            map.ShowHomePort(hero);
+            title.Close();
+        };
+        title.Show();
     }
 }

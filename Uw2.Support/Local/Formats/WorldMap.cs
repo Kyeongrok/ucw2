@@ -83,6 +83,14 @@ public sealed class WorldMap
     /// <summary>바다인지. <b>해안 칸(1~14)의 통행 여부는 아직 못 밝혔다</b> — 우선 바다로 본다.</summary>
     public bool CanSail(int x, int y) => this[x, y] != Land;
 
+    /// <summary>구워 둔 칸 배열에서 바로 만든다(<see cref="AssetPack"/>).</summary>
+    public static WorldMap FromCells(byte[] cells)
+    {
+        if (cells.Length != Width * Height)
+            throw new ArgumentException($"칸이 {Width * Height}개가 아닙니다 ({cells.Length})");
+        return new WorldMap(cells);
+    }
+
     /// <summary>파일에서 읽는다.</summary>
     public static WorldMap Load(string path)
     {

@@ -12,6 +12,14 @@
         <Version>0.1.0</Version>
     </PropertyGroup>
 
+    <!-- 구워 둔 게임 자산. 실행 파일 옆에 폴더째로 둔다 — 게임 없이도 돈다. -->
+    <ItemGroup>
+      <Content Include="..\asset\**\*">
+        <Link>asset\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+
     <ItemGroup>
       <ProjectReference Include="..\Uw2.Game\Uw2.Game.csproj" />
       <ProjectReference Include="..\Uw2.Support\Uw2.Support.csproj" />

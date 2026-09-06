@@ -30,6 +30,7 @@ public static class Program
                 case "map": return MapBmp(Need(args, 1), Arg(args, 2) ?? "worldmap.bmp");
                 case "chips": return ChipsBmp(Need(args, 1), Arg(args, 2) ?? "chips.bmp");
                 case "bake": return Bake(Need(args, 1), Arg(args, 2) ?? "baked");
+                case "assets": return Assets(Need(args, 1), Arg(args, 2) ?? "asset", Arg(args, 3));
                 case "ports": return Ports(Arg(args, 1) ?? GameFolder.Find() ?? ".");
                 case "port": return PortBmp(Arg(args, 1) ?? GameFolder.Find() ?? ".", int.Parse(Arg(args, 2) ?? "0"), Arg(args, 3) ?? "port.bmp");
                 default: Usage(); return 1;
@@ -53,7 +54,25 @@ public static class Program
         uw2 bake   <폴더> <낼 곳>
         uw2 ports  <폴더>
         uw2 port   <폴더> <번호> <낼 곳.bmp>
+        uw2 assets <폴더> <낼 곳> [덧폴더]
         """);
+
+    /// <summary>게임 폴더에서 자산을 뽑아 굽는다. 이것만 있으면 게임 없이도 돈다.</summary>
+    private static int Assets(string dir, string outDir, string? alsoLookIn)
+    {
+        AssetPack.Bake(dir, outDir, alsoLookIn);
+        long bytes = new DirectoryInfo(outDir).EnumerateFiles("*", SearchOption.AllDirectories)
+                                              .Sum(f => f.Length);
+        int files = Directory.GetFiles(outDir, "*", SearchOption.AllDirectories).Length;
+        Console.WriteLine($"{outDir} 에 {files}개, {bytes / 1024.0:N0} KB");
+
+        var back = AssetPack.Load(outDir) ?? throw new InvalidDataException("구운 것을 다시 못 읽습니다");
+        var map = WorldMap.Load(Path.Combine(dir, "WORLDMAP.LZW"));
+        Console.WriteLine($"되읽기 검산 — 칸 {(back.Cells.AsSpan().SequenceEqual(map.Cells) ? "같다" : "다르다!")}"
+                          + $" · 항구지도 {back.PortMaps.Length}장 · 항구표 {back.Ports.Count}줄"
+                          + $" · 글꼴 {(back.Font != null ? "있다" : "없다")}");
+        return 0;
+    }
 
     private static int Ports(string dir)
     {

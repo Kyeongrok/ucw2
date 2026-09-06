@@ -1,6 +1,6 @@
 bin/
 obj/
 .vs/
+.idea/
 *.user
-asset/baked/
 *.slnx.user

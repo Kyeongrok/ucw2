@@ -59,6 +59,22 @@ public sealed class GamePalette
     /// <summary>항해 화면 벌.</summary>
     public static GamePalette SeaScreen() => FromTriplets(SeaScreenTriplets);
 
+    /// <summary>항해 화면 벌을 RGB 세 바이트씩으로. PNG 팔레트에 그대로 넣는다.</summary>
+    public static byte[] SeaScreenRgb => ToRgb(SeaScreenTriplets);
+
+    /// <summary>담긴 꼴(파랑·빨강·초록, 네 비트)을 RGB 여덟 비트로 편다.</summary>
+    public static byte[] ToRgb(ReadOnlySpan<byte> triplets)
+    {
+        var rgb = new byte[Count * 3];
+        for (int i = 0; i < Count; i++)
+        {
+            rgb[i * 3] = (byte)Math.Min(255, triplets[i * 3 + 1] * 17);   // 빨강
+            rgb[i * 3 + 1] = (byte)Math.Min(255, triplets[i * 3 + 2] * 17);   // 초록
+            rgb[i * 3 + 2] = (byte)Math.Min(255, triplets[i * 3] * 17);   // 파랑
+        }
+        return rgb;
+    }
+
     private readonly uint[] _bgra;
 
     private GamePalette(uint[] bgra) => _bgra = bgra;

@@ -69,7 +69,7 @@ public sealed class SeaMapWindow : Window
         Content = grid;
 
         _host.Painted += UpdateStatus;
-        Loaded += (_, _) => Open(GameFolder.Find());
+        Loaded += (_, _) => OpenBest();
         KeyDown += OnKey;
     }
 
@@ -86,6 +86,29 @@ public sealed class SeaMapWindow : Window
         c.Checked += (_, _) => set(true);
         c.Unchecked += (_, _) => set(false);
         return c;
+    }
+
+    /// <summary>
+    /// 구워 둔 자산이 있으면 그것으로, 없으면 게임 폴더로 연다.
+    /// </summary>
+    private void OpenBest()
+    {
+        var dir = AssetPack.FindFolder();
+        if (dir != null)
+        {
+            var pack = AssetPack.Load(dir);
+            if (pack != null && _host.StartFromAssets(pack))
+            {
+                _gameDir = dir;
+                _chipToggle.IsChecked = _host.Renderer.UseChips;
+                FillPortList();
+                _host.FitToWindow();
+                _host.Invalidate();
+                UpdateStatus();
+                return;
+            }
+        }
+        Open(GameFolder.Find());
     }
 
     private void PickFolder()
@@ -128,6 +151,18 @@ public sealed class SeaMapWindow : Window
         UpdateStatus();
     }
 
+    /// <summary>
+    /// 그 주인공의 시작 항구를 띄운다. 표에 이름이 있으면 그것으로 찾고, 없으면 번호로 간다.
+    /// </summary>
+    public void ShowHomePort(int hero)
+    {
+        string[] homes = ["리스본", "세빌리아", "제노바", "이스탄불", "함부르크", "런던"];
+        string want = hero >= 0 && hero < homes.Length ? homes[hero] : homes[0];
+
+        int index = _host.Ports?.ByName(want)?.Index ?? PortTable.Lisbon;
+        if (_host.ShowPort(index)) { _portPick.SelectedIndex = index; Retitle(); }
+    }
+
     private void OnKey(object? sender, KeyEventArgs e)
     {
         double step = 20 * _host.CellsPerPixel;
@@ -160,7 +195,7 @@ public sealed class SeaMapWindow : Window
                 ? _host.Ports.Ports[_host.CurrentPort] : default;
             string at = p.Name.Length > 0 ? $" · 세계지도 칸 ({p.Cell.X}, {p.Cell.Y})" : "";
             _status.Text = $"{_host.SceneName} ({_host.CurrentPort}번) · {PortMap.Size}x{PortMap.Size} 칸"
-                         + $"{at} · 칩당 {1 / _host.CellsPerPixel:F1}점 · {_gameDir}";
+                         + $"{at} · 칩당 {1 / _host.CellsPerPixel:F1}점 · {_host.Source}";
             return;
         }
         // 커서 자리는 칩 눈금이다. 칸은 그 절반이다.
@@ -181,6 +216,6 @@ public sealed class SeaMapWindow : Window
         double lon = cx / (double)WorldMap.Width * 360 - 180;
         double lat = 90 - cy / (double)WorldMap.Height * 180;
         _status.Text = $"{cell}{wind} · 경도 {lon:F1} 위도 {lat:F1} · 칩당 {1 / _host.CellsPerPixel:F1}점"
-                     + $" · {GameFolder.BuildName(_host.Build)} · {_host.ChipNote} · {_gameDir}";
+                     + $" · {_host.ChipNote} · {_host.Source}";
     }
 }

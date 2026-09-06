@@ -16,6 +16,15 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        new SeaMapWindow { Title = "대항해시대2 — 항해" }.Show();
+
+        var title = new TitleWindow();
+        title.HeroChosen += hero =>
+        {
+            var map = new SeaMapWindow { Title = "대항해시대2 — 항해" };
+            map.Show();
+            map.ShowHomePort(hero);
+            title.Close();
+        };
+        title.Show();
     }
 }

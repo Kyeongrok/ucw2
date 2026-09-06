@@ -77,6 +77,37 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>한 프레임 그린 뒤에 부른다 — 상태줄을 갱신하라는 뜻이다.</summary>
     public event Action? Painted;
 
+    /// <summary>
+    /// 구워 둔 자산으로 연다. <b>게임이 없어도 된다</b> — 3편 <c>asset/</c> 과 같은 얼개다.
+    /// </summary>
+    public bool StartFromAssets(AssetPack pack)
+    {
+        Map = WorldMap.FromCells(pack.Cells);
+        Chips = pack.ToChipMap();
+        Wind = pack.Wind.Length > 0 ? WindCurTable.FromBytes(pack.Wind) : null;
+
+        var cells = Chips.Expand(Map);
+        if (!InitRenderer(cells, ChipMap.Width, ChipMap.Height)) return false;
+
+        Sheet = ChipSheet.FromAtlas(pack.WorldAtlas, pack.WorldAtlasSize.W, pack.WorldAtlasSize.H,
+                                    AssetPack.AtlasCols, ChipSheet.Packing.Packed4);
+        _renderer.SetChips(Sheet);
+        _renderer.UseChips = true;
+        ChipNote = $"칩 {Sheet.Count}장 · 구운 자산";
+
+        _portMaps = pack.PortMaps.Length > 0 ? PortMap.FromCells(pack.PortMaps) : null;
+        _portChipNo = pack.PortChipSet.Length > 0 ? PortChipNumbers.FromBytes(pack.PortChipSet) : null;
+        _portSets = pack.PortAtlases.Length > 0
+            ? [.. pack.PortAtlases.Select(a => ChipSheet.FromAtlas(
+                  a, pack.PortAtlasSize.W, pack.PortAtlasSize.H,
+                  AssetPack.AtlasCols, ChipSheet.Packing.Packed4))]
+            : null;
+        Ports = pack.Ports.Count > 0 ? PortTable.FromPorts(pack.Ports) : null;
+
+        Source = "구운 자산";
+        return Finish();
+    }
+
     /// <summary>게임 폴더에서 지도를 올린다. 못 열면 까닭을 <see cref="Status"/> 에 남기고 false.</summary>
     public bool Start(string gameDir)
     {
@@ -108,15 +139,7 @@ public sealed class SeaMapHost : HwndHost
             chipCells = Map.Cells; cw = WorldMap.Width; chh = WorldMap.Height;
         }
 
-        try
-        {
-            _renderer.Initialize(chipCells, cw, chh);
-        }
-        catch (Exception ex)
-        {
-            Status = $"Direct3D 장치를 만들지 못했습니다 — {ex.Message}";
-            return false;
-        }
+        if (!InitRenderer(chipCells, cw, chh)) return false;
 
         // 칩 그림. 못 걸면 민색으로 물러선다 — 걸지도 못하고 칩 모드로 두면 화면이 까매진다.
         try
@@ -133,14 +156,12 @@ public sealed class SeaMapHost : HwndHost
             ChipNote = $"칩을 못 읽어 민색으로 그립니다 — {ex.Message}";
         }
 
-        _worldCells = chipCells; _worldW = cw; _worldH = chh; _worldSheet = Sheet;
-
         // 항구. 없어도 세계지도는 돈다.
         try
         {
             PortTable.RegisterEncodings();
             _portMaps = PortMap.Load(Path.Combine(gameDir, "PORTMAP.LZW"));
-            _portSets = PortChipSets.Load(Path.Combine(gameDir, "PORTCHIP.LZW"));
+            _portSets = PortChipSets.Load(Path.Combine(gameDir, "PORTCHIP.LZW")).All;
             _portChipNo = PortChipNumbers.Load(Path.Combine(gameDir, "CHIP_NO.DAT"));
             Ports = PortTable.Load(gameDir);
         }
@@ -150,11 +171,38 @@ public sealed class SeaMapHost : HwndHost
         }
 
         Build = GameFolder.BuildOf(gameDir);
+        Source = gameDir;
+        return Finish();
+    }
+
+    private bool InitRenderer(byte[] cells, int w, int h)
+    {
+        try
+        {
+            _renderer.Initialize(cells, w, h);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Status = $"Direct3D 장치를 만들지 못했습니다 — {ex.Message}";
+            return false;
+        }
+    }
+
+    private bool Finish()
+    {
+        _worldCells = _renderer.Cells;
+        _worldW = _renderer.MapW;
+        _worldH = _renderer.MapH;
+        _worldSheet = Sheet;
         _ready = true;
         _dirty = true;
         CompositionTarget.Rendering += OnFrame;
         return true;
     }
+
+    /// <summary>어디서 읽었는지 — 게임 폴더 아니면 「구운 자산」.</summary>
+    public string Source { get; private set; } = "";
 
     /// <summary>세계 칩 벌. 못 읽었으면 null 이고 그때는 민색으로 그린다.</summary>
     public ChipSheet? Sheet { get; private set; }
@@ -188,11 +236,12 @@ public sealed class SeaMapHost : HwndHost
     public bool ShowPort(int port)
     {
         if (_portMaps == null || _portSets == null || _portChipNo == null) return false;
+        if (_portSets.Length == 0) return false;
         if (port < 0 || port >= _portMaps.Ports) return false;
 
         CurrentPort = port;
         _renderer.SetCells(_portMaps[port], PortMap.Size, PortMap.Size);
-        _renderer.SetChips(_portSets[_portChipNo[port]]);
+        _renderer.SetChips(_portSets[Math.Clamp(_portChipNo[port], 0, _portSets.Length - 1)]);
         _renderer.WrapX = false;
         _renderer.GridStep = 8;
         FitToWindow();
@@ -210,7 +259,7 @@ public sealed class SeaMapHost : HwndHost
     private int _worldW, _worldH;
     private ChipSheet? _worldSheet;
     private PortMap? _portMaps;
-    private PortChipSets? _portSets;
+    private ChipSheet[]? _portSets;
     private PortChipNumbers? _portChipNo;
 
     /// <summary>온 지도가 창에 들어오게 배율을 맞춘다.</summary>

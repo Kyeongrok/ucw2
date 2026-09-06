@@ -67,6 +67,14 @@ public sealed class WindCurTable
     /// <summary>파일 원본 1,350바이트.</summary>
     public byte[] Raw => _raw;
 
+    /// <summary>날바이트에서 바로 만든다.</summary>
+    public static WindCurTable FromBytes(byte[] raw)
+    {
+        if (raw.Length != PageBytes * Pages)
+            throw new ArgumentException($"{PageBytes * Pages}바이트가 아닙니다 ({raw.Length})");
+        return new WindCurTable(raw);
+    }
+
     /// <summary>파일에서 읽는다.</summary>
     public static WindCurTable Load(string path)
     {

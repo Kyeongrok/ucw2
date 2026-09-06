@@ -26,6 +26,9 @@ public sealed class PortMap
     /// <summary>읽은 항구 수.</summary>
     public int Ports => _maps.Length;
 
+    /// <summary>구워 둔 칸 배열들에서 바로 만든다.</summary>
+    public static PortMap FromCells(byte[][] maps) => new(maps);
+
     /// <summary>파일에서 읽는다.</summary>
     public static PortMap Load(string path)
     {
@@ -56,6 +59,9 @@ public sealed class PortChipSets
 
     /// <summary>벌 하나.</summary>
     public ChipSheet this[int set] => _sets[set];
+
+    /// <summary>벌 전부.</summary>
+    public ChipSheet[] All => _sets;
 
     /// <summary>벌마다 딸린 4바이트. 아직 뜻을 모른다.</summary>
     public byte[] ExtraOf(int set) => _extras[set];
@@ -100,6 +106,9 @@ public sealed class PortChipNumbers
 
     /// <summary>그 항구가 쓰는 칩 벌(0~6).</summary>
     public int this[int port] => port >= 0 && port < _sets.Length ? _sets[port] : 0;
+
+    /// <summary>날바이트에서 바로 만든다.</summary>
+    public static PortChipNumbers FromBytes(byte[] sets) => new(sets);
 
     /// <summary>파일에서 읽는다.</summary>
     public static PortChipNumbers Load(string path)

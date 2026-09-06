@@ -166,6 +166,9 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     public int MapW { get; private set; } = ChipMap.Width;
     public int MapH { get; private set; } = ChipMap.Height;
 
+    /// <summary>지금 걸린 칸(칩 번호) 배열. 항구를 보다가 세계지도로 돌아올 때 쓴다.</summary>
+    public byte[] Cells { get; private set; } = [];
+
     /// <summary>
     /// 장치와 텍스처를 올린다. <paramref name="cells"/> 는 <b>칩 번호</b> 배열이다 —
     /// <see cref="ChipMap.Expand"/> 가 낸 2160 x 1080 을 그대로 넣는다.
@@ -190,6 +193,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         _cb = _device.CreateBuffer((uint)Marshal.SizeOf<FrameCb>(), BindFlags.ConstantBuffer,
                                    ResourceUsage.Dynamic, CpuAccessFlags.Write);
 
+        Cells = cells;
         _cellSrv = CreateImmutable(cells, width, height, Format.R8_UInt, 1);
         _flatSrv = CreateImmutable(FlatColors_(), FlatColors, 1, Format.B8G8R8A8_UNorm, sizeof(uint));
         SetPalette(GamePalette.SeaScreen());
@@ -238,6 +242,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     public void SetCells(byte[] cells, int width, int height)
     {
         var old = _cellSrv;
+        Cells = cells;
         _cellSrv = CreateImmutable(cells, width, height, Format.R8_UInt, 1);
         MapW = width;
         MapH = height;

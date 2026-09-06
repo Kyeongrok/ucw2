@@ -133,6 +133,22 @@ public sealed class ChipSheet
         return new ChipSheet(px, count, Packing.Packed4);
     }
 
+    /// <summary>구워 둔 아틀라스를 도로 칩 벌로. <paramref name="cols"/> 개씩 놓인 것이다.</summary>
+    public static ChipSheet FromAtlas(byte[] atlas, int width, int height, int cols, Packing kind)
+    {
+        int rows = height / Size;
+        int count = rows * cols;
+        var px = new byte[count * Size * Size];
+        for (int t = 0; t < count; t++)
+        {
+            int ox = (t % cols) * Size, oy = (t / cols) * Size;
+            for (int y = 0; y < Size; y++)
+                for (int x = 0; x < Size; x++)
+                    px[(t * Size + y) * Size + x] = atlas[(oy + y) * width + ox + x];
+        }
+        return new ChipSheet(px, count, kind);
+    }
+
     /// <summary>
     /// 셰이더에 올릴 아틀라스로 편다 — 칩을 <paramref name="cols"/> 개씩 격자로 늘어놓는다.
     /// </summary>

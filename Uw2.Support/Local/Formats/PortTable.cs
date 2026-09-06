@@ -64,6 +64,9 @@ public sealed class PortTable
 
     private PortTable(List<Port> ports, string source) { Ports = ports; Source = source; }
 
+    /// <summary>구워 둔 목록에서 바로 만든다.</summary>
+    public static PortTable FromPorts(IEnumerable<Port> ports) => new([.. ports], "asset");
+
     /// <summary>이름으로 찾는다. 없으면 null.</summary>
     public Port? ByName(string name) =>
         Ports.FirstOrDefault(p => p.Name == name) is { Name.Length: > 0 } p ? p : null;
