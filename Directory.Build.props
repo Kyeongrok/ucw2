@@ -1,0 +1,7 @@
+<Project>
+    <PropertyGroup>
+        <!-- cds-helper 와 같은 값으로 못 박는다. 설치된 SDK 가 무엇이든 빌드가 같게 나온다. -->
+        <WindowsSdkPackageVersion>10.0.19041.56</WindowsSdkPackageVersion>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+</Project>

@@ -1,0 +1,6 @@
+bin/
+obj/
+.vs/
+*.user
+asset/baked/
+*.slnx.user

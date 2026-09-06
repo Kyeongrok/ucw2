@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <UseWPF>true</UseWPF>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Uw2.Play</RootNamespace>
+        <!-- 뷰어(Uw2.exe)와 나란히 놓이므로 이름을 갈라 둔다. -->
+        <AssemblyName>Uw2Play</AssemblyName>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <Version>0.1.0</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Uw2.Game\Uw2.Game.csproj" />
+    </ItemGroup>
+
+</Project>

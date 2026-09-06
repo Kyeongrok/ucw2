@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Uw2.Game/Uw2.Game.csproj" />
+  <Project Path="Uw2.Play/Uw2.Play.csproj" />
+  <Project Path="Uw2.Support/Uw2.Support.csproj" />
+  <Project Path="Uw2.Tools/Uw2.Tools.csproj" />
+  <Project Path="Uw2/Uw2.csproj" />
+</Solution>

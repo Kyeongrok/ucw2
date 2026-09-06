@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <UseWPF>true</UseWPF>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Uw2</RootNamespace>
+        <AssemblyName>Uw2</AssemblyName>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <Version>0.1.0</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Uw2.Game\Uw2.Game.csproj" />
+      <ProjectReference Include="..\Uw2.Support\Uw2.Support.csproj" />
+    </ItemGroup>
+
+</Project>

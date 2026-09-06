@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <UseWPF>true</UseWPF>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>Uw2.Game</RootNamespace>
+        <!-- D3D 렌더러가 매핑된 GPU 버퍼에 직접 쓴다 (UI/Rendering/SeaMapRenderer.cs) -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Vortice.D3DCompiler" Version="3.8.3" />
+      <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Uw2.Support\Uw2.Support.csproj" />
+    </ItemGroup>
+
+</Project>
