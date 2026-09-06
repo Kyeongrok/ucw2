@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Uw2.Game.Engine.Sea;
 using Uw2.Game.UI.Rendering;
 using Uw2.Support.Local.Formats;
 using Uw2.Support.Local.Helpers;
@@ -40,6 +41,7 @@ public sealed class SeaMapWindow : Window
         var bar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6) };
         bar.Children.Add(Button("게임 폴더…", (_, _) => PickFolder()));
         bar.Children.Add(Button("세계지도", (_, _) => { _host.ShowWorld(); _portPick.SelectedIndex = -1; Retitle(); }));
+        bar.Children.Add(Button("출항", (_, _) => PutToSea()));
 
         // 항구 고르개. 표를 못 읽으면 번호만 늘어놓는다.
         _portPick = new ComboBox
@@ -161,11 +163,43 @@ public sealed class SeaMapWindow : Window
 
         int index = _host.Ports?.ByName(want)?.Index ?? PortTable.Lisbon;
         if (_host.ShowPort(index)) { _portPick.SelectedIndex = index; Retitle(); }
+
+        // 항구를 한 번 보여 주고, 나가면 그 앞바다에서 배가 뜬다.
+        _homePort = index;
+    }
+
+    private int _homePort = PortTable.Lisbon;
+
+    /// <summary>항구에서 나와 앞바다에 배를 띄운다.</summary>
+    private void PutToSea()
+    {
+        int from = _host.CurrentPort >= 0 ? _host.CurrentPort : _homePort;
+        _host.ShowWorld();
+        _portPick.SelectedIndex = -1;
+        if (!_host.SailFrom(from)) _host.FitToWindow();
+        _host.CellsPerPixel = 1.0 / 6;               // 칩 하나에 여섯 점 — 배가 잘 보인다
+        _host.Invalidate();
+        Retitle();
     }
 
     private void OnKey(object? sender, KeyEventArgs e)
     {
         double step = 20 * _host.CellsPerPixel;
+
+        // 바다에 나와 있으면 방향키가 뱃머리를 잡는다. 항구를 보고 있으면 지도를 옮긴다.
+        bool steering = _host.Sailing && _host.CurrentPort < 0 && _host.Fleet != null;
+        if (steering)
+        {
+            switch (e.Key)
+            {
+                case Key.Left: _host.Steer(-1); e.Handled = true; return;
+                case Key.Right: _host.Steer(+1); e.Handled = true; return;
+                case Key.Up: _host.SteerTo(0); e.Handled = true; return;      // 북
+                case Key.Down: _host.SteerTo(8); e.Handled = true; return;    // 남
+                case Key.Space: _host.ToggleSail(); e.Handled = true; return;
+            }
+        }
+
         switch (e.Key)
         {
             case Key.Left: _host.Center = (_host.Center.X - step, _host.Center.Y); break;
@@ -175,6 +209,7 @@ public sealed class SeaMapWindow : Window
             case Key.G: _host.Renderer.ShowGrid = !_host.Renderer.ShowGrid; break;
             case Key.C: _host.Renderer.UseChips = !_host.Renderer.UseChips; break;
             case Key.F: _host.FitToWindow(); break;
+            case Key.S: PutToSea(); return;
             case Key.W: _host.ShowWorld(); _portPick.SelectedIndex = -1; Retitle(); break;
             case Key.L:                                      // 리스본
                 if (_host.ShowPort(PortTable.Lisbon)) { _portPick.SelectedIndex = PortTable.Lisbon; Retitle(); }
@@ -213,9 +248,19 @@ public sealed class SeaMapWindow : Window
             wind = $" · 바람 {dir}/{speed} 해류 {cdir}/{cspeed}";
         }
 
+        var f = _host.Fleet;
+        string sail = "";
+        if (f != null && _host.CurrentPort < 0)
+        {
+            sail = $" | 배 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
+                 + $" · 바람 {Fleet.DirName(f.LastWind.Dir)} {f.LastWind.Speed}"
+                 + $" · 빠르기 {f.LastSpeed:F1}"
+                 + (f.UnderSail ? "" : " · 돛 접음") + (f.Blocked ? " · 뭍" : "");
+        }
+
         double lon = cx / (double)WorldMap.Width * 360 - 180;
         double lat = 90 - cy / (double)WorldMap.Height * 180;
         _status.Text = $"{cell}{wind} · 경도 {lon:F1} 위도 {lat:F1} · 칩당 {1 / _host.CellsPerPixel:F1}점"
-                     + $" · {_host.ChipNote} · {_host.Source}";
+                     + sail + $" · {_host.Source}";
     }
 }

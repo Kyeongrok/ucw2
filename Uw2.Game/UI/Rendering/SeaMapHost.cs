@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Uw2.Game.Engine.Sea;
 using Uw2.Support.Local.Formats;
 using Uw2.Support.Local.Helpers;
 using Vortice.Direct3D11;
@@ -104,6 +105,13 @@ public sealed class SeaMapHost : HwndHost
             : null;
         Ports = pack.Ports.Count > 0 ? PortTable.FromPorts(pack.Ports) : null;
 
+        if (pack.Ship.Length == AssetPack.ShipW * AssetPack.ShipH)
+        {
+            _shipArt = pack.Ship;
+            _shipW = AssetPack.ShipW;
+            _shipH = AssetPack.ShipH;
+        }
+
         Source = "구운 자산";
         return Finish();
     }
@@ -184,13 +192,20 @@ public sealed class SeaMapHost : HwndHost
         }
         catch (Exception ex)
         {
+            // 셰이더가 안 붙으면 화면이 통째로 하얘질 뿐 까닭이 안 보인다. 파일에 남겨 둔다.
             Status = $"Direct3D 장치를 만들지 못했습니다 — {ex.Message}";
+            try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "uw2-error.txt"), ex.ToString()); }
+            catch { }
             return false;
         }
     }
 
     private bool Finish()
     {
+        if (Map != null && Chips != null) Fleet = new Fleet(Map, Chips, Wind);
+        if (_shipArt.Length > 0)
+            _renderer.SetShipSprite(_shipArt, _shipW, _shipH, GamePalette.SeaScreen(),
+                                    AssetPack.Transparent);
         _worldCells = _renderer.Cells;
         _worldW = _renderer.MapW;
         _worldH = _renderer.MapH;
@@ -203,6 +218,43 @@ public sealed class SeaMapHost : HwndHost
 
     /// <summary>어디서 읽었는지 — 게임 폴더 아니면 「구운 자산」.</summary>
     public string Source { get; private set; } = "";
+
+    /// <summary>바다 위의 함대. 지도를 못 올렸으면 null.</summary>
+    public Fleet? Fleet { get; private set; }
+
+    /// <summary>배를 띄우고 방향키로 몰지. 끄면 방향키가 지도를 옮긴다.</summary>
+    public bool Sailing { get; set; } = true;
+
+    /// <summary>배가 화면 가장자리 이만큼 안에 들면 화면을 넘긴다(실픽셀).</summary>
+    private const int FollowMargin = 120;
+
+    /// <summary>배 그림 한 변을 몇 배로 늘려 그릴지.</summary>
+    public double ShipScale { get; set; } = 1;
+
+    private byte[] _shipArt = [];
+    private int _shipW, _shipH;
+    private TimeSpan _lastTick;
+    private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+    private double _carry;
+
+    /// <summary>배를 그 항구 앞바다에 띄운다.</summary>
+    public bool SailFrom(int port)
+    {
+        if (Fleet == null || Ports == null || port < 0 || port >= Ports.Ports.Count) return false;
+        var p = Ports.Ports[port];
+        if (!Fleet.PlaceNearSea(p.X, p.Y)) return false;
+
+        Fleet.Heading = 0;
+        Fleet.UnderSail = true;
+        CenterOnShip();
+        _dirty = true;
+        return true;
+    }
+
+    private void CenterOnShip()
+    {
+        if (Fleet != null) Center = (Fleet.X, Fleet.Y);
+    }
 
     /// <summary>세계 칩 벌. 못 읽었으면 null 이고 그때는 민색으로 그린다.</summary>
     public ChipSheet? Sheet { get; private set; }
@@ -352,6 +404,8 @@ public sealed class SeaMapHost : HwndHost
         int h = (int)Math.Round(ActualHeight * dpi.DpiScaleY);
         EnsureSwapChain(w, h);
         if (_backBufferView == null) return;
+
+        AdvanceFleet(w, h);
         if (!_dirty) return;
 
         _lastDpiX = dpi.DpiScaleX;
@@ -359,10 +413,72 @@ public sealed class SeaMapHost : HwndHost
         var origin = (Center.X - w / 2.0 * CellsPerPixel, Center.Y - h / 2.0 * CellsPerPixel);
         _lastOrigin = origin;
 
-        _renderer.RenderTo(_backBufferView, w, h, origin, CellsPerPixel);
+        _renderer.RenderTo(_backBufferView, w, h, origin, CellsPerPixel, ShipRectAt(origin));
         _swapChain!.Present(1, PresentFlags.None);
         _dirty = false;
         Painted?.Invoke();
+    }
+
+    /// <summary>
+    /// 흐른 시간만큼 배를 옮긴다. 틱이 쌓인 만큼 <see cref="Fleet.Step"/> 을 되풀이한다.
+    /// </summary>
+    private void AdvanceFleet(int w, int h)
+    {
+        var now = _clock.Elapsed;
+        double dt = Math.Min((now - _lastTick).TotalSeconds, 0.25);   // 창이 멈췄다 살아나도 안 튀게
+        _lastTick = now;
+
+        if (Fleet == null || !Sailing || CurrentPort >= 0 || !Fleet.UnderSail) return;
+
+        _carry += dt / Fleet.TickSeconds;
+        int ticks = (int)_carry;
+        if (ticks <= 0) return;
+        _carry -= ticks;
+
+        for (int i = 0; i < Math.Min(ticks, 20); i++) Fleet.Step();
+        _renderer.ShipFacesWest = Fleet.Heading > Fleet.DirCount / 2;
+        FollowShip(w, h);
+        _dirty = true;
+    }
+
+    /// <summary>배가 가장자리에 다가오면 화면을 넘긴다. 여백 안에서는 지도가 멈춰 있다.</summary>
+    private void FollowShip(int w, int h)
+    {
+        if (Fleet == null) return;
+        double halfW = w / 2.0 * CellsPerPixel, halfH = h / 2.0 * CellsPerPixel;
+        double marginX = FollowMargin * CellsPerPixel, marginY = FollowMargin * CellsPerPixel;
+
+        double dx = Fleet.X - Center.X;
+        if (dx > ChipMap.Width / 2.0) dx -= ChipMap.Width;
+        if (dx < -ChipMap.Width / 2.0) dx += ChipMap.Width;
+
+        double cx = Center.X, cy = Center.Y;
+        if (dx > halfW - marginX) cx += dx - (halfW - marginX);
+        if (dx < -(halfW - marginX)) cx += dx + (halfW - marginX);
+
+        double dy = Fleet.Y - Center.Y;
+        if (dy > halfH - marginY) cy += dy - (halfH - marginY);
+        if (dy < -(halfH - marginY)) cy += dy + (halfH - marginY);
+
+        Center = (cx, cy);
+    }
+
+    /// <summary>배 그림이 놓일 화면 사각형. 안 그릴 때는 폭이 0 이다.</summary>
+    private (float X, float Y, float W, float H) ShipRectAt((double X, double Y) origin)
+    {
+        if (Fleet == null || CurrentPort >= 0 || _shipArt.Length == 0) return default;
+
+        double sx = Fleet.X - origin.X;
+        if (sx < -ChipMap.Width / 2.0) sx += ChipMap.Width;
+        if (sx > ChipMap.Width / 2.0) sx -= ChipMap.Width;
+
+        double px = sx / CellsPerPixel;
+        double py = (Fleet.Y - origin.Y) / CellsPerPixel;
+
+        // 확대할수록 배도 커지되 너무 작아지지도 크지도 않게 잡는다.
+        double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale;
+        float dw = (float)(_shipW * scale), dh = (float)(_shipH * scale);
+        return ((float)(px - dw / 2), (float)(py - dh), dw, dh);
     }
 
     /// <summary>화면 점을 칸 좌표로.</summary>
@@ -418,4 +534,28 @@ public sealed class SeaMapHost : HwndHost
 
     /// <summary>다음 프레임에 다시 그리라고 표시한다.</summary>
     public void Invalidate() => _dirty = true;
+
+    /// <summary>뱃머리를 돌린다.</summary>
+    public void Steer(int by)
+    {
+        if (Fleet == null) return;
+        Fleet.Turn(by);
+        _dirty = true;
+    }
+
+    /// <summary>뱃머리를 그 방위로 맞춘다.</summary>
+    public void SteerTo(int dir)
+    {
+        if (Fleet == null) return;
+        Fleet.Heading = ((dir % Fleet.DirCount) + Fleet.DirCount) % Fleet.DirCount;
+        _dirty = true;
+    }
+
+    /// <summary>돛을 폈다 접었다 한다.</summary>
+    public void ToggleSail()
+    {
+        if (Fleet == null) return;
+        Fleet.UnderSail = !Fleet.UnderSail;
+        _dirty = true;
+    }
 }

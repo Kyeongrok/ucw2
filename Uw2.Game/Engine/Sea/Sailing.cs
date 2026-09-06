@@ -27,22 +27,60 @@ public static class Sailing
     public const int CalmSpeed = 1;
 
     /// <summary>
+    /// 돛 효율의 아래위(백분). 정면 역풍에서도 삼각돛이 조금은 나아간다.
+    /// </summary>
+    public const int MinEfficiency = 25, MaxEfficiency = 100;
+
+    /// <summary>어림 추진력. 배 표를 읽기 전까지 쓰는 값이다.</summary>
+    public const int DefaultThrust = 40;
+
+    /// <summary>
+    /// 눈금 맞춤. <b>우리가 고른 값</b>이다 — 게임 셈을 캐면 없어질 자리다.
+    /// </summary>
+    /// <remarks>
+    /// 3편 식은 칸 눈금이 2편과 달라 그대로 쓰면 배가 화면 밖으로 튄다. 순풍에 한 틱에
+    /// 한 칸 남짓 나아가도록 이 값으로 눌러 두었다 — 세계지도를 가로지르는 데 서너 분이다.
+    /// </remarks>
+    public const double PaceScale = 10;
+
+    /// <summary>
     /// 임시 셈. 뱃머리와 바람이 이루는 각으로 돛 효율을 어림한다.
     /// </summary>
     /// <param name="windDir">풍향(16방위).</param>
     /// <param name="windSpeed">풍속.</param>
     /// <param name="heading">뱃머리(16방위).</param>
     /// <param name="thrust">추진력. 배 표를 읽기 전까지의 어림값이다.</param>
-    public static double SpeedOf(int windDir, int windSpeed, int heading, int thrust = 20)
+    public static double SpeedOf(int windDir, int windSpeed, int heading, int thrust = DefaultThrust)
     {
-        int rel = ((windDir - heading) & 0xF);
-        // 뒤에서 불면 1, 옆이면 0.6, 앞이면 0.15 — 삼각돛도 정면 역풍에서 조금은 나간다.
-        double cos = Math.Cos(rel * (2 * Math.PI / 16));
-        double eff = 0.15 + 0.85 * (cos + 1) / 2;
+        // 뒤에서 불면 100, 옆이면 60 남짓, 정면 역풍이면 25 다(백분).
+        int rel = (windDir - heading) & 0xF;
+        double cos = Math.Cos(rel * (2 * Math.PI / DirCount));
+        double eff = MinEfficiency + (MaxEfficiency - MinEfficiency) * (cos + 1) / 2;
+
         double v = thrust * (windSpeed + 1) * eff / 100.0;
         return Math.Max(CalmSpeed, v);
     }
 
+    /// <summary>방위 가짓수.</summary>
+    public const int DirCount = 16;
+
     /// <summary>속도를 한 틱에 나아갈 칸 수로.</summary>
-    public static double CellsPerTick(double speed) => speed / StepsPerCell;
+    public static double CellsPerTick(double speed) => speed / StepsPerCell / PaceScale;
+
+    /// <summary>
+    /// 경도 보정 — 위도가 높을수록 경도 한 칸이 짧다. 3편 것을 그대로 옮겼다.
+    /// </summary>
+    /// <remarks>
+    /// 3편은 <c>65536*cos</c> 표를 63도에서 자르고 보간해 쓴다. 여기서는 <c>1 / cos</c> 을
+    /// 그냥 쓴다 — 어긋남이 0.5% 라 굳이 옮기지 않았다.
+    /// <b>2편도 이렇게 하는지는 아직 안 굳혔다.</b>
+    /// </remarks>
+    public static double LonScale(double latitudeDegrees)
+    {
+        double capped = Math.Min(Math.Abs(latitudeDegrees), MaxLatForScale);
+        return 1.0 / Math.Max(0.25, Math.Cos(capped * Math.PI / 180.0));
+    }
+
+    /// <summary>경도 보정을 자르는 위도.</summary>
+    public const double MaxLatForScale = 63;
 }

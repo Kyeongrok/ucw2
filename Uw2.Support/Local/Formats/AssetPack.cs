@@ -15,6 +15,7 @@ namespace Uw2.Support.Local.Formats;
 ///   asset/
 ///     palette.png        16x1     열여섯 색 그 자체
 ///     font.png           128x96   8x16 글자 아흔여섯 자 (HANKAKU.FNT)
+///     ship.png           64x80    부두에 매인 배를 오려 낸 것(255 는 비침)
 ///     ports.json                  항구 이름·자리·칩 벌
 ///     monsters.json               괴물 자리 서른 곳
 ///     wind.png           30x45    표 셋을 세로로 쌓음(값 = 날바이트)
@@ -117,6 +118,9 @@ public sealed class AssetPack
         WriteJson(Path.Combine(outDir, "monsters.json"),
                   monsters.Spots.Select(s => new MonsterJson(s.X, s.Y, s.Kind)).ToArray());
 
+        // 배 그림 — 리스본 부두에 매인 배를 오려 낸다.
+        BakeShip(maps, sets, Path.Combine(outDir, "ship.png"));
+
         // 글꼴 — 첫 메뉴에 쓰는 그것이다. Win95 이식판에는 없어 원판에서 가져온다.
         string fnt = Find("HANKAKU.FNT");
         if (File.Exists(fnt))
@@ -124,6 +128,45 @@ public sealed class AssetPack
             var glyphs = GameFont.Load(fnt).ToSheet(out int fw, out int fh);
             IndexedPng.Write(Path.Combine(outDir, "font.png"), glyphs, fw, fh, InkPalette());
         }
+    }
+
+    /// <summary>배 그림이 놓인 자리 — 리스본(0번) 항구지도의 칸이다.</summary>
+    public const int ShipPort = 0, ShipCellX = 1, ShipCellY = 74, ShipCellW = 4, ShipCellH = 5;
+
+    /// <summary>배 그림에서 <b>비침</b>을 뜻하는 색인. 게임 팔레트가 0~15 라 255 는 비어 있다.</summary>
+    public const byte Transparent = 255;
+
+    /// <summary>배 그림 크기(점).</summary>
+    public const int ShipW = ShipCellW * ChipSheet.Size, ShipH = ShipCellH * ChipSheet.Size;
+
+    /// <summary>
+    /// 리스본 부두에 매인 배를 오려 낸다.
+    /// </summary>
+    /// <remarks>
+    /// 게임에는 세계지도용 배 그림이 따로 없다 — 부두에 놓인 것이 곧 배 그림이다.
+    /// 바닷물을 걷어 내는 방법이 재미있다. 물 칩은 자리에 따라 무늬가 도드라지므로,
+    /// <b>같은 자리의 물 칩 점과 같으면 비침</b>으로 친다. 돛과 밧줄만 남는다.
+    /// </remarks>
+    private static void BakeShip(PortMap maps, PortChipSets sets, string path)
+    {
+        var sheet = sets[0];
+        var cells = maps[ShipPort];
+        int water = cells[(ShipCellY + ShipCellH - 1) * PortMap.Size];   // 배 왼쪽은 늘 물이다
+
+        var px = new byte[ShipW * ShipH];
+        for (int cy = 0; cy < ShipCellH; cy++)
+            for (int cx = 0; cx < ShipCellW; cx++)
+            {
+                int t = cells[(ShipCellY + cy) * PortMap.Size + ShipCellX + cx];
+                for (int y = 0; y < ChipSheet.Size; y++)
+                    for (int x = 0; x < ChipSheet.Size; x++)
+                    {
+                        byte v = sheet[t, x, y];
+                        if (t == water || v == sheet[water, x, y]) v = Transparent;
+                        px[(cy * ChipSheet.Size + y) * ShipW + cx * ChipSheet.Size + x] = v;
+                    }
+            }
+        IndexedPng.Write(path, px, ShipW, ShipH, GamePalette.SeaScreenRgb);
     }
 
     /// <summary>한 비트 그림에 다는 팔레트 — 0 은 검정, 1 은 흰빛.</summary>
@@ -156,6 +199,9 @@ public sealed class AssetPack
 
             var ports = ReadJson<PortJson[]>(Path.Combine(dir, "ports.json")) ?? [];
 
+            string shipPath = Path.Combine(dir, "ship.png");
+            byte[] ship = File.Exists(shipPath) ? IndexedPng.Read(shipPath).Pixels : [];
+
             string fontPath = Path.Combine(dir, "font.png");
             GameFont? font = null;
             if (File.Exists(fontPath))
@@ -177,6 +223,7 @@ public sealed class AssetPack
                 PortChipSet = chipNo.Pixels,
                 Wind = wind.Pixels,
                 Ports = [.. ports.Select(p => new PortTable.Port(p.Index, p.Name, p.X, p.Y, p.Nation))],
+                Ship = ship,
                 Font = font,
             };
         }
@@ -226,6 +273,9 @@ public sealed class AssetPack
 
     /// <summary>게임 글꼴. 없으면 null.</summary>
     public GameFont? Font { get; private init; }
+
+    /// <summary>배 그림(64 x 80 색인). <see cref="Transparent"/> 는 비침이다.</summary>
+    public byte[] Ship { get; private init; } = [];
 
     // ------------------------------------------------------------------ 잔손
 

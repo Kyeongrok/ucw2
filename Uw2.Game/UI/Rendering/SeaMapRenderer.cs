@@ -42,6 +42,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     //       cell.x 를 MapCells.x 로 나눈 나머지로 접어 경도 -180/180 을 잇는다.
     //       Mode 0 이면 민색표, 1 이면 칩을 쓴다.
     //       배 그림(ShipRect)이 있으면 그 자리는 지도 대신 배를 낸다.
+    //       ShipSize.z 가 켜져 있으면 배를 좌우로 뒤집는다(서쪽으로 갈 때).
     private const string ShaderSource = """
         Texture2D<uint>   CellMap : register(t0);
         Texture2D<uint>   Atlas   : register(t1);
@@ -58,6 +59,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             float  AtlasCols;
             float4 ShipRect;
             float4 Grid;
+            float4 ShipSize;
         };
 
         struct VSOut { float4 pos : SV_Position; };
@@ -77,7 +79,9 @@ public sealed unsafe class SeaMapRenderer : IDisposable
                 float2 s = (i.pos.xy - ShipRect.xy) / ShipRect.zw;
                 if (all(s >= 0) && all(s < 1))
                 {
-                    float4 c = Ship.Load(int3(int2(s * 32.0), 0));
+                    float2 t = s;
+                    if (ShipSize.z > 0.5) t.x = 1.0 - t.x;
+                    float4 c = Ship.Load(int3(int2(t * ShipSize.xy), 0));
                     if (c.a > 0) return c;
                 }
             }
@@ -126,6 +130,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         public float AtlasCols;
         public float ShipX, ShipY, ShipW, ShipH;
         public float GridOn, GridStep, WrapX, GridPad1;
+        public float SpriteW, SpriteH, ShipFlip, ShipPad1;
     }
 
     private ID3D11Device _device = null!;
@@ -201,7 +206,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         // 죄다 색인 0(검정)이 나온다 — 화면이 까매지던 것이 이것이었다.
         SetChipsCore(new byte[AtlasCols * ChipSheet.Size * (WorldChips.Count / AtlasCols) * ChipSheet.Size],
                      AtlasCols * ChipSheet.Size, WorldChips.Count / AtlasCols * ChipSheet.Size, AtlasCols);
-        _shipSrv = CreateImmutable(new uint[32 * 32], 32, 32, Format.B8G8R8A8_UNorm, sizeof(uint));
+        SetShipSprite(new uint[1], 1, 1);
     }
 
     /// <summary>
@@ -264,13 +269,30 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         old?.Dispose();
     }
 
-    /// <summary>배 그림을 건다. 32x32 BGRA 이고 알파 0 이 비침이다.</summary>
-    public void SetShipSprite(ReadOnlySpan<uint> bgra32X32)
+    private int _shipW = 1, _shipH = 1;
+
+    /// <summary>배가 서쪽을 보고 있는지. 참이면 그림을 좌우로 뒤집는다.</summary>
+    public bool ShipFacesWest { get; set; }
+
+    /// <summary>배 그림을 건다. 알파 0 이 비침이다.</summary>
+    public void SetShipSprite(ReadOnlySpan<uint> bgra, int width, int height)
     {
-        if (bgra32X32.Length < 32 * 32) return;
+        if (bgra.Length < width * height) return;
         var old = _shipSrv;
-        _shipSrv = CreateImmutable(bgra32X32.ToArray(), 32, 32, Format.B8G8R8A8_UNorm, sizeof(uint));
+        _shipSrv = CreateImmutable(bgra.ToArray(), width, height, Format.B8G8R8A8_UNorm, sizeof(uint));
+        _shipW = width; _shipH = height;
         old?.Dispose();
+    }
+
+    /// <summary>
+    /// 색인 그림을 팔레트로 칠해 배 그림으로 건다. <paramref name="clear"/> 색인은 비침이다.
+    /// </summary>
+    public void SetShipSprite(byte[] indices, int width, int height, GamePalette palette, byte clear)
+    {
+        var bgra = new uint[width * height];
+        for (int i = 0; i < bgra.Length && i < indices.Length; i++)
+            bgra[i] = indices[i] == clear ? 0u : palette.Bgra[indices[i] & 0xF];
+        SetShipSprite(bgra, width, height);
     }
 
     private ID3D11ShaderResourceView CreateImmutable<T>(T[] data, int w, int h, Format fmt, int stride)
@@ -300,7 +322,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     /// <summary>밖에서 준 대상에 그린다. 스왑체인 백버퍼에 곧바로 그릴 때 쓴다.</summary>
     public void RenderTo(ID3D11RenderTargetView rtv, int width, int height,
                          (double X, double Y) originCell, double cellsPerPixel,
-                         (float X, float Y, float W, float H) shipRect = default)
+                         (float X, float Y, float W, float H) shipRect)
     {
         var cb = new FrameCb
         {
@@ -319,6 +341,9 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             GridOn = ShowGrid ? 1 : 0,
             GridStep = GridStep,
             WrapX = WrapX ? 1 : 0,
+            SpriteW = _shipW,
+            SpriteH = _shipH,
+            ShipFlip = ShipFacesWest ? 1 : 0,
         };
 
         var map = _ctx.Map(_cb, 0, Vortice.Direct3D11.MapMode.WriteDiscard);
