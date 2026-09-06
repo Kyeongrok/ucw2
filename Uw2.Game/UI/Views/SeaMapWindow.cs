@@ -186,7 +186,16 @@ public sealed class SeaMapWindow : Window
     {
         double step = 20 * _host.CellsPerPixel;
 
-        // 바다에 나와 있으면 방향키가 뱃머리를 잡는다. 항구를 보고 있으면 지도를 옮긴다.
+        // 도시에서는 방향키가 사람을 걷게 한다 — 누르고 있는 동안 걷도록 호스트가 그때그때 본다.
+        if (_host.CurrentPort >= 0 && _host.Walker != null &&
+            e.Key is Key.Left or Key.Right or Key.Up or Key.Down)
+        {
+            _host.Invalidate();
+            e.Handled = true;
+            return;
+        }
+
+        // 바다에 나와 있으면 방향키가 뱃머리를 잡는다.
         bool steering = _host.Sailing && _host.CurrentPort < 0 && _host.Fleet != null;
         if (steering)
         {
@@ -228,9 +237,12 @@ public sealed class SeaMapWindow : Window
         {
             var p = _host.Ports != null && _host.CurrentPort < _host.Ports.Ports.Count
                 ? _host.Ports.Ports[_host.CurrentPort] : default;
-            string at = p.Name.Length > 0 ? $" · 세계지도 칸 ({p.Cell.X}, {p.Cell.Y})" : "";
+            var wk = _host.Walker;
+            string who = wk != null
+                ? $" · 사람 ({wk.X:F1}, {wk.Y:F1}) {wk.Face}" + (wk.Blocked ? " · 막힘" : "")
+                : " · 걸을 데를 못 찾았습니다";
             _status.Text = $"{_host.SceneName} ({_host.CurrentPort}번) · {PortMap.Size}x{PortMap.Size} 칸"
-                         + $"{at} · 칩당 {1 / _host.CellsPerPixel:F1}점 · {_host.Source}";
+                         + who + $" · {_host.Source}";
             return;
         }
         // 커서 자리는 칩 눈금이다. 칸은 그 절반이다.

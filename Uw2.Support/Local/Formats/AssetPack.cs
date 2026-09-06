@@ -16,6 +16,7 @@ namespace Uw2.Support.Local.Formats;
 ///     palette.png        16x1     열여섯 색 그 자체
 ///     font.png           128x96   8x16 글자 아흔여섯 자 (HANKAKU.FNT)
 ///     ship.png           64x80    부두에 매인 배를 오려 낸 것(255 는 비침)
+///     char.png           128x128  도시에서 걷는 사람 16x32 서른두 장(15 는 비침)
 ///     ports.json                  항구 이름·자리·칩 벌
 ///     monsters.json               괴물 자리 서른 곳
 ///     wind.png           30x45    표 셋을 세로로 쌓음(값 = 날바이트)
@@ -121,6 +122,15 @@ public sealed class AssetPack
         // 배 그림 — 리스본 부두에 매인 배를 오려 낸다.
         BakeShip(maps, sets, Path.Combine(outDir, "ship.png"));
 
+        // 사람 그림 — 도시에서 걷는 그것이다. CHAR.LZW 청크 하나가 사람 하나다.
+        string charPath = Find("CHAR.LZW");
+        if (File.Exists(charPath))
+        {
+            var first = LsArchive.ReadAll(charPath)[0];
+            var walk = WalkerSheet(first, out int ww, out int wh);
+            IndexedPng.Write(Path.Combine(outDir, "char.png"), walk, ww, wh, pal);
+        }
+
         // 글꼴 — 첫 메뉴에 쓰는 그것이다. Win95 이식판에는 없어 원판에서 가져온다.
         string fnt = Find("HANKAKU.FNT");
         if (File.Exists(fnt))
@@ -169,6 +179,87 @@ public sealed class AssetPack
         IndexedPng.Write(path, px, ShipW, ShipH, GamePalette.SeaScreenRgb);
     }
 
+    /// <summary>사람 그림 한 장 크기와 한 줄에 놓는 수.</summary>
+    public const int CharW = 32, CharH = 32, CharCols = CharPoses;
+
+    /// <summary>사람 하나에 든 그림 수 — 네 쪽에 걸음이 둘씩이다.</summary>
+    public const int CharPoses = 8;
+
+    /// <summary>
+    /// 사람 그림에서 비침으로 쓰는 색인. 그림의 바탕이 <b>검정(0)</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// 딸린 가림장이 이르는 것과 <b>똑같다</b> — 가림장이 「밖」(15)이라 이른 자리는 그림도
+    /// 어김없이 0 이었다(첫 장에서 154 점, 어긋난 것 없음). 그래서 가림장은 굽지 않는다.
+    /// </remarks>
+    public const byte CharClear = 0;
+
+    /// <summary>
+    /// <c>CHAR.LZW</c> 청크 하나를 32x32 그림 여덟 장으로 펴서 한 줄에 늘어놓는다.
+    /// </summary>
+    /// <remarks>
+    /// 청크 8192 바이트는 <b>16x16 4비트 조각 예순넷</b>인데, 얼개가 이렇다.
+    /// <code>
+    ///   조각 0 그림 왼위   조각 1 가림 왼위
+    ///   조각 2 그림 오위   조각 3 가림 오위
+    ///   조각 4 그림 왼아래 조각 5 가림 왼아래
+    ///   조각 6 그림 오아래 조각 7 가림 오아래   → 여기까지가 그림 한 장(32x32)
+    /// </code>
+    /// 그러니 여덟 조각이 한 장이고, 청크 하나가 <b>사람 하나에 여덟 장</b>이다.
+    /// 쪽은 <see cref="CharPose"/> 가 가른다.
+    ///
+    /// 조각 폭 16 은 자료를 세로로 견주어 골랐고(줄 너비 여덟 바이트에서 어긋남이 가장 적다),
+    /// 조각 넷을 붙여야 사람이 온전해지는 것은 <b>그려 보고</b> 굳혔다 — 조각 하나만 보면
+    /// 사람이 왼쪽·오른쪽으로 잘려 있다.
+    /// </remarks>
+    private static byte[] WalkerSheet(byte[] chunk, out int width, out int height)
+    {
+        const int Q = 16, QBytes = Q * Q / 2;          // 조각 하나
+        int n = Math.Min(chunk.Length / (QBytes * 8), CharPoses);
+
+        width = CharCols * CharW;
+        height = CharH;
+
+        var px = new byte[width * height];
+        for (int t = 0; t < n; t++)
+        {
+            int ox = t * CharW;
+
+            // 조각 넷을 왼위·오위·왼아래·오아래 자리에 붙인다. 사이에 낀 가림장은 건너뛴다.
+            for (int q = 0; q < 4; q++)
+            {
+                int bx = (q & 1) * Q, by = (q >> 1) * Q;
+                int at = (t * 8 + q * 2) * QBytes;
+
+                for (int y = 0; y < Q; y++)
+                    for (int x = 0; x < Q; x++)
+                    {
+                        byte b = chunk[at + y * (Q / 2) + (x >> 1)];
+                        px[(by + y) * width + ox + bx + x] =
+                            (byte)((x & 1) == 0 ? (b >> 4) & 15 : b & 15);
+                    }
+            }
+        }
+        return px;
+    }
+
+    /// <summary>
+    /// 보는 쪽과 걸음에서 그림 번호를 낸다. 자료에 든 차례는
+    /// <c>0 위 · 2 왼쪽 · 4 아래 · 6 오른쪽</c> 이다.
+    /// </summary>
+    /// <remarks>
+    /// 가로 짝은 자료로 굳혔다 — 2↔6 과 3↔7 이 점 하나 안 틀리고 서로 뒤집힌 꼴이다.
+    /// 위·아래는 <b>화면에 띄워 놓고</b> 갈랐다. 4 는 눈이 보이는 앞모습이고 0 은 뒤통수라,
+    /// 처음에 0 을 앞으로 잡았던 것을 뒤집었다.
+    /// </remarks>
+    /// <param name="facing">0 아래 · 1 왼쪽 · 2 오른쪽 · 3 위 — <c>Walker.Facing</c> 차례다.</param>
+    /// <param name="secondStep">걸음 두 장 가운데 뒤엣것이면 참.</param>
+    public static int CharPose(int facing, bool secondStep)
+    {
+        int lane = facing switch { 1 => 1, 2 => 3, 3 => 0, _ => 2 };
+        return lane * 2 + (secondStep ? 1 : 0);
+    }
+
     /// <summary>한 비트 그림에 다는 팔레트 — 0 은 검정, 1 은 흰빛.</summary>
     private static byte[] InkPalette()
     {
@@ -199,6 +290,14 @@ public sealed class AssetPack
 
             var ports = ReadJson<PortJson[]>(Path.Combine(dir, "ports.json")) ?? [];
 
+            string charPath2 = Path.Combine(dir, "char.png");
+            byte[] walker = []; int walkerW = 0, walkerH = 0;
+            if (File.Exists(charPath2))
+            {
+                var w = IndexedPng.Read(charPath2);
+                walker = w.Pixels; walkerW = w.Width; walkerH = w.Height;
+            }
+
             string shipPath = Path.Combine(dir, "ship.png");
             byte[] ship = File.Exists(shipPath) ? IndexedPng.Read(shipPath).Pixels : [];
 
@@ -224,6 +323,8 @@ public sealed class AssetPack
                 Wind = wind.Pixels,
                 Ports = [.. ports.Select(p => new PortTable.Port(p.Index, p.Name, p.X, p.Y, p.Nation))],
                 Ship = ship,
+                Walker = walker,
+                WalkerSize = (walkerW, walkerH),
                 Font = font,
             };
         }
@@ -276,6 +377,10 @@ public sealed class AssetPack
 
     /// <summary>배 그림(64 x 80 색인). <see cref="Transparent"/> 는 비침이다.</summary>
     public byte[] Ship { get; private init; } = [];
+
+    /// <summary>사람 그림 판(16x32 장을 여덟씩 늘어놓은 것)과 그 크기.</summary>
+    public byte[] Walker { get; private init; } = [];
+    public (int W, int H) WalkerSize { get; private init; }
 
     // ------------------------------------------------------------------ 잔손
 

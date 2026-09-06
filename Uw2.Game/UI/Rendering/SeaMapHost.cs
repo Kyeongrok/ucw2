@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using Uw2.Game.Engine.Sea;
+using Uw2.Game.Engine.Town;
 using Uw2.Support.Local.Formats;
 using Uw2.Support.Local.Helpers;
 using Vortice.Direct3D11;
@@ -104,6 +105,13 @@ public sealed class SeaMapHost : HwndHost
                   AssetPack.AtlasCols, ChipSheet.Packing.Packed4))]
             : null;
         Ports = pack.Ports.Count > 0 ? PortTable.FromPorts(pack.Ports) : null;
+
+        if (pack.Walker.Length > 0)
+        {
+            _walkArt = pack.Walker;
+            _walkArtW = pack.WalkerSize.W;
+            _walkArtH = pack.WalkerSize.H;
+        }
 
         if (pack.Ship.Length == AssetPack.ShipW * AssetPack.ShipH)
         {
@@ -222,6 +230,15 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>바다 위의 함대. 지도를 못 올렸으면 null.</summary>
     public Fleet? Fleet { get; private set; }
 
+    /// <summary>도시 안을 걷는 사람. 항구를 보고 있을 때만 있다.</summary>
+    public Walker? Walker { get; private set; }
+
+    /// <summary>이번 틱에 누른 방향. 창이 넣어 준다.</summary>
+    public (int X, int Y) WalkInput { get; set; }
+
+    private byte[] _walkArt = [];
+    private int _walkArtW, _walkArtH;
+
     /// <summary>배를 띄우고 방향키로 몰지. 끄면 방향키가 지도를 옮긴다.</summary>
     public bool Sailing { get; set; } = true;
 
@@ -251,6 +268,20 @@ public sealed class SeaMapHost : HwndHost
         return true;
     }
 
+    /// <summary>
+    /// 그림 자리를 배와 사람 사이로 옮긴다. 렌더러에는 그림 자리가 하나뿐이라 갈아 끼운다.
+    /// </summary>
+    private void UseWalkerSprite(bool walker)
+    {
+        if (walker && _walkArt.Length > 0)
+            _renderer.SetShipSprite(_walkArt, _walkArtW, _walkArtH, GamePalette.SeaScreen(),
+                                    AssetPack.CharClear);
+        else if (!walker && _shipArt.Length > 0)
+            _renderer.SetShipSprite(_shipArt, _shipW, _shipH, GamePalette.SeaScreen(),
+                                    AssetPack.Transparent);
+        _renderer.ShipFacesWest = false;
+    }
+
     private void CenterOnShip()
     {
         if (Fleet != null) Center = (Fleet.X, Fleet.Y);
@@ -276,6 +307,8 @@ public sealed class SeaMapHost : HwndHost
     {
         if (Map == null || _worldCells == null) return;
         CurrentPort = -1;
+        Walker = null;
+        UseWalkerSprite(false);
         _renderer.SetCells(_worldCells, _worldW, _worldH);
         _renderer.WrapX = true;
         _renderer.GridStep = WorldMap.Tile * ChipMap.PerCell;
@@ -296,7 +329,17 @@ public sealed class SeaMapHost : HwndHost
         _renderer.SetChips(_portSets[Math.Clamp(_portChipNo[port], 0, _portSets.Length - 1)]);
         _renderer.WrapX = false;
         _renderer.GridStep = 8;
-        FitToWindow();
+
+        // 부두 언저리에 사람을 세운다. 배가 들어온 자리가 아래쪽 물가다.
+        var set = _portSets[Math.Clamp(_portChipNo[port], 0, _portSets.Length - 1)];
+        Walker = new Walker(_portMaps[port], _portMaps.WalkableChips(port, set));
+        if (!Walker.PlaceNear(PortMap.Size / 2.0, PortMap.Size * 0.72)) Walker = null;
+        UseWalkerSprite(Walker != null);
+
+        // 항구 화면의 눈금은 <b>칸</b>이다(칩 눈금이 아니다). 칸 하나를 열여섯 점으로 낸다.
+        CellsPerPixel = 1.0 / ChipSheet.Size;
+        if (Walker != null) Center = (Walker.X, Walker.Y);
+        else FitToWindow();
         _dirty = true;
         return true;
     }
@@ -428,7 +471,12 @@ public sealed class SeaMapHost : HwndHost
         double dt = Math.Min((now - _lastTick).TotalSeconds, 0.25);   // 창이 멈췄다 살아나도 안 튀게
         _lastTick = now;
 
-        if (Fleet == null || !Sailing || CurrentPort >= 0 || !Fleet.UnderSail) return;
+        if (CurrentPort >= 0)
+        {
+            AdvanceWalker(dt, w, h);
+            return;
+        }
+        if (Fleet == null || !Sailing || !Fleet.UnderSail) return;
 
         _carry += dt / Fleet.TickSeconds;
         int ticks = (int)_carry;
@@ -439,6 +487,38 @@ public sealed class SeaMapHost : HwndHost
         _renderer.ShipFacesWest = Fleet.Heading > Fleet.DirCount / 2;
         FollowShip(w, h);
         _dirty = true;
+    }
+
+    /// <summary>도시에서 사람을 옮기고 따라간다.</summary>
+    private void AdvanceWalker(double dt, int w, int h)
+    {
+        if (Walker == null) return;
+
+        _carry += dt / Walker.TickSeconds;
+        int ticks = (int)_carry;
+        if (ticks <= 0) return;
+        _carry -= ticks;
+
+        // 누르고 있는 동안 걷는다 — 키를 떼면 선다. 키 눌림은 프레임마다 그때그때 본다.
+        int ix = (Keyboard.IsKeyDown(Key.Right) ? 1 : 0) - (Keyboard.IsKeyDown(Key.Left) ? 1 : 0);
+        int iy = (Keyboard.IsKeyDown(Key.Down) ? 1 : 0) - (Keyboard.IsKeyDown(Key.Up) ? 1 : 0);
+        if (WalkInput != (0, 0)) (ix, iy) = WalkInput;
+        bool before = Walker.Moving;
+        for (int i = 0; i < Math.Min(ticks, 8); i++) Walker.Step_(ix, iy);
+
+        // 사람이 가장자리에 다가오면 화면을 넘긴다. 자리는 칸 눈금이다.
+        double px = Walker.X, py = Walker.Y;
+        double halfW = w / 2.0 * CellsPerPixel, halfH = h / 2.0 * CellsPerPixel;
+        double margin = FollowMargin * CellsPerPixel;
+
+        double cx = Center.X, cy = Center.Y;
+        if (px - cx > halfW - margin) cx = px - (halfW - margin);
+        if (px - cx < -(halfW - margin)) cx = px + (halfW - margin);
+        if (py - cy > halfH - margin) cy = py - (halfH - margin);
+        if (py - cy < -(halfH - margin)) cy = py + (halfH - margin);
+        Center = (cx, cy);
+
+        if (Walker.Moving || before) _dirty = true;
     }
 
     /// <summary>배가 가장자리에 다가오면 화면을 넘긴다. 여백 안에서는 지도가 멈춰 있다.</summary>
@@ -466,7 +546,8 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>배 그림이 놓일 화면 사각형. 안 그릴 때는 폭이 0 이다.</summary>
     private (float X, float Y, float W, float H) ShipRectAt((double X, double Y) origin)
     {
-        if (Fleet == null || CurrentPort >= 0 || _shipArt.Length == 0) return default;
+        if (CurrentPort >= 0) return WalkerRectAt(origin);
+        if (Fleet == null || _shipArt.Length == 0) return default;
 
         double sx = Fleet.X - origin.X;
         if (sx < -ChipMap.Width / 2.0) sx += ChipMap.Width;
@@ -479,6 +560,26 @@ public sealed class SeaMapHost : HwndHost
         double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale;
         float dw = (float)(_shipW * scale), dh = (float)(_shipH * scale);
         return ((float)(px - dw / 2), (float)(py - dh), dw, dh);
+    }
+
+    /// <summary>사람 그림이 놓일 화면 사각형. 그림 판에서 지금 장을 잘라 쓴다.</summary>
+    private (float X, float Y, float W, float H) WalkerRectAt((double X, double Y) origin)
+    {
+        if (Walker == null || _walkArt.Length == 0) return default;
+
+        double px = (Walker.X - origin.X) / CellsPerPixel;
+        double py = (Walker.Y - origin.Y) / CellsPerPixel;
+
+        // 칸 하나가 화면 몇 점인지 나눠 그림 배수를 낸다 — 칸이 열여섯 점이면 원본 크기다.
+        double scale = 1.0 / CellsPerPixel / ChipSheet.Size;
+
+        float dw = (float)(Walker.SpriteW * scale), dh = (float)(Walker.SpriteH * scale);
+
+        // 발이 밟은 칸에 닿게 놓는다. 자리는 칸 한가운데라 반 칸 아래가 칸 밑변이다.
+        double foot = py + 0.5 / CellsPerPixel;
+
+        _renderer.SpriteFrame(Walker.Frame, Walker.SpriteW, Walker.SpriteH, AssetPack.CharCols);
+        return ((float)(px - dw / 2), (float)(foot - dh), dw, dh);
     }
 
     /// <summary>화면 점을 칸 좌표로.</summary>

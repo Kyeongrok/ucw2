@@ -60,6 +60,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             float4 ShipRect;
             float4 Grid;
             float4 ShipSize;
+            float4 SpriteSrc;
         };
 
         struct VSOut { float4 pos : SV_Position; };
@@ -81,7 +82,8 @@ public sealed unsafe class SeaMapRenderer : IDisposable
                 {
                     float2 t = s;
                     if (ShipSize.z > 0.5) t.x = 1.0 - t.x;
-                    float4 c = Ship.Load(int3(int2(t * ShipSize.xy), 0));
+                    int2 at = int2(SpriteSrc.xy + t * SpriteSrc.zw);
+                    float4 c = Ship.Load(int3(at, 0));
                     if (c.a > 0) return c;
                 }
             }
@@ -131,6 +133,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         public float ShipX, ShipY, ShipW, ShipH;
         public float GridOn, GridStep, WrapX, GridPad1;
         public float SpriteW, SpriteH, ShipFlip, ShipPad1;
+        public float SrcX, SrcY, SrcW, SrcH;
     }
 
     private ID3D11Device _device = null!;
@@ -274,6 +277,27 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     /// <summary>배가 서쪽을 보고 있는지. 참이면 그림을 좌우로 뒤집는다.</summary>
     public bool ShipFacesWest { get; set; }
 
+    private float _frameX, _frameY, _frameW, _frameH;
+
+    /// <summary>
+    /// 그림 판에서 한 장만 잘라 쓴다. 사람 그림처럼 여러 장이 한 판에 있을 때다.
+    /// </summary>
+    public void SpriteFrame(int frame, int w, int h, int cols)
+    {
+        _frameX = frame % cols * w;
+        _frameY = frame / cols * h;
+        _frameW = w;
+        _frameH = h;
+    }
+
+    /// <summary>판 전체를 한 장으로 쓴다.</summary>
+    public void SpriteWhole()
+    {
+        _frameX = _frameY = 0;
+        _frameW = _shipW;
+        _frameH = _shipH;
+    }
+
     /// <summary>배 그림을 건다. 알파 0 이 비침이다.</summary>
     public void SetShipSprite(ReadOnlySpan<uint> bgra, int width, int height)
     {
@@ -281,6 +305,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         var old = _shipSrv;
         _shipSrv = CreateImmutable(bgra.ToArray(), width, height, Format.B8G8R8A8_UNorm, sizeof(uint));
         _shipW = width; _shipH = height;
+        SpriteWhole();
         old?.Dispose();
     }
 
@@ -344,6 +369,10 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             SpriteW = _shipW,
             SpriteH = _shipH,
             ShipFlip = ShipFacesWest ? 1 : 0,
+            SrcX = _frameX,
+            SrcY = _frameY,
+            SrcW = _frameW > 0 ? _frameW : _shipW,
+            SrcH = _frameH > 0 ? _frameH : _shipH,
         };
 
         var map = _ctx.Map(_cb, 0, Vortice.Direct3D11.MapMode.WriteDiscard);
