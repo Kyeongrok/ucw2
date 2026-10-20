@@ -114,4 +114,27 @@ public static class Discoveries
 
     /// <summary>「식량약탈」 — (rand(5) + 2) x 10 을 빼앗는다. 넷에 하나는 반격을 받는다(<c>0x0041BE00</c>).</summary>
     public static int LootAmount(Func<int, int> rand) => (rand(5) + 2) * 10;
+
+    /// <summary>
+    /// 귀족 「모험소문」(<c>0x00421D10</c>) — 0 ~ 49 가운데 +6 &amp; 0xC0 이 0 인 첫 발견물의 자리를 5도 단위로 일러 준다(말 0x1EC).
+    /// 운 &lt; rand(80) 이면 엉터리 자리다(경도 |rand(72) − 36| x 5, 늘 남위 |rand(27) − 10| x 5). 없으면 null(말 0x1EB).
+    /// </summary>
+    /// <returns>(동경이냐, 경도, 북위냐, 위도)</returns>
+    public static (bool East, int Lon, bool North, int Lat)? Rumour(ScenarioMemory m, int luck, Func<int, int> rand)
+    {
+        int i = Enumerable.Range(0, 50).FirstOrDefault(k => (Get(m, k).Flags & 0xC0) == 0, -1);
+        if (i < 0) return null;
+        if (luck < rand(80))
+        {
+            int lon = rand(72);
+            int lat = rand(27);
+            return (lon < 36, Math.Abs(lon - 36) * 5, false, Math.Abs(lat - 10) * 5);
+        }
+        var s = Get(m, i);
+        int x = (s.X + 0x7BD) % ChipMap.Width;
+        bool west = x > ChipMap.Width / 2;
+        if (west) x = ChipMap.Width - x;
+        int y = 640 - s.Y;
+        return (!west, x / 6 / 5 * 5, y >= 0, Math.Abs(y) * 8 / 57 / 5 * 5);
+    }
 }

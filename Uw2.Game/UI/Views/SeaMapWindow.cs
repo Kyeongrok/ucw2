@@ -331,7 +331,7 @@ public sealed class SeaMapWindow : Window
             {
                 if (pick == 0) ContractPatron(who, $"{hero} {family}");
                 else if (pick == 1) ReportDiscovery(who);
-                else Note(" · 「모험소문」은 아직 없습니다");
+                else TellRumour();
             }
             else
             {
@@ -340,6 +340,19 @@ public sealed class SeaMapWindow : Window
                 else ReportSurvey(who);
             }
         }
+    }
+
+    /// <summary>귀족 「모험소문」 — 부락 하나가 어디쯤 있는지(<see cref="Discoveries.Rumour"/>).</summary>
+    private void TellRumour()
+    {
+        if (_host.Scenario is not { } vm) return;
+        if (Discoveries.Rumour(vm.Memory, HeroField(Church.Luck), Random.Shared.Next) is not { } r)
+        {
+            Say(0x1EB, "정보는 별로 들어와 있지 않군요.");
+            return;
+        }
+        string ew = r.East ? "동경" : "서경", ns = r.North ? "북위" : "남위";
+        Say(0x1EC, $"{ew}{r.Lon}도, {ns}{r.Lat}도 근처에 부락이 있다고 하는 소문을 들었는데, 신빙성은 어느 정도일까？", ew, r.Lon, ns, r.Lat);
     }
 
     /// <summary>주인공이 지도작성술을 지녔는지 — 사람 +0x30 의 8(<c>0x00421F87</c>).</summary>

@@ -540,4 +540,20 @@ public class AssetTests
         Assert.Equal(80, m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 5, 4), true));
         Assert.Empty(Uw2.Game.Engine.Town.Patrons.Reportable(m));
     }
+
+    [Fact]
+    public void RumourPointsAtTheFirstPresentDiscoveryInDegrees()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Sea.Discoveries.Table, pack.Start!.DiscoveryBytes);
+        Assert.Null(Uw2.Game.Engine.Sea.Discoveries.Rumour(m, 100, _ => 0));        // 다 0x80 — 이번 게임에 없다
+        m.Write(Uw2.Game.Engine.ScenarioMemory.At(16, 0, 6), 0x04, false);
+        Assert.Equal((false, 0, true, 50), Uw2.Game.Engine.Sea.Discoveries.Rumour(m, 100, _ => 0));   // 스톤 헨지 서경 2 · 북위 51
+        m.Write(Uw2.Game.Engine.ScenarioMemory.At(16, 2, 6), 0x04, false);
+        m.Write(Uw2.Game.Engine.ScenarioMemory.At(16, 0, 6), 0x84, false);
+        var pyramid = Uw2.Game.Engine.Sea.Discoveries.Rumour(m, 100, _ => 0)!.Value;
+        Assert.True(pyramid.East && pyramid.North);                                    // 피라미드 — 동경 · 북위
+        Assert.Equal((true, 180, false, 50), Uw2.Game.Engine.Sea.Discoveries.Rumour(m, 0, n => n == 80 ? 79 : 0));   // 엉터리 — 동경 |0 − 36| x 5
+    }
 }
