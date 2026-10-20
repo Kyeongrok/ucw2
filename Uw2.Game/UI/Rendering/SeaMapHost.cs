@@ -250,7 +250,7 @@ public sealed class SeaMapHost : HwndHost
     /// </summary>
     public bool ShowArrows { get; set; }
 
-    /// <summary>화살표가 보여 주는 바람의 달. 함대 달과 같게 4월(게임 시작 달)로 둔다.</summary>
+    /// <summary>화살표가 보여 주는 바람의 달(0 부터). 게임 시작 달인 4(May)로 둔다.</summary>
     private const int FlowMonth = 4;
 
     /// <summary>선종 · 사람 표(<c>SDATA.DAT</c>). 없으면 배를 띄우지 못한다.</summary>

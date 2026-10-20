@@ -53,7 +53,7 @@ public sealed class WindCurTable
     public static ReadOnlySpan<sbyte> Dx => [0, 1, 1, 1, 0, -1, -1, -1];
     public static ReadOnlySpan<sbyte> Dy => [-1, -1, 0, 1, 1, 1, 0, -1];
 
-    /// <summary>철이 갈리는 달. 3~8월이 <see cref="Page.WindWarm"/>, 나머지가 <see cref="Page.WindCold"/> 다.</summary>
+    /// <summary>철이 갈리는 달(0 부터). 3~8(Apr~Sep)이 <see cref="Page.WindWarm"/>, 나머지가 <see cref="Page.WindCold"/> 다.</summary>
     public const int WarmFirstMonth = 3, WarmLastMonth = 8;
 
     /// <summary>표 세 장.</summary>

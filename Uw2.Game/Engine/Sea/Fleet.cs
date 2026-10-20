@@ -81,8 +81,11 @@ public sealed class Fleet
     /// <summary>돛을 폈는지. 접으면 그 자리에 선다.</summary>
     public bool UnderSail { get; set; } = true;
 
-    /// <summary>달. 바람 표가 철 따라 갈린다.</summary>
-    public int Month { get; set; } = 4;
+    /// <summary>날짜. 날 넘김마다 오른다.</summary>
+    public GameDate Date = GameDate.NewGame;
+
+    /// <summary>달(0 부터). 바람 표가 철 따라 갈린다 — 3~8(4월~9월)이 여름 장이다.</summary>
+    public int Month => Date.Month;
 
     /// <summary>지난 틱에 잰 것들 — 상태줄에 적으려고 남긴다.</summary>
     public (int Dir, int Speed) LastWind { get; private set; }
@@ -173,6 +176,7 @@ public sealed class Fleet
         {
             TimeOfDay = 0;
             DaysAtSea++;
+            Date.NextDay();
             Weather.NewDay();
         }
     }

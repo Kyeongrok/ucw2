@@ -278,7 +278,7 @@ public sealed class SeaMapWindow : Window
         string wind = "";
         if (_host.Wind != null && inside)
         {
-            // 표는 칩 눈금으로 짚는다. 달은 아직 붙일 데가 없어 4월(놀이 시작 달)로 본다.
+            // 표는 칩 눈금으로 짚는다. 커서 자리에는 함대 날짜가 없어 게임 시작 달(4 = May)로 본다.
             var (dir, speed) = _host.Wind.Wind(4, chipX, chipY);
             var (cdir, cspeed) = _host.Wind.Current(chipX, chipY);
             wind = $" · 바람 {dir}/{speed} 해류 {cdir}/{cspeed}";
@@ -288,7 +288,7 @@ public sealed class SeaMapWindow : Window
         string sail = "";
         if (f != null && _host.CurrentPort < 0)
         {
-            sail = $" | {Fleet.Clock(f.TimeOfDay)} · {f.DaysAtSea}일째 · 배 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
+            sail = $" | {f.Date} {Fleet.Clock(f.TimeOfDay)} · {f.DaysAtSea}일째 · 배 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
                  + $" · 바람 {Fleet.DirName(f.LastWind.Dir)} {f.LastWind.Speed}"
                  + $" · 해류 {Fleet.DirName(f.LastCurrent.Dir)} {f.LastCurrent.Speed}"
                  + $" · {Sailing.Knots(f.LastSpeed)}노트({f.LastSpeed})"
