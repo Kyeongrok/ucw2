@@ -77,17 +77,14 @@ public sealed class ChipMap
     private static byte Clamp(byte chip) => chip < MinChip ? SeaChip : chip;
 
     /// <summary>
-    /// 배가 다닐 수 있는 칩인지. <b>칩 0(큰바다)만 참</b>이다.
+    /// 배가 다닐 수 있는 칩인지 — <c>KOUKAI2.EXE 0x00448310</c> 이 <c>칩 &lt; 0x34</c> 로 가른다.
     /// </summary>
     /// <remarks>
-    /// EXE 안의 판정 자리는 아직 못 찾았고, 이것은 자료로 굳힌 것이다 —
-    /// <c>MONSTER.DAT</c> 의 자리 서른 곳이 <b>하나도 빠짐없이 칩 0</b> 위에 있고,
-    /// 그 둘레 3x3 이백일흔 칸 가운데 뭍 칩은 한 칸뿐이다.
-    ///
-    /// <b>해안 칩(52~63 따위)을 지날 수 있는지는 아직 안 갈렸다.</b> 3편에서도 이 자리를
-    /// 오래 틀렸으니(볼트 <c>25.분석-칸 통행 판정</c>) 섣불리 넓히지 말 것.
+    /// 담개에 넣을 때(<c>0x0041DEA3</c>) 0x34 아래 칩은 이미 0 으로 눌러 두므로 담개 값은 <b>0 · 0x41(뭍) ·
+    /// 0x34 이상(해안)</b>뿐이다 — 곧 <b>칩 0 만 지나고 해안 칩은 다 막힌다.</b>
+    /// 함대는 칩 2 x 2 를 차지하고 넷이 다 바다여야 간다(<c>Fleet.CanSail</c>).
     /// </remarks>
-    public static bool CanSail(byte chip) => chip == SeaChip;
+    public static bool CanSail(byte chip) => chip < MinChip;
 
     /// <summary>온 지도를 칩 배열(2160 x 1080)로 편다. 셰이더에 그대로 올린다.</summary>
     public byte[] Expand(WorldMap map)

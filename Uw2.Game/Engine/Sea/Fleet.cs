@@ -89,17 +89,24 @@ public sealed class Fleet
         return false;
     }
 
-    /// <summary>그 칩 자리를 배가 지날 수 있는지.</summary>
+    /// <summary>
+    /// 그 칩 자리에 함대가 설 수 있는지 — <c>0x00448310</c>. 함대는 <b>칩 2 x 2</b>(그 자리 · 오른쪽 · 아래 · 오른아래)를
+    /// 차지하고 넷이 다 바다여야 한다.
+    /// </summary>
     public bool CanSail(double chipX, double chipY)
     {
-        if (chipY < 0 || chipY >= ChipMap.Height) return false;
-        int cx = Wrap((int)Math.Floor(chipX));
-        int cy = (int)Math.Floor(chipY);
+        int cx = (int)Math.Floor(chipX), cy = (int)Math.Floor(chipY);
+        if (cy < 0 || cy + 1 >= ChipMap.Height) return false;
+        return ChipMap.CanSail(ChipAt(cx, cy)) && ChipMap.CanSail(ChipAt(cx + 1, cy))
+            && ChipMap.CanSail(ChipAt(cx, cy + 1)) && ChipMap.CanSail(ChipAt(cx + 1, cy + 1));
+    }
 
-        var (lt, rt, lb, rb) = _chips.Quad(_map[cx / ChipMap.PerCell, cy / ChipMap.PerCell]);
-        byte chip = (cx & 1) == 0 ? ((cy & 1) == 0 ? lt : lb)
-                                  : ((cy & 1) == 0 ? rt : rb);
-        return ChipMap.CanSail(chip);
+    private byte ChipAt(int chipX, int chipY)
+    {
+        int cx = Wrap(chipX);
+        var (lt, rt, lb, rb) = _chips.Quad(_map[cx / ChipMap.PerCell, chipY / ChipMap.PerCell]);
+        return (cx & 1) == 0 ? ((chipY & 1) == 0 ? lt : lb)
+                             : ((chipY & 1) == 0 ? rt : rb);
     }
 
     private static int Wrap(int x) => ((x % ChipMap.Width) + ChipMap.Width) % ChipMap.Width;
