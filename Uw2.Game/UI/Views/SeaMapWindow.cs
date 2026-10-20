@@ -1617,7 +1617,8 @@ public sealed class SeaMapWindow : Window
     /// <summary>「편성」 — 목록 27(선장변경 · 인사변경 · 승무원편성 · 승무원비율 · 함선처분 · 적하편성, <c>0x00445372</c>) 가운데 된 것.</summary>
     private void Organize()
     {
-        int pick = BuildingMenu.Ask(this, "편성", ["선장변경", "승무원편성", "함선처분", "적하편성"]);
+        int pick = BuildingMenu.Ask(this, "편성", ["선장변경", "승무원편성", "함선처분", "적하편성", "인사변경"]);
+        if (pick == 4) { AppointMates(); return; }
         if (pick == 0) ChangeCaptain();
         else if (pick == 1) RedistributeCrew();
         else if (pick == 2) ScuttleShip();
@@ -1653,6 +1654,28 @@ public sealed class SeaMapWindow : Window
         int moved = PlayerState.Transship(from, to, what, amount);
         _host.SyncLoad();
         Note($" · {from.Name} → {to.Name} {moved}");
+    }
+
+    /// <summary>「인사변경」 — 부선장 · 경리주임 · 수석항해사에 동료를 앉힌다(<see cref="Navigators.Appoint"/>).</summary>
+    private void AppointMates()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        var mates = Navigators.Mates(m).Select(t => t.Person).ToList();
+        if (mates.Count == 0) { Say(0xE5, "동료가 없습니다."); return; }
+        while (true)
+        {
+            var posts = Navigators.PostNames;
+            int post = BuildingMenu.Ask(this, "인사변경", posts.Select((n, i) =>
+                $"{n} : {(Navigators.InPost(m, i) is >= 0 and var who ? _host.PersonName(who) : "-")}").ToList());
+            if (post < 0) return;
+            int pick = BuildingMenu.Ask(this, posts[post], mates.Select(_host.PersonName).ToList());
+            if (pick < 0) continue;
+            string name = _host.PersonName(mates[pick]);
+            if (!Navigators.Appoint(m, mates[pick], post))
+                Say(0xE3, $"{name}(는) 선장이므로 {posts[post]}(로) 임명할 수 없습니다.", name, posts[post]);
+            else Say(0xE4, $"{name}(를) {posts[post]}(로) 임명했습니다.", name, posts[post]);
+        }
     }
 
     /// <summary>「선장변경」 — 기함 말고 배 하나를 골라 쉬는 동료에게 맡긴다. 맡던 이는 쉰다.</summary>

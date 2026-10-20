@@ -692,4 +692,22 @@ public class AssetTests
         Assert.Equal(Math.Min(100, before + 20), Uw2.Game.Engine.Town.Navigators.Get(m, person, Uw2.Game.Engine.Town.Navigators.Liking));
         Assert.Equal(400, Uw2.Game.Engine.Town.Navigators.Mates(m).Single().Wage);
     }
+
+    [Fact]
+    public void AppointingAMateMovesThePostHolderBackToRest()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, pack.Start!.PeopleBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        Uw2.Game.Engine.Town.Navigators.Join(m, 85, 0, 300);
+        Uw2.Game.Engine.Town.Navigators.Join(m, 96, 0, 300);
+        Assert.True(Uw2.Game.Engine.Town.Navigators.Appoint(m, 85, 2));                       // 수석항해사
+        Assert.Equal(85, Uw2.Game.Engine.Town.Navigators.InPost(m, 2));
+        Assert.True(Uw2.Game.Engine.Town.Navigators.Appoint(m, 96, 2));
+        Assert.Equal(96, Uw2.Game.Engine.Town.Navigators.InPost(m, 2));
+        Assert.Equal(6, Uw2.Game.Engine.Town.Navigators.Get(m, 85, Uw2.Game.Engine.Town.Navigators.Status));
+        Uw2.Game.Engine.Town.Navigators.Command(m, 85, aboard: true);
+        Assert.False(Uw2.Game.Engine.Town.Navigators.Appoint(m, 85, 0));                      // 선장은 안 된다
+    }
 }

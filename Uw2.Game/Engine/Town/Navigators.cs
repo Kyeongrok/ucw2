@@ -34,6 +34,29 @@ public static class Navigators
     public static int FreeMate(ScenarioMemory m) =>
         Mates(m).Select(x => x.Person).FirstOrDefault(p => Get(m, p, Status) >= FreeFrom, -1);
 
+    /// <summary>
+    /// 「인사변경」(<c>0x00445ED0</c>) — 처지 3 부선장 · 4 경리주임 · 5 수석항해사(<c>0x00445BE0</c>). 자리마다 한 사람이다.
+    /// </summary>
+    public static readonly string[] PostNames = ["부선장", "경리주임", "수석항해사"];
+
+    public const int FirstPost = 3;
+
+    /// <summary>그 자리에 있는 동료 — 없으면 -1.</summary>
+    public static int InPost(ScenarioMemory m, int post) =>
+        Mates(m).Select(x => x.Person).FirstOrDefault(p => Get(m, p, Status) == FirstPost + post, -1);
+
+    /// <summary>
+    /// 동료를 자리에 앉힌다. 선장이면 안 된다(거짓, 말 0xE3). 그 자리에 있던 이는 쉬고(6), 앉힌 이가 있던 자리는 빈다.
+    /// </summary>
+    public static bool Appoint(ScenarioMemory m, int person, int post)
+    {
+        if (Get(m, person, Status) == Captain) return false;
+        int old = InPost(m, post);
+        if (old >= 0) Set(m, old, Status, Employed);
+        Set(m, person, Status, FirstPost + post);
+        return true;
+    }
+
     /// <summary>배를 맡긴다 — 처지 2(<c>0x00429C04</c>). 배에서 내리면 6 으로 돌린다.</summary>
     public static void Command(ScenarioMemory m, int person, bool aboard) => Set(m, person, Status, aboard ? Captain : Employed);
 
