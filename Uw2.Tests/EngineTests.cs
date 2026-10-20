@@ -265,4 +265,19 @@ public class EngineTests
         Assert.Equal(-50, Uw2.Game.Engine.Town.Navigators.PayWages(m, 0, ref gold));
         Assert.Equal(0x80, Uw2.Game.Engine.Town.Navigators.Get(m, 90, 0x31) & 0x80);
     }
+
+    [Fact]
+    public void ANewShipNeedsAFreeMateWhoBecomesItsCaptain()
+    {
+        var m = new ScenarioMemory();
+        for (int i = 0; i < Uw2.Game.Engine.Town.Navigators.MateSlots; i++)
+            m.Write(new ScenarioMemory.Pointer(6, 3 + i), 0xFF, false);
+        Assert.Equal(-1, Uw2.Game.Engine.Town.Navigators.FreeMate(m));
+        Uw2.Game.Engine.Town.Navigators.Join(m, 90, 0, 30);
+        Assert.Equal(90, Uw2.Game.Engine.Town.Navigators.FreeMate(m));
+        Uw2.Game.Engine.Town.Navigators.Command(m, 90, aboard: true);
+        Assert.Equal(-1, Uw2.Game.Engine.Town.Navigators.FreeMate(m));      // 처지 2 는 이미 배를 맡았다
+        Uw2.Game.Engine.Town.Navigators.Command(m, 90, aboard: false);
+        Assert.Equal(90, Uw2.Game.Engine.Town.Navigators.FreeMate(m));
+    }
 }

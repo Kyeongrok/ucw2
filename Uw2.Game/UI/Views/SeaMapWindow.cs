@@ -58,6 +58,9 @@ public sealed class SeaMapWindow : Window
         if (_host.Economy is not { } eco || _host.StartTables is not { } start) return;
         var types = eco.Buildable(_host.CurrentPort, start.ShipTypes);
         if (types.Count == 0) { _doorNote = " · 이 조선소는 배를 지을 수 없습니다"; UpdateStatus(); return; }
+        // 새 배를 맡을 동료가 있어야 한다(0x00429180, 말 0xA6).
+        int mate = _host.FreeMate;
+        if (_host.HasMates && mate < 0) { Note(" · 새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요"); return; }
         string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
         var p = _host.Player;
         int pick = BuildingMenu.Ask(this, $"함선 건조 — 돈 {p.Gold} · 배 {p.Ships.Count}/{SeaMapHost.MaxShips}",
@@ -72,9 +75,9 @@ public sealed class SeaMapWindow : Window
         if (grade < 0) return;
         int price = Shipyard.BuildPrice(basePrice, grade);
         if (p.Gold < price) { Note($" · 돈이 모자랍니다({NameOf(type)} {price})"); return; }
-        if (!_host.AddShip(type, grade)) return;
+        if (!_host.AddShip(type, grade, mate)) return;
         p.SetGold(p.Gold - price);
-        Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 지었습니다");
+        Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 지었습니다{(mate >= 0 ? $" · 선장 {_host.PersonName(mate)}" : "")}");
     }
 
     /// <summary>조선소 「수리」 — 배를 골라 고친다(<see cref="Shipyard.RepairCost"/>).</summary>

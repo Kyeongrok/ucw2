@@ -50,6 +50,9 @@ public sealed class PlayerState
         /// <summary>등급 — 배 기록 +0x10 의 아래 세 비트. 배 값에 든다(<see cref="Town.Shipyard.Value"/>).</summary>
         public int Grade { get; init; }
 
+        /// <summary>선장 사람 번호 — 함대 칸 곁 +0x1B. -1 은 주인공.</summary>
+        public int Captain { get; set; } = -1;
+
         public int Vacancy => Math.Max(0, MaxCrew - Crew);
     }
 

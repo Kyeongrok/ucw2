@@ -28,7 +28,14 @@ public static class Navigators
     public const int MateFirst = 3, MateSlots = 30, WageFirst = MateFirst + MateSlots;
     public const int Stats = 0x1C, NavLevel = 0x24, BattleLevel = 0x25, Liking = 0x2B, Fleet = 0x2C, Port = 0x2D, Status = 0x2E,
                      Mood = 0x2F, Kind = 0x31;
-    public const int Employed = 6, MinLikingToHire = 30;
+    public const int Employed = 6, Captain = 2, FreeFrom = 3, MinLikingToHire = 30;
+
+    /// <summary>배를 맡길 수 있는 동료 — 처지가 3 이상인 첫 동료(<c>0x00429180</c>). 없으면 -1.</summary>
+    public static int FreeMate(ScenarioMemory m) =>
+        Mates(m).Select(x => x.Person).FirstOrDefault(p => Get(m, p, Status) >= FreeFrom, -1);
+
+    /// <summary>배를 맡긴다 — 처지 2(<c>0x00429C04</c>). 배에서 내리면 6 으로 돌린다.</summary>
+    public static void Command(ScenarioMemory m, int person, bool aboard) => Set(m, person, Status, aboard ? Captain : Employed);
 
     /// <summary>한턱내기 값 — 항구 형편 +0x24 갈래마다(<c>0x004571E8</c>).</summary>
     public static ReadOnlySpan<byte> TreatPrice => [3, 4, 5, 6, 3, 3, 2, 2, 1, 1, 3, 2, 3, 2, 0, 0];

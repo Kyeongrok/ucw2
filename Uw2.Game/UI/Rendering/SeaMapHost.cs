@@ -451,22 +451,31 @@ public sealed class SeaMapHost : HwndHost
     public const int MaxShips = StartData.SlotCount;
 
     /// <summary>그 선종의 새 배를 함대 끝에 넣는다. 칸이 다 찼거나 선종이 없으면 false.</summary>
-    public bool AddShip(int type, int grade = -1)
+    public bool AddShip(int type, int grade = -1, int captain = -1)
     {
         if (StartTables is not { } start || Fleet == null) return false;
         if (type < 0 || type >= start.ShipTypes.Count || Player.Ships.Count >= MaxShips) return false;
         var t = start.Templates.Count > type ? start.Templates[type] : default;
-        // 새 배는 선원 없이 온다(0x0043DF6A) — 주점에서 고용한다.
-        Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], start.People[HeroPerson[Hero]], t.Oars) with { Crew = 0 });
+        // 새 배는 선원 없이 온다(0x0043DF6A) — 주점에서 고용한다. 빠르기 셈의 항해 레벨 · 항해술은 그 배 선장 것이다.
+        var skipper = captain >= 0 && captain < start.People.Count ? start.People[captain] : start.People[HeroPerson[Hero]];
+        Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], skipper, t.Oars) with { Crew = 0 });
         var ship = NewShip(start, type, crew: 0);
+        ship.Captain = captain;
         Player.Ships.Add(grade < 0 ? ship : new PlayerState.Ship
         {
             Type = ship.Type, Name = ship.Name, Room = ship.Room, MaxCrew = ship.MaxCrew, Crew = 0,
-            Hull = ship.Hull, MaxHull = ship.MaxHull, Upwind = ship.Upwind, Sail = ship.Sail, Grade = grade,
+            Hull = ship.Hull, MaxHull = ship.MaxHull, Upwind = ship.Upwind, Sail = ship.Sail, Grade = grade, Captain = captain,
         });
+        if (captain >= 0 && Scenario != null) Uw2.Game.Engine.Town.Navigators.Command(Scenario.Memory, captain, aboard: true);
         SyncLoad();
         return true;
     }
+
+    /// <summary>새 배를 맡을 동료 — 시나리오 기억이 없으면(게임 폴더 없이) -1 이고 막지 않는다.</summary>
+    public int FreeMate => Scenario is { } vm ? Uw2.Game.Engine.Town.Navigators.FreeMate(vm.Memory) : -1;
+
+    /// <summary>동료 제도를 쓰는지 — 시나리오 기억이 있을 때만.</summary>
+    public bool HasMates => Scenario != null;
 
     /// <summary>새 배 — 내구는 선종의 9/10, 선원 자리 · 짐 자리 · 등급은 본보기에서.</summary>
     private static PlayerState.Ship NewShip(StartData start, int type, int crew)
@@ -490,6 +499,8 @@ public sealed class SeaMapHost : HwndHost
     public bool RemoveShip(int index)
     {
         if (Fleet == null || Player.Ships.Count <= 1 || index < 0 || index >= Player.Ships.Count) return false;
+        if (Player.Ships[index].Captain is >= 0 and var c && Scenario != null)
+            Uw2.Game.Engine.Town.Navigators.Command(Scenario.Memory, c, aboard: false);
         Player.Ships.RemoveAt(index);
         if (index < Fleet.Ships.Count) Fleet.Ships.RemoveAt(index);
         ShipName = Player.Ships[0].Name;
