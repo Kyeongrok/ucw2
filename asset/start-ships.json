@@ -1,0 +1,237 @@
+{
+  "본보기": [
+    {
+      "Type": 0,
+      "Name": "발사",
+      "Flags": 82,
+      "Cannons": 5,
+      "CrewRoom": 15,
+      "CargoRoom": 30,
+      "Oars": false
+    },
+    {
+      "Type": 1,
+      "Name": "한 자 콕",
+      "Flags": 18,
+      "Cannons": 5,
+      "CrewRoom": 20,
+      "CargoRoom": 35,
+      "Oars": false
+    },
+    {
+      "Type": 2,
+      "Name": "다우",
+      "Flags": 82,
+      "Cannons": 5,
+      "CrewRoom": 15,
+      "CargoRoom": 50,
+      "Oars": false
+    },
+    {
+      "Type": 3,
+      "Name": "버스",
+      "Flags": 50,
+      "Cannons": 30,
+      "CrewRoom": 150,
+      "CargoRoom": 320,
+      "Oars": false
+    },
+    {
+      "Type": 4,
+      "Name": "타렛테",
+      "Flags": 18,
+      "Cannons": 10,
+      "CrewRoom": 15,
+      "CargoRoom": 55,
+      "Oars": false
+    },
+    {
+      "Type": 5,
+      "Name": "카라벨 라티나",
+      "Flags": 82,
+      "Cannons": 10,
+      "CrewRoom": 30,
+      "CargoRoom": 80,
+      "Oars": false
+    },
+    {
+      "Type": 6,
+      "Name": "카라벨 레돈다",
+      "Flags": 82,
+      "Cannons": 10,
+      "CrewRoom": 30,
+      "CargoRoom": 80,
+      "Oars": false
+    },
+    {
+      "Type": 7,
+      "Name": "브리간틴",
+      "Flags": 114,
+      "Cannons": 15,
+      "CrewRoom": 45,
+      "CargoRoom": 120,
+      "Oars": false
+    },
+    {
+      "Type": 8,
+      "Name": "나오",
+      "Flags": 114,
+      "Cannons": 30,
+      "CrewRoom": 80,
+      "CargoRoom": 340,
+      "Oars": false
+    },
+    {
+      "Type": 9,
+      "Name": "카락",
+      "Flags": 114,
+      "Cannons": 30,
+      "CrewRoom": 100,
+      "CargoRoom": 470,
+      "Oars": false
+    },
+    {
+      "Type": 10,
+      "Name": "갤리온",
+      "Flags": 82,
+      "Cannons": 70,
+      "CrewRoom": 180,
+      "CargoRoom": 550,
+      "Oars": false
+    },
+    {
+      "Type": 11,
+      "Name": "지벡",
+      "Flags": 82,
+      "Cannons": 30,
+      "CrewRoom": 120,
+      "CargoRoom": 450,
+      "Oars": false
+    },
+    {
+      "Type": 12,
+      "Name": "피네스",
+      "Flags": 82,
+      "Cannons": 15,
+      "CrewRoom": 40,
+      "CargoRoom": 95,
+      "Oars": false
+    },
+    {
+      "Type": 13,
+      "Name": "슬루프",
+      "Flags": 82,
+      "Cannons": 15,
+      "CrewRoom": 40,
+      "CargoRoom": 195,
+      "Oars": false
+    },
+    {
+      "Type": 14,
+      "Name": "프리게이트",
+      "Flags": 82,
+      "Cannons": 65,
+      "CrewRoom": 180,
+      "CargoRoom": 405,
+      "Oars": false
+    },
+    {
+      "Type": 15,
+      "Name": "바그",
+      "Flags": 114,
+      "Cannons": 120,
+      "CrewRoom": 270,
+      "CargoRoom": 610,
+      "Oars": false
+    },
+    {
+      "Type": 16,
+      "Name": "쉽",
+      "Flags": 114,
+      "Cannons": 120,
+      "CrewRoom": 300,
+      "CargoRoom": 780,
+      "Oars": false
+    },
+    {
+      "Type": 17,
+      "Name": "정크",
+      "Flags": 82,
+      "Cannons": 30,
+      "CrewRoom": 75,
+      "CargoRoom": 395,
+      "Oars": false
+    },
+    {
+      "Type": 18,
+      "Name": "경갤리",
+      "Flags": 2,
+      "Cannons": 10,
+      "CrewRoom": 30,
+      "CargoRoom": 80,
+      "Oars": true
+    },
+    {
+      "Type": 19,
+      "Name": "플랜더스 갤리",
+      "Flags": 2,
+      "Cannons": 30,
+      "CrewRoom": 180,
+      "CargoRoom": 290,
+      "Oars": true
+    },
+    {
+      "Type": 20,
+      "Name": "베네치안 갤리",
+      "Flags": 2,
+      "Cannons": 50,
+      "CrewRoom": 320,
+      "CargoRoom": 580,
+      "Oars": true
+    },
+    {
+      "Type": 21,
+      "Name": "라레아르",
+      "Flags": 66,
+      "Cannons": 30,
+      "CrewRoom": 160,
+      "CargoRoom": 260,
+      "Oars": true
+    },
+    {
+      "Type": 22,
+      "Name": "철갑선",
+      "Flags": 98,
+      "Cannons": 80,
+      "CrewRoom": 360,
+      "CargoRoom": 660,
+      "Oars": true
+    },
+    {
+      "Type": 23,
+      "Name": "안택선",
+      "Flags": 34,
+      "Cannons": 30,
+      "CrewRoom": 160,
+      "CargoRoom": 310,
+      "Oars": true
+    },
+    {
+      "Type": 24,
+      "Name": "관선",
+      "Flags": 2,
+      "Cannons": 15,
+      "CrewRoom": 60,
+      "CargoRoom": 175,
+      "Oars": true
+    }
+  ],
+  "주인공첫배": [
+    5,
+    10,
+    5,
+    5,
+    5,
+    5
+  ]
+}

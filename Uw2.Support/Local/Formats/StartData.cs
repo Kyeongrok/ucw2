@@ -20,6 +20,25 @@ public sealed class StartData
     public const int ShipTypeOffset = 0x4936, ShipTypeSize = 12, ShipTypeCount = 25;
     public const int FleetOffset = 0x247B, FleetSize = 0x85, FleetCount = 70, SlotCount = 10, SlotSize = 9;
 
+    /// <summary>
+    /// 배 기록 — <c>0x4A62</c>, 22바이트 x 65 (메모리 0x00461560). 0~39 가 제 함대 몫(새 게임은 「０」「１」… 빈 것),
+    /// 40~64 가 선종마다 본보기(이름이 곧 선종 이름)다. 배를 들이는 손 <c>0x0043DEA0(선종)</c> 이 본보기 <c>40 + 선종</c> 에서
+    /// 이름 · 깃발을 베낀다.
+    /// </summary>
+    public const int ShipRecordOffset = 0x4A62, ShipRecordSize = 22, ShipTemplateFirst = 40;
+
+    /// <summary>
+    /// 선종 본보기 한 줄.
+    /// </summary>
+    /// <param name="Flags">+0x10 — 비트 0x10 이 「돛만 쓰는 배」. 갤리(경갤리 · 플랜더스 갤리 · 베네치안 갤리 · 관선)는 이 비트가 없어 노를 젓는다.</param>
+    /// <param name="Cannons">+0x11 대포.</param>
+    /// <param name="CrewRoom">+0x12 선원 자리(낱말).</param>
+    /// <param name="CargoRoom">+0x14 짐 자리(낱말) = 짐칸 - 대포 - 선원 자리.</param>
+    public readonly record struct ShipTemplate(int Type, string Name, int Flags, int Cannons, int CrewRoom, int CargoRoom)
+    {
+        public bool Oars => (Flags & 0x10) == 0;
+    }
+
     /// <summary>함대 칸 하나(9바이트, 함대 +0x2B). <see cref="Present"/> 가 거짓이면 빈 칸이다.</summary>
     /// <param name="Crew">+0 선원(낱말).</param>
     /// <param name="Durability">+2 · +3 내구 지금 / 최대.</param>
@@ -78,6 +97,13 @@ public sealed class StartData
     public IReadOnlyList<ShipType> ShipTypes { get; }
     public IReadOnlyList<Person> People { get; }
     public IReadOnlyList<Fleet> Fleets { get; }
+    public IReadOnlyList<ShipTemplate> Templates { get; private init; } = [];
+
+    /// <summary>
+    /// 주인공(사람 번호 0~5)이 처음 받는 선종 — <c>SNRn.DAT</c> 첫 이벤트의 배 주기 명령 <c>F9 선종 _</c>(<see cref="Scenario"/>).
+    /// 못 읽었으면 빈 것.
+    /// </summary>
+    public IReadOnlyList<int> HeroShips { get; init; } = [];
 
     /// <summary>함대 표 날바이트(70 x 0x85) — 구워 둘 때 쓴다.</summary>
     public byte[] FleetBytes { get; }
@@ -88,8 +114,9 @@ public sealed class StartData
     }
 
     /// <summary>구워 둔 표로 만든다(<see cref="AssetPack"/>).</summary>
-    public static StartData FromTables(IReadOnlyList<ShipType> types, IReadOnlyList<Person> people, byte[]? fleets = null) =>
-        new(types, people, fleets ?? []);
+    public static StartData FromTables(IReadOnlyList<ShipType> types, IReadOnlyList<Person> people, byte[]? fleets = null,
+                                       IReadOnlyList<ShipTemplate>? templates = null, IReadOnlyList<int>? heroShips = null) =>
+        new(types, people, fleets ?? []) { Templates = templates ?? [], HeroShips = heroShips ?? [] };
 
     private static Fleet[] ParseFleets(byte[] raw)
     {
@@ -123,7 +150,16 @@ public sealed class StartData
         return 0;
     }
 
-    public static StartData Load(string path) => FromBytes(File.ReadAllBytes(path));
+    public static StartData Load(string path)
+    {
+        var s = FromBytes(File.ReadAllBytes(path));
+        string? game = Path.GetDirectoryName(path);
+        return game == null ? s : new StartData(s.ShipTypes, s.People, s.FleetBytes)
+        {
+            Templates = s.Templates,
+            HeroShips = Scenario.HeroShips(game),
+        };
+    }
 
     public static StartData FromBytes(byte[] d)
     {
@@ -150,6 +186,14 @@ public sealed class StartData
             people[i] = new Person(i, Text(o), Text(o + 13), stats, d[o + 0x1D], d[o + 0x24], d[o + 0x25]);
         }
         var fleets = d.AsSpan(FleetOffset, FleetSize * FleetCount).ToArray();
-        return new StartData(types, people, fleets);
+        var templates = new ShipTemplate[ShipTypeCount];
+        for (int t = 0; t < ShipTypeCount; t++)
+        {
+            int o = ShipRecordOffset + (ShipTemplateFirst + t) * ShipRecordSize;
+            templates[t] = new ShipTemplate(d[o + 15], cp949.GetString(d, o, 15).Split('\0')[0],
+                                            d[o + 0x10], d[o + 0x11], BitConverter.ToUInt16(d, o + 0x12),
+                                            BitConverter.ToUInt16(d, o + 0x14));
+        }
+        return new StartData(types, people, fleets) { Templates = templates };
     }
 }

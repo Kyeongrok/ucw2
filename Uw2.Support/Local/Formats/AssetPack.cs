@@ -23,6 +23,7 @@ namespace Uw2.Support.Local.Formats;
 ///     people.json                 사람 백스물 — 이름 · 능력치 · 레벨 (SDATA.DAT)
 ///     fleets.png         133x70   새 게임 함대 일흔(값 = 날바이트, SDATA.DAT 0x247B)
 ///     goods.json                  교역품 이름 마흔여섯 (KOUKAI2-han8.exe)
+///     start-ships.json            선종 본보기 스물다섯(이름 · 노 · 대포 · 자리)과 주인공 첫 선종(SNR1~6.DAT)
 ///     markets.png        128x13   시장 열셋(값 = 날바이트, SDATA.DAT 0x605A)
 ///     portstate.png      37x100   항구 형편 백(값 = 날바이트, SDATA.DAT 0x66DA)
 ///     wind.png           30x45    표 셋을 세로로 쌓음(값 = 날바이트)
@@ -354,6 +355,9 @@ public sealed class AssetPack
         WriteJson(Path.Combine(outDir, "people.json"), start.People.Select(PersonJson.Of).ToArray());
         IndexedPng.Write(Path.Combine(outDir, "fleets.png"), start.FleetBytes,
                          StartData.FleetSize, StartData.FleetCount, DataPalette());
+        string? game = Path.GetDirectoryName(sdataPath);
+        var heroShips = game != null ? Scenario.HeroShips(game) : [];
+        WriteJson(Path.Combine(outDir, "start-ships.json"), new StartShipsJson([.. start.Templates], heroShips));
     }
 
     // ------------------------------------------------------------------ 읽기
@@ -421,8 +425,10 @@ public sealed class AssetPack
                 economy = Economy.FromParts(goodsNames, IndexedPng.Read(marketsPath).Pixels, IndexedPng.Read(statePath).Pixels);
             string fleetsPath = Path.Combine(dir, "fleets.png");
             byte[]? fleetBytes = File.Exists(fleetsPath) ? IndexedPng.Read(fleetsPath).Pixels : null;
+            var startShips = ReadJson<StartShipsJson>(Path.Combine(dir, "start-ships.json"));
             var start = shipTypes != null && people != null
-                ? StartData.FromTables([.. shipTypes.Select(t => t.To())], [.. people.Select(p => p.To())], fleetBytes)
+                ? StartData.FromTables([.. shipTypes.Select(t => t.To())], [.. people.Select(p => p.To())], fleetBytes,
+                                       startShips?.Templates, startShips?.HeroShips)
                 : null;
 
             return new AssetPack
@@ -639,6 +645,10 @@ public sealed class AssetPack
         [property: JsonPropertyName("x")] int X,
         [property: JsonPropertyName("y")] int Y,
         [property: JsonPropertyName("종류")] int Kind);
+
+    private record StartShipsJson(
+        [property: JsonPropertyName("본보기")] StartData.ShipTemplate[] Templates,
+        [property: JsonPropertyName("주인공첫배")] int[] HeroShips);
 
     private record ShipTypeJson(
         [property: JsonPropertyName("번호")] int Index,

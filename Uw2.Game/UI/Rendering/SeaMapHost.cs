@@ -299,10 +299,12 @@ public sealed class SeaMapHost : HwndHost
     private static readonly int[] HeroPerson = [0, 1, 4, 5, 3, 2];
 
     /// <summary>
-    /// 첫 배의 선종. <b>임시 값이다</b> — 주인공마다 주는 첫 배를 게임이 코드로 정하는데(<c>SDATA.DAT</c> 의
-    /// 주인공 함대는 비어 있다) 그 자리를 아직 못 찾았다. 가장 작은 0번을 띄워 둔다.
+    /// 첫 배를 못 읽었을 때 띄우는 선종 — 카라벨 라티나. 주인공 다섯이 이것으로 시작한다(<see cref="Scenario"/>).
     /// </summary>
-    public const int StandInShipType = 0;
+    public const int StandInShipType = 5;
+
+    /// <summary>제 함대 배의 이름 — 본보기(선종 이름)를 그대로 쓴다. 명명은 아직이다.</summary>
+    public string ShipName { get; private set; } = "";
 
     /// <summary>주인공을 정하고 그 사람을 선장으로 배를 다시 태운다.</summary>
     public void SetHero(int hero)
@@ -324,8 +326,13 @@ public sealed class SeaMapHost : HwndHost
                 Others.Add(new NpcFleet(fleet, routes, _npcRng, f, start, home, (f.TargetX, f.TargetY)));
             }
         _othersScale = -1;
-        var captain = start.People[HeroPerson[Hero]];
-        fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[StandInShipType], captain));
+        // 첫 배는 그 주인공 시나리오(SNRn.DAT)의 첫 이벤트가 주는 선종이다 — 배 주기 명령 F9.
+        int person = HeroPerson[Hero];
+        var captain = start.People[person];
+        int type = person < start.HeroShips.Count && start.HeroShips[person] is >= 0 and var t ? t : StandInShipType;
+        bool oars = type < start.Templates.Count && start.Templates[type].Oars;
+        ShipName = type < start.Templates.Count ? start.Templates[type].Name : "";
+        fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], captain, oars));
     }
 
     /// <summary>어디서 읽었는지 — 게임 폴더 아니면 「구운 자산」.</summary>

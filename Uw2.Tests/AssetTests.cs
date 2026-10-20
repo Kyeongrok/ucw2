@@ -31,6 +31,11 @@ public class AssetTests
         Assert.Equal(0, start.Fleets[0].ShipCount);
         Assert.True(start.Fleets[1].Active && start.Fleets[1].ShipCount > 0);
         Assert.Equal(33, start.Fleets[50].Port);          // 에르네스트는 암스테르담
+        // 첫 배 — SNRn.DAT 첫 이벤트의 F9. 카탈리나만 갤리온이다
+        Assert.Equal([5, 10, 5, 5, 5, 5], start.HeroShips);
+        Assert.Equal("카라벨 라티나", start.Templates[5].Name);
+        Assert.True(start.Templates[18].Oars);            // 경갤리는 노를 젓는다
+        Assert.False(start.Templates[5].Oars);
     }
 
     [Fact]
