@@ -533,7 +533,7 @@ public sealed class SeaMapWindow : Window
     /// <summary>
     /// 점술가(<c>0x00428416</c>) — 복채 50, 인생운은 운(+0x23) / 40 에 따라 말 0x12E 부터 셋, 사업운은 다음 항해 · 전투 레벨까지
     /// 남은 경험(말 0x221 · 0x222, 경험표 <c>0x0041A490</c> = min(레벨, 18)² x 30 − 사람 +0x26 · +0x28).
-    /// 연애운(여급 표 5 의 호감, 0x00428290) · 동료운은 아직이다.
+    /// 연애운은 이 항구 여급의 호감(0x00428290), 동료운은 고른 동료의 운(0x00428340)이다.
     /// </summary>
     private void TellFortune(int pick)
     {
@@ -560,7 +560,27 @@ public sealed class SeaMapWindow : Window
             Say(0x222, $"전투 레벨까지 경험 {battle}", battle);
             return;
         }
-        Say(0x12D, "그것은 아직 볼 수 없습니다.");
+        if (pick == 2)
+        {
+            // 연애운(0x00428290) — 이 항구 여급 가운데 +0x12 의 8 이 서고 0x40 이 아닌 이. 호감 80 · 50 으로 0x146 · 0x147 · 0x148.
+            int maid = Enumerable.Range(0, Barmaids.Count).FirstOrDefault(i =>
+                Barmaids.Get(vm.Memory, i, Barmaids.Port) == _host.CurrentPort
+                && (Barmaids.Get(vm.Memory, i, Barmaids.Flags) & 0x48) == 0x08, -1);
+            if (maid < 0) { Say(0x149, "이 항구에 있는 한, 사랑의 여신이 미소짓는 일은 없겠지요."); return; }
+            int liking = Barmaids.Get(vm.Memory, maid, Barmaids.Liking);
+            string name = Barmaids.Name(vm.Memory, maid);
+            if (liking >= 80) Say(0x146, $"{name}(라고) 하는 여자분이 당신을 사모하고 있는 모양예요.", name);
+            else if (liking >= 50) Say(0x147, "계속해서 노력하세요.");
+            else Say(0x148, "우선 행동에 옮기세요.");
+            return;
+        }
+        // 동료운(0x00428340) — 0x318 뒤 동료를 고르면 그 운(+0x23) / 25 로 말 0x4E 부터.
+        Say(0x318, "누구의 운세를 볼까요？");
+        var mates = Navigators.Mates(vm.Memory).Select(t => t.Person).ToList();
+        if (mates.Count == 0) { Note(" · 동료가 없습니다"); return; }
+        int who = BuildingMenu.Ask(this, "동료운", mates.Select(_host.PersonName).ToList());
+        if (who < 0) return;
+        Say(0x4E + Navigators.Get(vm.Memory, mates[who], Church.Luck) / 25, "평범한 운세인 것 같군요.");
     }
 
     /// <summary>
