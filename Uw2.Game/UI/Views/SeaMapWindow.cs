@@ -192,7 +192,7 @@ public sealed class SeaMapWindow : Window
         // 교역소는 교역 명성이 1000 이상이면 이름으로 맞는다(0x0042174E — 말 1, 아니면 0).
         if (b == TradeBuilding && _host.Scenario is { } tvm)
         {
-            bool famous = Palace.Fames(tvm.Memory, _host.Hero).Trade >= 1000;
+            bool famous = Palace.Fames(tvm.Memory, _host.HeroPersonNumber).Trade >= 1000;
             if (famous) Say(1, $"{name} {family}님이 아니십니까？", name, family);
             else Say(0, "어서 오세요！");
         }
@@ -546,7 +546,7 @@ public sealed class SeaMapWindow : Window
         if (sv.Total >= Survey.Complete) { Say(0x1FB, "와아！！ 드디어 세계지도를 완성하셨군요！"); sv.Finish(); }
         int rank = vm.Memory.Read(ScenarioMemory.At(Patrons.Table, who, Patrons.Flags), false);
         int reward = Survey.Reward(rank, sv.SinceReport);
-        var fp = ScenarioMemory.At(ScenarioMemory.HeroTable, _host.Hero, Patrons.FameField);
+        var fp = ScenarioMemory.At(ScenarioMemory.HeroTable, _host.HeroPersonNumber, Patrons.FameField);
         int fame = Survey.FameGain(vm.Memory.Read(fp, true), sv.SinceReport);
         vm.Memory.Write(fp, vm.Memory.Read(fp, true) + fame, true);
         Say(0x1FC, $"수고하셨습니다. 그럼 보수로 금화 {reward}닢을 드리겠습니다.", reward);
@@ -584,7 +584,7 @@ public sealed class SeaMapWindow : Window
         if (pick < 0) return;
         int disc = list[pick];
         string name = _host.Colony?.Name(disc) ?? $"발견물 {disc}";
-        int reward = Patrons.Report(m, who, disc, _host.Hero, out int fame, out int message);
+        int reward = Patrons.Report(m, who, disc, _host.HeroPersonNumber, out int fame, out int message);
         _host.Player.SetGold(_host.Player.Gold + reward);
         _host.WriteShipSide();
         Say(message, $"{name}？ 그럼, 금화 {reward}닢을 받아 주시요.", name, reward);
@@ -630,7 +630,7 @@ public sealed class SeaMapWindow : Window
             Say(0x222, $"전투 레벨까지 경험 {battle}", battle);
             // 나라가 있으면(+0x31 & 0xF ≠ 6) 다음 작위까지의 명성도 말한다(0x223).
             if ((Navigators.Get(vm.Memory, hero, 0x31) & 0xF) != 6
-                && Palace.FameToNextRank(vm.Memory, _host.Hero, _host.HeroRank) is > 0 and var fame)
+                && Palace.FameToNextRank(vm.Memory, _host.HeroPersonNumber, _host.HeroRank) is > 0 and var fame)
                 Say(0x223, $"한 단계 위의 작위를 얻기 위해선 {fame} 정도의 명성이 필요하겠지요.", fame);
             return;
         }
@@ -787,7 +787,7 @@ public sealed class SeaMapWindow : Window
         if (owned.Contains(item)) { Say(0x360, "제독님, 사략허가서는 이미 가지고 있는데요."); return; }
         if (owned.Count >= ItemShop.OwnedSlots) { Say(0x361, "제독님, 아이템이 너무 많습니다. 처분한 다음에 합시다."); return; }
         Say(0x362, "사략허가서를 교부받고 싶습니까？");
-        if (Palace.LetterRefusal(m, _host.Hero) is var no && no != 0)
+        if (Palace.LetterRefusal(m, _host.HeroPersonNumber) is var no && no != 0)
         {
             Say(no, "당신은 해적으로서의 지명도가 부족한 모양이군요.");
             return;
@@ -1363,7 +1363,7 @@ public sealed class SeaMapWindow : Window
                 int hero = _host.HeroPersonNumber;
                 var stats = Enumerable.Range(0, 7).Select(k => Get(hero, Navigators.Stats + k));
                 string nation = _host.HeroNation < NationNames.Length ? NationNames[_host.HeroNation] : "없음";
-                var (trade, pirate, adventure) = vm != null ? Palace.Fames(vm.Memory, _host.Hero) : (0, 0, 0);
+                var (trade, pirate, adventure) = vm != null ? Palace.Fames(vm.Memory, _host.HeroPersonNumber) : (0, 0, 0);
                 sb.AppendLine($"{_host.PersonName(hero)} — {nation} · 작위 {_host.HeroRank}");
                 sb.AppendLine($"명성 교역 {trade} · 해적 {pirate} · 모험 {adventure}");
                 sb.AppendLine($"능력치 {string.Join(" · ", stats)}");

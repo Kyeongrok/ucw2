@@ -716,7 +716,7 @@ public sealed class SeaMapHost : HwndHost
         var seen = Sighting.Look(m, (int)Fleet.X, (int)Fleet.Y, eye, sight, Roll,
                                  p => raw != null && p * Economy.StateSize + 0x1C < raw.Length ? raw[p * Economy.StateSize + 0x1C] : 2);
         if (seen.Count == 0) return;
-        foreach (var s in seen) Sighting.AddFame(m, Hero, s.Fame);
+        foreach (var s in seen) Sighting.AddFame(m, HeroPersonNumber, s.Fame);   // 주인공 표는 사람 번호로 짚는다(0x0049F5AF)
         Dispatcher.BeginInvoke(() => Sighted?.Invoke(seen));
     }
 
