@@ -320,4 +320,32 @@ public class AssetTests
         string? dump = Environment.GetEnvironmentVariable("UW2_SURVEY");
         if (dump != null) File.WriteAllLines(dump, lines);
     }
+
+    [Fact]
+    public void GuildOffersThreeJobsAndTakingOneOpensItsChapter()
+    {
+        var pack = Load();
+        string dir = Path.Combine(AssetDir, "snr");
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, pack.Start!.PeopleBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.NationTable, pack.Start.NationBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.HeroTable, pack.Start.HeroBytes);
+        m.FillPorts(pack.Ports.Select(p => (p.X, p.Y, p.Name, p.Nation)));
+        var vm = new Uw2.Game.Engine.ScenarioVm(File.ReadAllBytes(Path.Combine(dir, "SNR0.DAT")),
+                                                ScenarioText.Load(Path.Combine(dir, "SNR0.MES")), m);
+        vm.GameValues[2] = 21; vm.GameValues[3] = 4; vm.GameValues[4] = 16; vm.GameValues[5] = 0; vm.GameValues[7] = 24;
+        var log = new List<string>();
+        var enter = vm.Enter(0, 6, 1000, "조안", "페레로");
+        log.Add($"들어감: 대사 {enter?.Lines.Count} · 변수 0~8 {string.Join(",", Enumerable.Range(0, 9).Select(vm.GetVar))}");
+        vm.SetVar(8, vm.GetVar(3));
+        vm.Section = 1;
+        vm.Choose = (_, o) => 0;
+        var take = vm.Enter(0, 6, 1000, "조안", "페레로");
+        log.Add($"맡음: 대사 {take?.Lines.Count} · 변수 6 = {vm.GetVar(6)} · 16 = {vm.GetVar(16)} · 돈 {take?.Gold}");
+        if (take != null) log.AddRange(take.Lines.Select(l => l.Speaker + ": " + l.Body.Replace('\n', ' ')));
+        Assert.NotNull(enter);
+        string? dump = Environment.GetEnvironmentVariable("UW2_SURVEY");
+        if (dump != null) File.WriteAllLines(dump, log);
+    }
 }

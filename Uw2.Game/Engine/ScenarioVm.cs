@@ -118,6 +118,46 @@ public sealed class ScenarioVm
         public IReadOnlyList<Line> Pending => Lines.Skip(Shown).ToList();
     }
 
+    /// <summary>
+    /// 글 안의 기억 표시를 푼다(<c>0x0043E1D0</c>) — <c>$rNN</c> 은 가리키개 NN 자리의 글(0 까지, cp949),
+    /// <c>$dNN</c> 은 변수 NN 의 십진수. <c>$n</c> · <c>$s</c> 는 <see cref="ScenarioText.Render"/> 가 푼다.
+    /// </summary>
+    public string Expand(string raw)
+    {
+        if (!raw.Contains('$')) return raw;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < raw.Length; i++)
+        {
+            if (raw[i] == '$' && i + 3 < raw.Length && raw[i + 1] is 'r' or 'd' && char.IsDigit(raw[i + 2]) && char.IsDigit(raw[i + 3]))
+            {
+                int n = (raw[i + 2] - '0') * 10 + (raw[i + 3] - '0');
+                sb.Append(raw[i + 1] == 'd' ? _vars[n].ToString() : ReadText(_ptrs[n]));
+                i += 3;
+                continue;
+            }
+            sb.Append(raw[i]);
+        }
+        return sb.ToString();
+    }
+
+    private string ReadText(ScenarioMemory.Pointer p)
+    {
+        var bytes = new List<byte>();
+        for (int k = 0; k < 32; k++)
+        {
+            int b = Memory.Read(p with { Offset = p.Offset + k }, false);
+            if (b == 0) break;
+            bytes.Add((byte)b);
+        }
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        return System.Text.Encoding.GetEncoding(949).GetString([.. bytes]);
+    }
+
+    /// <summary>변수 하나 — 조합 「업무 알선」처럼 손이 시나리오 변수를 바로 짚을 때(<c>0x0041E9E2</c>).</summary>
+    public int GetVar(int i) => _vars[i & 0xFF];
+    public void SetVar(int i, int v) => _vars[i & 0xFF] = (ushort)v;
+    public bool GetFlag(int i) => i >= 0 && i < _flags.Length && _flags[i];
+
     /// <summary>세이브에 담는 기계 상태 — 장 · 절 · 변수 · 깃발 · 가리키개 · 기억.</summary>
     public sealed class State
     {
@@ -300,7 +340,7 @@ public sealed class ScenarioVm
                     switch (op)
                     {
                         case 0xC8 or 0xD4:
-                            var (who, body) = ScenarioText.Render(_text[Word(ip + 1)], name, family);
+                            var (who, body) = ScenarioText.Render(Expand(_text[Word(ip + 1)]), name, family);
                             run.Lines.Add(new Line(who, body, window, face));
                             break;
                         case 0xC0:
@@ -310,7 +350,7 @@ public sealed class ScenarioVm
                         case 0xCD: face = _vars[a1]; break;
                         case 0xC9:
                         {
-                            var options = ScenarioText.Render(_text[Word(ip + 2)], name, family).Body
+                            var options = ScenarioText.Render(Expand(_text[Word(ip + 2)]), name, family).Body
                                 .Split('\n', '\r').Where(o => o.Length > 0).ToList();
                             int pick = 0;
                             if (Choose != null && options.Count > 0)

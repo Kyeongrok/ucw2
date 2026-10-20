@@ -32,7 +32,10 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9, PalaceBuilding = 5;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9, PalaceBuilding = 5, GuildBuilding = 6;
+
+    /// <summary>조합 일 갈래 — 0x00458688 부터 다섯(상품수송 · 상품구입 · 편지배달 · 해적퇴치 · 빚수금).</summary>
+    private static readonly string[] JobNames = ["상품 수송", "상품 구입", "편지 배달", "해적 퇴치", "빚 수금"];
 
     /// <summary>이번에 교회에 든 뒤 예배를 드렸는지(<c>0x0049A188</c>).</summary>
     private bool _worshipped;
@@ -203,11 +206,53 @@ public sealed class SeaMapWindow : Window
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == ChurchBuilding) { AtChurch(pick); return; }
         if (b == PalaceBuilding) { AtPalace(pick); return; }
+        if (b == GuildBuilding && pick == 0) { OfferJobs(); return; }
         if (b == ItemBuilding && pick == 0) { BuyItem(); return; }
         if (b == ItemBuilding && pick == 1) { SellItem(); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>
+    /// 조합 「업무 알선」(<c>0x0041E900</c>) — 일은 함께 쓰는 시나리오(SNR0)가 장 하나로 돌린다.
+    /// <code>
+    ///   장 0(일 없음)  변수 0 ~ 2 가 고를 일 셋의 갈래, 3 ~ 5 가 그 짝. 고르면 변수 8 = 짝, 절 = 고른 차례 + 1 로
+    ///                  조합(건물 6)의 이벤트를 돌리고(0x0041EA50), 끝나면 장 = 변수 6(맡은 일), 절 = 0
+    ///                  깃발 16 · 17 이 다 서 있으면 나라 탓에 일을 주지 않는다
+    ///   장 ≠ 0         변수 6 이 6 아래면 맡은 일이 있다 — 변수 16 이 이 항구면 말 0x3A3, 아니면 「○○ 의 일이 남았다」(0x152)
+    /// </code>
+    /// 변수 6 이 6 이상인 일(보물 · 소문 갈래, 0x0041EA90)은 아직이다.
+    /// </summary>
+    private void OfferJobs()
+    {
+        if (_host.Common is not { } job) { Note(" · 지금은 맡길 일이 없습니다"); return; }
+        int port = _host.CurrentPort;
+        if (job.Chapter != 0)
+        {
+            int kind = job.GetVar(6), to = job.GetVar(16);
+            string where = _host.Ports is { } pt && to < pt.Ports.Count ? pt.Ports[to].Name : $"#{to}";
+            Note(kind >= 6 ? " · 그 일은 아직 없습니다"
+                 : to == port ? " · 맡은 일을 먼저 마치세요" : $" · {where}의 일이 남아 있습니다");
+            return;
+        }
+        if (job.GetFlag(16) && job.GetFlag(17)) { Note(" · 조합이 당신 나라 사람에게는 일을 주지 않습니다"); return; }
+        var offers = Enumerable.Range(0, 3).Select(i => job.GetVar(i)).ToList();
+        int pick = BuildingMenu.Ask(this, "업무 알선", offers.Select(k => k < JobNames.Length ? JobNames[k] : $"일 {k}").ToList());
+        if (pick < 0) return;
+        job.SetVar(8, job.GetVar(3 + pick));
+        job.Section = pick + 1;
+        var (name, family) = _host.HeroName;
+        _host.WriteShipSide();
+        if (job.Enter(port, GuildBuilding, _host.Player.Gold, name, family) is { } run)
+        {
+            if (run.Pending.Count > 0) ScenarioDialog.Play(this, _host.Faces, run.Pending);
+            _host.Apply(run);
+        }
+        job.Chapter = job.GetVar(6);
+        job.Section = 0;
+        string taken = offers[pick] < JobNames.Length ? JobNames[offers[pick]] : "그 일";
+        Note(job.Chapter != 0 ? $" · 「{taken}」을 맡았습니다" : " · 일을 맡지 않았습니다");
     }
 
     /// <summary>왕궁 — 망명은 다른 나라에서, 자금 · 선박원조는 제 나라에서(<see cref="Palace"/>). 알현 · 밀회는 시나리오 몫이다.</summary>
