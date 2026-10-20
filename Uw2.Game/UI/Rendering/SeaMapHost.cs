@@ -369,6 +369,7 @@ public sealed class SeaMapHost : HwndHost
             // 중고선 칸(표 15)은 비워 둔다 — 0 이면 「리스본의 발사 다섯」으로 읽힌다.
             for (int i = 0; i < 8 * Uw2.Game.Engine.Town.Shipyard.UsedRecords; i++)
                 Scenario.Memory.Write(new ScenarioMemory.Pointer(Uw2.Game.Engine.Town.Shipyard.UsedTable, i), 0xFF, false);
+            if (StartTables is { ItemBytes.Length: > 0 } si) Scenario.Memory.Fill(Uw2.Game.Engine.Town.ItemShop.Table, si.ItemBytes);
             if (StartTables is { MiscBytes.Length: > 0 } sm)
             {
                 Scenario.Memory.Fill(ScenarioMemory.MiscTable, sm.MiscBytes);

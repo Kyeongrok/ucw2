@@ -231,4 +231,26 @@ public class AssetTests
         Assert.Empty(Uw2.Game.Engine.Town.Navigators.InTown(m, 0, hero: 0, pub: true));
         Assert.Equal([85, 96], Uw2.Game.Engine.Town.Navigators.InTown(m, 0, hero: 0, pub: false));
     }
+
+    [Fact]
+    public void ItemShopSellsFromThePortListAndRefusesASecondSword()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, pack.Start!.ItemBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        var dagger = Uw2.Game.Engine.Town.ItemShop.Get(m, 0);
+        Assert.Equal(("단도", 500, 0), (dagger.Name, dagger.Price, dagger.Group));
+        Assert.Empty(Uw2.Game.Engine.Town.ItemShop.Owned(m));
+        var stock = Uw2.Game.Engine.Town.ItemShop.ForSale(pack.Economy!.StateBytes, 0, 24);
+        Assert.InRange(stock.Count, 1, 3);
+        int gold = 1000;
+        Assert.Equal(Uw2.Game.Engine.Town.ItemShop.Result.Bought, Uw2.Game.Engine.Town.ItemShop.Buy(m, 0, ref gold));
+        Assert.Equal(500, gold);
+        Assert.Equal(Uw2.Game.Engine.Town.ItemShop.Result.Owned, Uw2.Game.Engine.Town.ItemShop.Buy(m, 0, ref gold));
+        Assert.Equal(200, Uw2.Game.Engine.Town.ItemShop.Offer(dagger));            // 5 / 2 = 2 → 200
+        Uw2.Game.Engine.Town.ItemShop.Sell(m, 0, 200, ref gold);
+        Assert.Equal(700, gold);
+        Assert.Empty(Uw2.Game.Engine.Town.ItemShop.Owned(m));
+    }
 }

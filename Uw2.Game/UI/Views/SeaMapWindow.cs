@@ -32,7 +32,7 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9;
 
     /// <summary>이번에 교회에 든 뒤 예배를 드렸는지(<c>0x0049A188</c>).</summary>
     private bool _worshipped;
@@ -189,9 +189,62 @@ public sealed class SeaMapWindow : Window
         if (b == InnBuilding && pick == 1) { ShowSupport(); return; }
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == ChurchBuilding) { AtChurch(pick); return; }
+        if (b == ItemBuilding && pick == 0) { BuyItem(); return; }
+        if (b == ItemBuilding && pick == 1) { SellItem(); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>ITEM 「구입」 — 이 항구 가게의 셋(밤 6 ~ 8 시각이면 넷, <see cref="ItemShop"/>).</summary>
+    private void BuyItem()
+    {
+        if (_host.Scenario is not { } vm || _host.Economy is not { } eco || _host.CurrentPort < 0) return;
+        var p = _host.Player;
+        var stock = ItemShop.ForSale(eco.StateBytes, _host.CurrentPort, _host.Fleet?.TimeOfDay ?? 0);
+        if (stock.Count == 0) { Note(" · 파는 것이 없습니다"); return; }
+        var items = stock.Select(i => ItemShop.Get(vm.Memory, i)).ToList();
+        int pick = BuildingMenu.Ask(this, $"구입 — 돈 {p.Gold}", items.Select(it => $"{it.Name,-10} {it.Price,7}").ToList());
+        if (pick < 0) return;
+        int gold = p.Gold;
+        var result = ItemShop.Buy(vm.Memory, items[pick].Index, ref gold);
+        p.SetGold(gold);
+        Note(result switch
+        {
+            ItemShop.Result.Bought => $" · {Josa(items[pick].Name, "을", "를")} {items[pick].Price}에 샀습니다",
+            ItemShop.Result.Owned => " · 이미 가지고 있습니다",
+            ItemShop.Result.Poor => " · 돈이 모자랍니다",
+            _ => " · 더 가질 수 없습니다",
+        });
+    }
+
+    /// <summary>ITEM 「매각」 — 값의 반에서 부르고, 마다하면 운에 따라 매력만큼 올려 부른다.</summary>
+    private void SellItem()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var owned = ItemShop.Owned(vm.Memory).Select(i => ItemShop.Get(vm.Memory, i)).ToList();
+        if (owned.Count == 0) { Note(" · 팔 것이 없습니다"); return; }
+        int pick = BuildingMenu.Ask(this, "매각", owned.Select(it => it.Name).ToList());
+        if (pick < 0) return;
+        var item = owned[pick];
+        if ((item.Kind & 0x10) != 0) { Note(" · 그것은 팔 수 없습니다"); return; }
+        if (item.Power == 0) { Note(" · 그런 것은 받지 않습니다"); return; }
+        int hero = _host.HeroPersonNumber, offer = ItemShop.Offer(item);
+        while (true)
+        {
+            if (MessageBox.Show(this, $"{Josa(item.Name, "이라면", "라면")} {offer}에 사지요.", "매각", MessageBoxButton.YesNo)
+                == MessageBoxResult.Yes)
+            {
+                int gold = _host.Player.Gold;
+                ItemShop.Sell(vm.Memory, item.Index, offer, ref gold);
+                _host.Player.SetGold(gold);
+                Note($" · {Josa(item.Name, "을", "를")} {offer}에 팔았습니다");
+                return;
+            }
+            offer = ItemShop.Haggle(offer, Navigators.Get(vm.Memory, hero, Church.Luck),
+                                    Navigators.Get(vm.Memory, hero, Navigators.Stats + 6), _host.Roll);
+            if (offer < 0) { Note(" · 흥정이 깨졌습니다"); return; }
+        }
     }
 
     /// <summary>교회 「예배 · 기부」 — 주인공의 운(사람 +0x23)을 올린다(<see cref="Church"/>).</summary>
