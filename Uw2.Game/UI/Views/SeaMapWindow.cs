@@ -283,7 +283,7 @@ public sealed class SeaMapWindow : Window
     ///   2 · 6 구입  같은 셈으로 — 그 교역품이 특산품이고 경제 ≥ +0x1B x 10 인 첫 항구(0x190), 없으면 파는 시장의 지방(0xCA · 0xCB)
     ///   5 0x24D · 9 0x24A · 10 0x24B · 11 0x24C   그 밖은 0x18F 「모르겠어요」
     /// </code>
-    /// 원본은 주인공 +0x31 의 0x10 이면 늘 알려 준다. 7 · 8(왕궁 · 총독부 편지)과 3 은 아직이다.
+    /// 원본은 주인공 +0x31 의 0x10 이면 늘 알려 준다. 3 은 아직이다. 7 · 8(왕궁 · 총독부 편지)은 나라와 항구 자리를 일러 준다.
     /// </summary>
     private void JobInfo(int maid)
     {
@@ -302,7 +302,20 @@ public sealed class SeaMapWindow : Window
             case 9: Say(0x24A, "그 항구의 교역소나 조선소에 투자하는 것이 좋겠지요."); return;
             case 10: Say(0x24B, "부락 주민들의 힘을 빌리면 발견할 수 있을 지도 모르겠네요."); return;
             case 11: Say(0x24C, "조합에 가서 물어 보는 게 어때요"); return;
-            case 1 when port == _host.CurrentPort: Say(0x249, "어머, 이 항구에 일 때문에 왔나요？"); return;
+            case 1 or 7 or 8 when port == _host.CurrentPort: Say(0x249, "어머, 이 항구에 일 때문에 왔나요？"); return;
+            case 7 or 8 when port < ports.Ports.Count && Told():
+            {
+                // 왕궁 · 총독부 편지(0x0042672B) — 변수 18 이 나라. 4 아래면 「왕궁」(0x24F), 아니면 「총독부」(0x250), 그리고 항구 자리.
+                string nation = good >= 0 && good < NationNames.Length ? NationNames[good] : "해적";
+                string name = ports.Ports[port].Name;
+                var (north, lat, east, lon) = Pub.Degrees(ports.Ports[port].X, ports.Ports[port].Y);
+                SayText(MsgOr(good >= 4 ? 0x250 : 0x24F, $"{nation}의 {(good >= 4 ? "총독부" : "왕궁")}은 ", nation)
+                        + MsgOr(0x251, $"{name}항요？ ", name)
+                        + MsgOr(north ? 0x7E : 0x7F, $"{(north ? "북위" : "남위")} {lat}도, ", lat)
+                        + MsgOr(east ? 0x80 : 0x81, $"{(east ? "동경" : "서경")} {lon}도", lon)
+                        + MsgOr(0x252, "근처예요."));
+                return;
+            }
             case 1 when port < ports.Ports.Count && port < eco.States.Count && Told():
             {
                 string name = ports.Ports[port].Name;
