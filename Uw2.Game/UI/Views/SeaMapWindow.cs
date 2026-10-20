@@ -1479,10 +1479,23 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     private void ShowFleetInfo()
     {
-        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람"];
+        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람", "함선정보"];
         int pick = BuildingMenu.Ask(this, "함대", items);
         if (pick < 0) return;
         if (pick == 5) { CargoAdvice(); return; }
+        if (pick == 6)
+        {
+            // 목록 26 「함선정보」 — 배 기록을 하나씩(선종 · 등급 · 대포 · 선원 자리 · 짐칸 · 역풍 · 돛 · 내구).
+            var info = new System.Text.StringBuilder();
+            foreach (var sh in _host.Player.Ships)
+            {
+                string tn = _host.StartTables is { } t0 && sh.Type < t0.Templates.Count ? t0.Templates[sh.Type].Name ?? "" : "";
+                info.AppendLine($"{sh.Name} — {tn} · 등급 {sh.Grade}");
+                info.AppendLine($"    내구 {sh.Hull}/{sh.MaxHull} · 역풍 {sh.Upwind} · 돛 {sh.Sail} · 대포 {sh.Guns} · 선원 자리 {sh.MaxCrew} · 짐칸 {sh.Room}");
+            }
+            MessageBox.Show(this, info.ToString(), "함선정보");
+            return;
+        }
         var p = _host.Player;
         var vm = _host.Scenario;
         var st = _host.StartTables;
