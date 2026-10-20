@@ -313,11 +313,8 @@ public sealed class SeaMapWindow : Window
         if (_host.Economy is not { } eco || port < 0 || port >= eco.States.Count) return;
         if (_host.StartTables is { } st && st.Capitals.Take(6).Contains(port)) { Note(" · 서울에서는 볼 수 없습니다"); return; }
         var shares = eco.States[port].Shares;
-        string text = string.Join("
-", shares.Select((v, i) => $"{NationNames[i],-8} {v,3}%"));
-        MessageBox.Show(this, $"{_host.SceneName}의 나라 몫
-
-{text}", "항구지지율");
+        string text = string.Join("\n", shares.Select((v, i) => $"{NationNames[i],-8} {v,3}%"));
+        MessageBox.Show(this, $"{_host.SceneName}의 나라 몫\n\n{text}", "항구지지율");
     }
 
     /// <summary>주점 「선원 고용」 — 올 사람 · 값은 원본 셈(<see cref="Pub"/>), 앞 배부터 빈 자리를 채운다.</summary>
