@@ -761,6 +761,21 @@ public sealed class SeaMapHost : HwndHost
     public int HeroRank =>
         Scenario?.Memory.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, HeroPerson[Hero], ScenarioMemory.RankField), false) ?? 0;
 
+    /// <summary>항구의 지금 나라 — 시나리오 기억 표 12 +0x15 의 아래 세 비트(투자로 바뀐다). 기억이 없으면 처음 표.</summary>
+    public int PortNation(int port)
+    {
+        if (Scenario != null && port >= 0 && port < Uw2.Game.Engine.Sea.Sighting.PortCount)
+            return Scenario.Memory.Read(ScenarioMemory.At(ScenarioMemory.PortTable, port, 0x15), false) & 7;
+        return Ports is { } pt && port >= 0 && port < pt.Ports.Count ? pt.Ports[port].Nation & 7 : Economy.NoNation;
+    }
+
+    public void SetPortNation(int port, int nation)
+    {
+        if (Scenario == null) return;
+        var at = ScenarioMemory.At(ScenarioMemory.PortTable, port, 0x15);
+        Scenario.Memory.Write(at, (Scenario.Memory.Read(at, false) & 0xF8) | (nation & 7), false);
+    }
+
     /// <summary>주인공의 나라 — 사람 표 +0x31 의 아래 네 비트(<c>0x0042A5DB</c>). 6 은 나라 없음.</summary>
     public int HeroNation
     {

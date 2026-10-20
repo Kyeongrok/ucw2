@@ -110,6 +110,19 @@ public sealed class Economy
     /// 모자란 나라가 못 낸 것은 몫이 남은 나라가 하나씩 더 낸다. 주인공에 나라가 없으면(6) 올라가는 나라 없이 깎이기만 한다.
     /// 오른 몫을 돌려준다.
     /// </summary>
+    /// <summary>
+    /// 투자 뒤의 항구 편(<c>0x0042A77C</c>) — 몫이 75 이상인 나라, 없으면 <see cref="NoNation"/>.
+    /// </summary>
+    public int Allegiance(int port)
+    {
+        int o = port * StateSize;
+        if (o + StateSize > StateBytes.Length) return NoNation;
+        int side = NoNation;
+        for (int k = 0; k < 6; k++)
+            if (StateBytes[o + 8 + k] >= 75) side = k;
+        return side;
+    }
+
     public int Invest(int port, bool industry, int amount, int nation)
     {
         var r = StateBytes;

@@ -703,7 +703,7 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Scenario is not { } vm || _host.Ports is not { } ports || _host.CurrentPort < 0
             || _host.CurrentPort >= ports.Ports.Count) return;
-        int nation = Palace.NationOf(ports.Ports[_host.CurrentPort]);
+        int nation = _host.PortNation(_host.CurrentPort);
         bool ours = nation == (_host.HeroNation & 7);
         if (pick == 1)
         {
@@ -782,7 +782,7 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Scenario is not { } vm || _host.Ports is not { } ports) return;
         var m = vm.Memory;
-        int item = Palace.LetterOf(Palace.NationOf(ports.Ports[_host.CurrentPort]));
+        int item = Palace.LetterOf(_host.PortNation(_host.CurrentPort));
         var owned = ItemShop.Owned(m);
         if (owned.Contains(item)) { Say(0x360, "제독님, 사략허가서는 이미 가지고 있는데요."); return; }
         if (owned.Count >= ItemShop.OwnedSlots) { Say(0x361, "제독님, 아이템이 너무 많습니다. 처분한 다음에 합시다."); return; }
@@ -806,7 +806,7 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Scenario is not { } vm || _host.Ports is not { } ports || _host.Fleet is not { } f) return;
         var m = vm.Memory;
-        int nation = Palace.NationOf(ports.Ports[_host.CurrentPort]);
+        int nation = _host.PortNation(_host.CurrentPort);
         int item = Palace.PermitOf(nation);
         var owned = ItemShop.Owned(m);
         if (owned.Contains(item)) { Say(0x368, "제독님, 이 나라의 면세증은 이미 가지고 있는데요."); return; }
@@ -829,7 +829,7 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Ports is not { } ports) return;
         var sb = new System.Text.StringBuilder();
-        foreach (var g in ports.Ports.GroupBy(p => Palace.NationOf(p)).OrderBy(g => g.Key))
+        foreach (var g in ports.Ports.Take(100).GroupBy(p => _host.PortNation(p.Index)).OrderBy(g => g.Key))
             sb.AppendLine($"{(g.Key < NationNames.Length ? NationNames[g.Key] : "그 밖")}  {g.Count()}항");
         MessageBox.Show(this, sb.ToString(), "세력상황");
     }
@@ -967,6 +967,15 @@ public sealed class SeaMapWindow : Window
         int gain = eco.Invest(port, industry, n, nation);
         p.SetGold(p.Gold - n);
         string share = nation < Economy.NoNation ? $" · 우리 몫 {eco.States[port].Shares[nation]}%(+{gain})" : "";
+        // 몫이 75 를 넘은 나라로 항구 편이 바뀐다(0x0042A720).
+        int was = _host.PortNation(port), now = eco.Allegiance(port);
+        if (now != was && _host.Scenario is { } vm)
+        {
+            _host.SetPortNation(port, now);
+            int fame = Palace.Realign(vm.Memory, _host.HeroPersonNumber, nation, was, now, eco.States[port].Economy + eco.States[port].Industry);
+            string side = now < NationNames.Length ? NationNames[now] : "어느 나라에도 들지 않은";
+            share += $" · {Josa(_host.SceneName, "이", "가")} {side} 편이 되었습니다" + (fame > 0 ? $" · 교역 명성 +{fame}" : "");
+        }
         Note($" · {what} {n}{share}");
     }
 
@@ -1067,7 +1076,7 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Economy is not { } eco) return;
         bool permit = _host.Scenario is { } vm && _host.Ports is { } ports && _host.CurrentPort < ports.Ports.Count
-                      && ItemShop.Owned(vm.Memory).Contains(Palace.PermitOf(Palace.NationOf(ports.Ports[_host.CurrentPort])));
+                      && ItemShop.Owned(vm.Memory).Contains(Palace.PermitOf(_host.PortNation(_host.CurrentPort)));
         var goods = eco.ForSale(_host.CurrentPort, permit);
         if (goods.Count == 0) { Note(" · 이 항구 교역소에는 파는 것이 없습니다"); return; }
         var p = _host.Player;
@@ -1095,7 +1104,7 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Scenario is not { } vm || _host.Ports is not { } ports) return price;
         var m = vm.Memory;
-        bool ours = Palace.NationOf(ports.Ports[_host.CurrentPort]) == (_host.HeroNation & 7);
+        bool ours = _host.PortNation(_host.CurrentPort) == (_host.HeroNation & 7);
         int floor = Palace.HaggleFloor(price, _host.HeroRank, ours);
         int accept = Palace.HaggleAccept(price, floor);
         bool clerk = (HeroField(SkillField) & 1) != 0

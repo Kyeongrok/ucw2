@@ -760,4 +760,23 @@ public class AssetTests
         Assert.Equal(0, Uw2.Game.Engine.Town.Palace.LetterRefusal(m, 3));
         Assert.Equal(0x1D + 3, Uw2.Game.Engine.Town.Palace.LetterOf(3));
     }
+
+    [Fact]
+    public void WinningAPortForYourNationEarnsTradeFameAndFavour()
+    {
+        var pack = Load();
+        var eco = pack.Economy!.Clone();
+        int port = 5;                                                                     // 서울이 아닌 항구
+        eco.Invest(port, false, 2_000_000, 0);
+        Assert.Equal(0, eco.Allegiance(port));
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.HeroTable, pack.Start!.HeroBytes);
+        int fav = m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 0, 6), false);
+        int favOther = m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 0, 6 + 1), false);
+        Assert.Equal(300, Uw2.Game.Engine.Town.Palace.Realign(m, 0, 0, 1, 0, 300));
+        Assert.Equal(300, m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 0, 0), true));
+        Assert.Equal(Math.Min(200, fav + 5), m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 0, 6), false));
+        Assert.Equal(favOther - Math.Min(5, favOther), m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 0, 7), false));
+        Assert.Equal(0, Uw2.Game.Engine.Town.Palace.Realign(m, 0, 0, 0, 1, 300));          // 잃으면 명성은 없다
+    }
 }

@@ -52,6 +52,27 @@ public static class Palace
 
     public static int LetterOf(int nation) => LetterFirst + nation;
 
+    /// <summary>
+    /// 항구 편이 바뀌었다(<c>0x0042A720</c>) — 잃은 나라가 주인공 나라가 아니면 그 나라 호감(주인공 표 +6 + 나라)이 5 까지 깎이고,
+    /// 얻은 나라가 주인공 나라면 교역 명성(+0)이 경제 + 공업만큼(50000 까지), 그 나라 호감이 5(200 까지) 오른다. 오른 명성을 돌려준다.
+    /// </summary>
+    public static int Realign(ScenarioMemory m, int hero, int heroNation, int was, int now, int worth)
+    {
+        if (was == now) return 0;
+        ScenarioMemory.Pointer Favour(int nation) => ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + nation);
+        if (was < 6 && was != heroNation)
+            m.Write(Favour(was), m.Read(Favour(was), false) - Math.Min(5, m.Read(Favour(was), false)), false);
+        if (was == heroNation || now != heroNation || heroNation >= 6) return 0;
+        var fame = ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 0);
+        int before = m.Read(fame, true);
+        int gain = Math.Min(MaxFame - before, worth);
+        m.Write(fame, before + gain, true);
+        m.Write(Favour(now), Math.Min(200, m.Read(Favour(now), false) + 5), false);
+        return gain;
+    }
+
+    public const int MaxFame = 50000;
+
     /// <summary>작위마다 다음 작위에 드는 명성(<c>0x00458B98</c>) — 명성 셋 가운데 가장 큰 것과 견준다(<c>0x00428237</c>).</summary>
     public static readonly int[] RankFame = [500, 2000, 4500, 8000, 12500, 18000, 24500, 32000, 40000, 0];
 
