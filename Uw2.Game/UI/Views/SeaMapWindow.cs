@@ -1247,6 +1247,17 @@ public sealed class SeaMapWindow : Window
         p.SetGold(p.Gold - n * price);
         _pubMood = Pub.Treat(_pubMood, n, eco.States[_host.CurrentPort].Economy, HeroField(Navigators.Stats + 6));
         Note($" · {drink} {n}병 · 분위기 {_pubMood}");
+        // 손님들이 주인공 명성으로 맞는다(0x00424990) — 가장 큰 명성 < 1000 이면 0x24, < 5000 이면 0x84(교역상 · 해적 · 모험가), 그 위면 0x85.
+        if (_host.Scenario is { } vm)
+        {
+            var (t, pi, ad) = Palace.Fames(vm.Memory, _host.HeroPersonNumber);
+            int best = Math.Max(t, Math.Max(pi, ad));
+            string kind = best == t ? "교역상" : best == pi ? "해적" : "모험가";
+            var (name, family) = _host.HeroName;
+            if (best < 1000) Say(0x24, "한턱 써 줘서 고맙소！");
+            else if (best < 5000) Say(0x84, $"아, 당신 꽤 유명한 {kind} {name} {family}(가) 아니오！", kind, name, family);
+            else Say(0x85, $"야호, {name} {family}(가) 한턱 낸다니 기쁜데.", name, family);
+        }
     }
 
     /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>
