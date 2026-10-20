@@ -70,6 +70,19 @@ public static class ItemShop
         return Result.Full;
     }
 
+    /// <summary>값 없이 빈 칸에 넣는다 — 면세증처럼 값을 따로 셈하는 것. 칸이 없으면 거짓.</summary>
+    public static bool Give(ScenarioMemory m, int index)
+    {
+        for (int i = 0; i < OwnedSlots; i++)
+        {
+            var at = new ScenarioMemory.Pointer(6, OwnedFirst + i);
+            if (m.Read(at, false) != 0xFF) continue;
+            m.Write(at, index, false);
+            return true;
+        }
+        return false;
+    }
+
     /// <summary>판 값을 처음 부르는 값.</summary>
     public static int Offer(Item item) => item.Price / 100 / 2 * 100;
 

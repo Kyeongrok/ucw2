@@ -264,6 +264,7 @@ public sealed class SeaMapHost : HwndHost
                     Uw2.Game.Engine.Town.Navigators.PayWages(Scenario.Memory, HeroPersonNumber, ref gold);
                     Player.SetGold(gold);
                     Uw2.Game.Engine.Town.Navigators.Wander(Scenario.Memory, Roll);
+                    if (Uw2.Game.Engine.Town.Palace.PermitsExpire(Fleet.Month)) Uw2.Game.Engine.Town.Palace.ExpirePermits(Scenario.Memory);
                 }
             };
             Crew(Fleet);

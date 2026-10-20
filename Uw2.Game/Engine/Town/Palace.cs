@@ -36,6 +36,28 @@ public static class Palace
     /// <summary>그 항구를 다스리는 나라 — 항구 표 나라 바이트(0x0043AED0 +0x15)의 아래 세 비트.</summary>
     public static int NationOf(PortTable.Port port) => port.Nation & 7;
 
+    /// <summary>면세증 — 아이템 0x23 + 나라(35 ~ 40). 지니면 그 나라 항구에서 사는 값의 12/10 이 붙지 않는다(<c>0x00420430</c>).</summary>
+    public const int PermitFirst = 0x23;
+
+    public static int PermitOf(int nation) => PermitFirst + nation;
+
+    /// <summary>
+    /// 면세증 값(<c>0x00427732</c>) — 제 나라면 작위가 6 아래일 때 (7 − 작위) x 10000, 그 위는 공짜, 남의 나라면 (11 − 작위) x 10000.
+    /// </summary>
+    public static int PermitPrice(bool ours, int rank) => (ours ? (rank < 6 ? 7 - rank : 0) : 11 - rank) * 10000;
+
+    /// <summary>면세증은 반 년마다 — 4월 · 10월(달 3 · 9)이 되면 다 없어진다(말 0x369).</summary>
+    public static bool PermitsExpire(int month) => month is 3 or 9;
+
+    public static void ExpirePermits(ScenarioMemory m)
+    {
+        foreach (int item in ItemShop.Owned(m).Where(i => i is >= PermitFirst and < PermitFirst + 6))
+        {
+            int none = 0;
+            ItemShop.Sell(m, item, 0, ref none);
+        }
+    }
+
     /// <summary>주인공 표 +6 + 나라 — 그 나라의 호의.</summary>
     public const int FavorFirst = 6;
 

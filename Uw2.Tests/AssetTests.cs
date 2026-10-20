@@ -710,4 +710,25 @@ public class AssetTests
         Uw2.Game.Engine.Town.Navigators.Command(m, 85, aboard: true);
         Assert.False(Uw2.Game.Engine.Town.Navigators.Appoint(m, 85, 0));                      // 선장은 안 된다
     }
+
+    [Fact]
+    public void TaxPermitDropsTheMarkupAndExpiresInAprilAndOctober()
+    {
+        var pack = Load();
+        var eco = pack.Economy!;
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, pack.Start!.ItemBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        var plain = eco.ForSale(0);
+        var exempt = eco.ForSale(0, permit: true);
+        Assert.All(plain.Zip(exempt), t => Assert.Equal(t.First.Price, t.Second.Price * 12 / 10, 1.0));
+        Assert.Equal(60000, Uw2.Game.Engine.Town.Palace.PermitPrice(ours: true, rank: 1));
+        Assert.Equal(0, Uw2.Game.Engine.Town.Palace.PermitPrice(ours: true, rank: 6));
+        Assert.Equal(100000, Uw2.Game.Engine.Town.Palace.PermitPrice(ours: false, rank: 1));
+        Assert.True(Uw2.Game.Engine.Town.ItemShop.Give(m, Uw2.Game.Engine.Town.Palace.PermitOf(0)));
+        Assert.Equal("면세증(P)", Uw2.Game.Engine.Town.ItemShop.Get(m, 0x23).Name);
+        Assert.True(Uw2.Game.Engine.Town.Palace.PermitsExpire(3) && !Uw2.Game.Engine.Town.Palace.PermitsExpire(4));
+        Uw2.Game.Engine.Town.Palace.ExpirePermits(m);
+        Assert.Empty(Uw2.Game.Engine.Town.ItemShop.Owned(m));
+    }
 }

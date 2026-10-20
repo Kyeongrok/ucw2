@@ -752,14 +752,41 @@ public sealed class SeaMapWindow : Window
             if (run.Stopped) menu = false;
         }
         if (!menu) { Note($" · 작위 {_host.HeroRank}"); return; }
-        string[] items = ["세력상황", ours ? "사략허가서" : "사략허가서 (안 됨)", ours ? "면세증" : "면세증 (안 됨)"];
+        string[] items = ["세력상황", ours ? "사략허가서" : "사략허가서 (안 됨)", "면세증"];
         while (true)
         {
             int pick = BuildingMenu.Ask(this, "알현", items);
             if (pick < 0) return;
             if (pick == 0) ShowInfluence();
+            else if (pick == 2) BuyPermit(ours);
             else if (ours) Note($" · 「{items[pick]}」은 아직 없습니다");
         }
+    }
+
+    /// <summary>
+    /// 「면세증」(<c>0x00427620</c>) — 이 나라 것을 이미 가졌으면 0x368, 아이템 칸이 차면 0x361. 0x369(반 년 · 4월과 10월 갱신),
+    /// 갱신이 가까우면(달 mod 6 &lt; 3) 0x36A 뒤 0x36B 로 묻고 값(0x36D, <see cref="Palace.PermitPrice"/>)을 받는다. 돈이 모자라면 0x36E.
+    /// </summary>
+    private void BuyPermit(bool ours)
+    {
+        if (_host.Scenario is not { } vm || _host.Ports is not { } ports || _host.Fleet is not { } f) return;
+        var m = vm.Memory;
+        int nation = Palace.NationOf(ports.Ports[_host.CurrentPort]);
+        int item = Palace.PermitOf(nation);
+        var owned = ItemShop.Owned(m);
+        if (owned.Contains(item)) { Say(0x368, "제독님, 이 나라의 면세증은 이미 가지고 있는데요."); return; }
+        if (owned.Count >= ItemShop.OwnedSlots) { Say(0x361, "제독님, 아이템이 너무 많습니다. 처분한 다음에 합시다."); return; }
+        Say(0x369, "면세증의 유효기한은 반 년이고, ４월과 １０월에 갱신하지 않으면 안됩니다.");
+        if (f.Month % 6 < 3) Say(0x36A, "지금 교부 받아도, 곧 갱신해야 합니다.");
+        if (MessageBox.Show(this, MsgOr(0x36B, "면세증 교부를 신청하시겠습니까？"), "면세증", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        int price = Palace.PermitPrice(ours, _host.HeroRank);
+        if (price > 0 && MessageBox.Show(this, MsgOr(0x36D, $"교부에는 금화 {price}닢이 들지. 괜찮소？", price / 10000), "면세증",
+                                         MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        var p = _host.Player;
+        if (price > p.Gold) { Say(0x36E, "제독님, 금화가 부족합니다."); return; }
+        if (!ItemShop.Give(m, item)) return;
+        p.SetGold(p.Gold - price);
+        Say(0x367, "그러면 교부하도록 하지. 자, 받으시오.");
     }
 
     /// <summary>「세력상황」 — 나라마다 몇 항구가 그 나라 것인지(항구 표 +0x15).</summary>
@@ -1004,7 +1031,9 @@ public sealed class SeaMapWindow : Window
     private void ShowGoods()
     {
         if (_host.Economy is not { } eco) return;
-        var goods = eco.ForSale(_host.CurrentPort);
+        bool permit = _host.Scenario is { } vm && _host.Ports is { } ports && _host.CurrentPort < ports.Ports.Count
+                      && ItemShop.Owned(vm.Memory).Contains(Palace.PermitOf(Palace.NationOf(ports.Ports[_host.CurrentPort])));
+        var goods = eco.ForSale(_host.CurrentPort, permit);
         if (goods.Count == 0) { Note(" · 이 항구 교역소에는 파는 것이 없습니다"); return; }
         var p = _host.Player;
         int pick = BuildingMenu.Ask(this, $"구입 — 돈 {p.Gold} · 빈 자리 {p.Free}",
