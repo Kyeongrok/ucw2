@@ -340,6 +340,12 @@ public sealed class SeaMapHost : HwndHost
             var code = File.ReadAllBytes(dat);
             if (Uw2.Support.Local.Formats.Scenario.OwnerOf(code) != person) continue;
             Scenario = new ScenarioVm(code, ScenarioText.Load(mes));
+            if (StartTables is { FleetBytes.Length: > 0 } st) Scenario.Memory.Fill(ScenarioMemory.FleetTable, st.FleetBytes);
+            if (Economy is { } eco)
+            {
+                Scenario.Memory.Fill(ScenarioMemory.MarketTable, eco.MarketBytes);
+                Scenario.Memory.Fill(ScenarioMemory.PortStateTable, eco.StateBytes);
+            }
             return;
         }
     }
@@ -348,9 +354,48 @@ public sealed class SeaMapHost : HwndHost
     public void Apply(ScenarioVm.Run run)
     {
         Player.SetGold(run.Gold);
+        if (Scenario != null) ReadShipSide(Scenario.Memory);
         if (StartTables is not { } start || Fleet == null) return;
         foreach (int type in run.Ships)
             if (!Player.Ships.Any(s => s.Type == type)) AddShip(type);
+    }
+
+    /// <summary>
+    /// 제 배 곁 30바이트(표 9)를 시나리오 기억에 쓴다 — 보급 넷(+0) · 짐 양 다섯(+0x0C) · 짐 번호 다섯(+0x16, 0xFF 빈 칸).
+    /// 건물에 들기 전에 부른다.
+    /// </summary>
+    public void WriteShipSide()
+    {
+        if (Scenario == null) return;
+        var m = Scenario.Memory;
+        for (int i = 0; i < Player.Ships.Count; i++)
+        {
+            var ship = Player.Ships[i];
+            for (int k = 0; k < PlayerState.SupplyKinds; k++)
+                m.Write(ScenarioMemory.At(ScenarioMemory.PlayerShipTable, i, k * 2), ship.Supplies[k], true);
+            for (int k = 0; k < PlayerState.CargoSlots; k++)
+            {
+                m.Write(ScenarioMemory.At(ScenarioMemory.PlayerShipTable, i, 0x0C + k * 2), ship.Cargo[k].Amount, true);
+                m.Write(ScenarioMemory.At(ScenarioMemory.PlayerShipTable, i, 0x16 + k), ship.Cargo[k].Good < 0 ? 0xFF : ship.Cargo[k].Good, false);
+            }
+        }
+    }
+
+    private void ReadShipSide(ScenarioMemory m)
+    {
+        for (int i = 0; i < Player.Ships.Count; i++)
+        {
+            var ship = Player.Ships[i];
+            for (int k = 0; k < PlayerState.SupplyKinds; k++)
+                ship.Supplies[k] = m.Read(ScenarioMemory.At(ScenarioMemory.PlayerShipTable, i, k * 2), true);
+            for (int k = 0; k < PlayerState.CargoSlots; k++)
+            {
+                int good = m.Read(ScenarioMemory.At(ScenarioMemory.PlayerShipTable, i, 0x16 + k), false);
+                int amount = m.Read(ScenarioMemory.At(ScenarioMemory.PlayerShipTable, i, 0x0C + k * 2), true);
+                ship.Cargo[k] = good == 0xFF || amount == 0 ? (-1, 0) : (good, amount);
+            }
+        }
+        SyncLoad();
     }
 
     /// <summary>함대 한 벌의 배 칸 — 열(<see cref="StartData.SlotCount"/>).</summary>

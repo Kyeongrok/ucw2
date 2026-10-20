@@ -161,4 +161,28 @@ public class AssetTests
         Assert.Equal(102, run.Gold);                               // 고른 차례 2 가 변수 1 에
         Assert.Equal((2, 5), (run.Lines[0].Window, run.Lines[0].Face));
     }
+
+    /// <summary>방아쇠 [0][7] 하나에 <paramref name="body"/> 를 단 시나리오(장 0 → 0x14, 절 0 → 0x16).</summary>
+    private static byte[] OneEvent(params byte[] body)
+    {
+        var head = new byte[0x16];
+        head[0x13] = 0x14; head[0x15] = 0x02;
+        return [.. head, 0x00, 0x07, 0x00, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, .. body];
+    }
+
+    [Fact]
+    public void PointersReachTheGoldAndArithmeticIsItsOwnClass()
+    {
+        var vm = new Uw2.Game.Engine.ScenarioVm(OneEvent(
+            0xDC, 0x00, 0x02, 0x00, 0x00,      // 가리키개 0 = 표 2(돈) +0
+            0x04, 0x05, 0x00,                  // 변수 5 = 가리키개 0 의 낱말
+            0x4C, 0x05, 0x07,                  // 변수 5 += 7
+            0xE4, 0x05,                        // 돈 = 변수 5
+            0x5C, 0x00, 0x01,                  // 가리키개 0 자리 바이트 += 1
+            0x8E, 0x05, 0xFF, 0x00, 0x1F,      // 변수 5 ≥ 255 가 아니면 +0x1F(끝)로
+            0xE6, 0x05,                        // (건너뛴다)
+            0xFF), ScenarioText.FromBytes(new byte[8]));
+        var run = vm.Enter(0, 7, 100, "", "")!;
+        Assert.Equal(108, run.Gold);
+    }
 }

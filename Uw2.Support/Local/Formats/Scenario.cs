@@ -21,8 +21,8 @@ public static class Scenario
     /// <summary>
     /// 명령 하나의 길이 — 일을 마친 손이 이벤트 자리(<c>0x004702B8</c>)를 이만큼 민다.
     /// <list type="bullet">
-    /// <item><c>00xxxxxx</c> 넣기 · 셈(<c>0x0043E830</c>) — 3, 「넣기」(셈 0)에 줄 것이 바로 값(갈래 3)이면 4(<c>0C v hh ll</c>)</item>
-    /// <item><c>01xxxxxx</c>(<c>0x0043EB90</c>) — 3</item>
+    /// <item><c>00xxxxxx</c> 넣기(<c>0x0043E830</c>) — 3, 낱말 넣기(끝 두 비트 0)에 줄 것이 바로 값(갈래 3)이면 4(<c>0C v hh ll</c>)</item>
+    /// <item><c>01xxxxxx</c> 셈(<c>0x0043EB90</c>) — 3</item>
     /// <item><c>10xxxxxx</c> 견주어 뛰기(<c>0x0043ED90</c>) — 5(맞으면 다음으로, 아니면 끝 두 바이트 자리로).
     /// 앞이 깃발(갈래 2)이고 뒤가 깃발이 아니면 4 — 깃발 하나가 <c>셈 &amp; 1</c> 과 같은지만 본다</item>
     /// <item><c>11xxxxxx</c> 명령 — 표(<see cref="CommandLength"/>)</item>
@@ -35,8 +35,8 @@ public static class Scenario
         switch (op >> 6)
         {
             case 0:
-                int dest = (op >> 4) & 3, src = (op >> 2) & 3, calc = op & 3;
-                return dest != 2 && calc == 0 && src == 3 ? 4 : 3;
+                int dest = (op >> 4) & 3, src = (op >> 2) & 3, width = op & 3;
+                return dest != 2 && width == 0 && src == 3 ? 4 : 3;
             case 1: return 3;
             case 2: return ((op >> 4) & 3) == 2 && ((op >> 2) & 3) != 2 ? 4 : 5;
             default: return CommandLength(op);
@@ -62,8 +62,15 @@ public static class Scenario
     public static string NameOf(byte op) => op switch
     {
         < 0x40 => "넣기",
-        < 0x80 => "01",
+        < 0x80 => "셈",
         < 0xC0 => "견주어뛰기",
+        0xC0 => "창",
+        0xC9 => "고르기",
+        0xCC or 0xCD => "얼굴",
+        0xC8 or 0xD4 => "대사",
+        0xD0 or 0xDC => "가리키개",
+        0xF0 => "다음절",
+        0xF1 => "다음장",
         0xE4 => "돈=",
         0xE6 => "돈+=",
         0xE7 => "돈-=",

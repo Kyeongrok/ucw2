@@ -83,6 +83,7 @@ public sealed class SeaMapWindow : Window
         var (name, family) = _host.HeroName;
         if (_host.Scenario is { } vm)
             vm.Choose = (before, options) => ScenarioDialog.Ask(this, _host.Faces, before, options);
+        _host.WriteShipSide();
         if (_host.Scenario?.Enter(_host.CurrentPort, b, _host.Player.Gold, name, family) is { Lines.Count: > 0 } run)
         {
             ScenarioDialog.Play(this, _host.Faces, run.Pending);

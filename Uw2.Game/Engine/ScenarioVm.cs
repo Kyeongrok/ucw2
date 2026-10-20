@@ -13,17 +13,25 @@ namespace Uw2.Game.Engine;
 ///                    항구 0xA3 은 「0x82 아래 아무 항구」, 건물 0xFF 는 「아무 건물」
 ///   뛰기 · 갈래 자리  모두 S 에서 잰다
 /// </code>
-/// 옮긴 명령: 넣기 · 셈(00), 견주어 뛰기(10), 뛰기 FE, 대사 C8 · D4, 배 주기 F9, 돈 E4 · E6 · E7, 그침 F2 · F4 · FF,
+/// 바이트 갈래(<c>0x0043E830 · 0x0043EB90 · 0x0043ED90</c>):
+/// <code>
+///   00 DD SS WW a b   넣기 — 갈래 S 의 b 를 갈래 D 의 a 에. W 0 낱말 · 1 바이트, 3 은 게임 값 여덟(아직), 2 는 오류.
+///                     D 가 깃발이면 0 아님을 넣는다. 받을 곳이 깃발이 아니고 W 0 · S 3 이면 b 뒤 한 바이트를 더 읽어 낱말
+///   01 O B SS oo a b  셈 — B 0 이면 변수 a(낱말), 1 이면 가리키개 a 자리(바이트)에. O·oo 0 더하기 1 빼기 2 곱 3 나누기,
+///                     O 가 서면 0 또는 1 그리고 2 · 3 은 가리키개 a 를 b 만큼 앞 · 뒤로
+///   10 AA BB cc a b t 견주기 — 낱말 A ? B (cc 0 같다 1 다르다 2 A ≥ B 3 B ≥ A), 틀리면 절 바탕 + t 로
+/// </code>
+/// 갈래: 0 변수(낱말) · 1 가리키개(<see cref="ScenarioMemory"/>) · 2 깃발(넣을 때는 0xFFFF) · 3 바로 값.
+/// 옮긴 명령: 뛰기 FE, 대사 C8 · D4, 배 주기 F9, 돈 E4 · E6 · E7, 그침 F2 · F4 · FF,
 /// 다음 절 F0 · 다음 장 F1 — 이벤트가 끝난 뒤 넘긴다(<c>0x0043F7BA</c>). 다음 장은 절을 0 으로, 깃발 앞 서른둘을 지운다.
 /// <code>
 ///   C0 n       대사 창 고르기(0x0043D0E0) — 창 표 0x0045E348 의 n 번(1 위 · 2 아래 · 0 · 3 넓은 창)
 ///   CC hh ll   그 창에 얼굴(0x0043D4B0 → 0x00434E70), CD v 는 변수 v 의 얼굴
 ///   C9 v hh ll 고르기(0x0043D2B0) — 글 하나를 줄 바꿈(0x0A)으로 갈라 항목으로 띄우고 고른 차례(0 부터)를 변수 v 에.
 ///              물리기는 없다(0x00437FD0 은 0xFF 면 다시 묻는다)
-///   D0 · DC    게임 기억 가리키개(0x0043D510) — 아직 옮기지 않는다
+///   D0 p t r f 가리키개 p 에 표 t 의 r 번 기록 f 자리(0x0043D510). D0 은 r 을 변수 r 에서, DC 는 그대로
 /// </code>
 /// 나머지는 길이(<see cref="Scenario.LengthAt"/>)만큼 넘긴다.
-/// 게임 기억을 가리키는 변수(갈래 1, <c>0x0049F260</c> 표)는 0 으로 읽는다.
 /// </remarks>
 public sealed class ScenarioVm
 {
@@ -33,8 +41,12 @@ public sealed class ScenarioVm
     private readonly ScenarioText _text;
     private readonly ushort[] _vars = new ushort[256];
     private readonly bool[] _flags = new bool[2048];
+    private readonly ScenarioMemory.Pointer[] _ptrs = new ScenarioMemory.Pointer[256];
 
     public ScenarioVm(byte[] code, ScenarioText text) { _code = code; _text = text; }
+
+    /// <summary>시나리오가 들여다보는 게임 기억 — 부르는 쪽이 아는 표를 채운다.</summary>
+    public ScenarioMemory Memory { get; } = new();
 
     /// <summary>장 · 절 — 새 게임은 0 · 0.</summary>
     public int Chapter { get; set; }
@@ -92,13 +104,24 @@ public sealed class ScenarioVm
         return null;
     }
 
-    private int ValueOf(int kind, int x, bool immediateWord, int at) => kind switch
+    /// <summary>
+    /// 갈래 값 읽기(<c>0x0043E6E0</c>) — <paramref name="word"/> 가 아니면 낮은 바이트만. 깃발은 0xFFFF · 0.
+    /// </summary>
+    private int ValueOf(int kind, int x, bool word = true) => kind switch
     {
-        0 => _vars[x & 0xFF],
-        2 => _flags[x] ? 1 : 0,
-        3 => immediateWord ? Word(at) : x,
-        _ => 0,                                   // 게임 기억 — 아직 0
+        0 => word ? _vars[x & 0xFF] : _vars[x & 0xFF] & 0xFF,
+        1 => Memory.Read(_ptrs[x & 0xFF], word),
+        2 => x < _flags.Length && _flags[x] ? (word ? 0xFFFF : 0xFF) : 0,
+        _ => x,
     };
+
+    /// <summary>받을 곳에 쓰기(<c>0x0043E7B0</c>) — 변수는 낱말, 가리키개는 <paramref name="word"/> 대로.</summary>
+    private void Store(int kind, int x, int v, bool word)
+    {
+        if (kind == 0) _vars[x & 0xFF] = (ushort)(word ? v : v & 0xFF);
+        else if (kind == 1) Memory.Write(_ptrs[x & 0xFF], v, word);
+        else if (kind == 2 && x < _flags.Length) _flags[x] = v != 0;
+    }
 
     private Run Execute(int baseAt, int ip, int gold, string name, string family)
     {
@@ -117,6 +140,7 @@ public sealed class ScenarioVm
     private Run Run_(int baseAt, int ip, int gold, string name, string family, ref bool nextSection, ref bool nextChapter)
     {
         var run = new Run { Gold = gold };
+        Memory.Gold = gold;
         int window = 0, face = -1;
         for (int step = 0; step < MaxSteps && ip >= 0 && ip < _code.Length; step++)
         {
@@ -130,19 +154,41 @@ public sealed class ScenarioVm
             {
                 case 0:
                 {
-                    int dest = (op >> 4) & 3, src = (op >> 2) & 3, calc = op & 3;
-                    int v = ValueOf(src, a2, len == 4, ip + 2);
-                    if (calc == 3) break;
-                    if (dest == 0)
-                    {
-                        int cur = _vars[a1];
-                        _vars[a1] = (ushort)(calc == 0 ? v : calc == 1 ? cur + v : Math.Max(0, cur - v));
-                    }
-                    else if (dest == 2 && a1 < _flags.Length) _flags[a1] = calc == 2 ? false : v != 0;
+                    int dest = (op >> 4) & 3, src = (op >> 2) & 3, w = op & 3;
+                    if (w >= 2 || dest == 3) break;                // 2 는 오류, 3 은 게임 값(아직), 받을 곳 3 은 가리키개 옮기기(아직)
+                    int v = src == 3 ? (len == 4 ? Word(ip + 2) : a2) : ValueOf(src, a2, w == 0);
+                    Store(dest, a1, v, w == 0);
                     break;
                 }
                 case 1:
+                {
+                    int code = op & 0x23, src = (op >> 2) & 3;
+                    bool toPtr = (op & 0x10) != 0;
+                    int v = src switch
+                    {
+                        0 or 3 => ValueOf(src, a2),
+                        2 => code is 0x20 or 0x21 ? ValueOf(2, a2, false) : ValueOf(2, a2) != 0 ? 1 : 0,
+                        _ => ValueOf(1, a2, false),
+                    };
+                    if (code is 0x22 or 0x23)
+                    {
+                        var p = _ptrs[a1];
+                        _ptrs[a1] = p with { Offset = p.Offset + (code == 0x22 ? v : -v) };
+                        break;
+                    }
+                    int cur = toPtr ? Memory.Read(_ptrs[a1], false) : _vars[a1];
+                    int r = code switch
+                    {
+                        0 => cur + v,
+                        1 => cur - v,
+                        2 => cur * v,
+                        3 => v == 0 ? 0xFFFF : (cur & 0xFFFF) / v,
+                        0x20 => cur | v,
+                        _ => cur & v,
+                    };
+                    Store(toPtr ? 1 : 0, a1, r & 0xFFFF, !toPtr);
                     break;
+                }
                 case 2:
                 {
                     int ka = (op >> 4) & 3, kb = (op >> 2) & 3, c = op & 3;
@@ -153,10 +199,15 @@ public sealed class ScenarioVm
                         ok = (a1 < _flags.Length && _flags[a1]) == ((c & 1) == 1);
                         target = Word(ip + 2);
                     }
+                    else if (ka == 2)
+                    {
+                        ok = (a1 < _flags.Length && _flags[a1]) == (a2 < _flags.Length && _flags[a2]);
+                        target = Word(ip + 3);
+                    }
                     else
                     {
-                        int va = ValueOf(ka, a1, false, 0), vb = ValueOf(kb, a2, false, 0);
-                        ok = c switch { 0 => vb == va, 1 => vb != va, 2 => vb >= va, _ => va >= vb };
+                        int va = ValueOf(ka, a1), vb = ValueOf(kb, a2);
+                        ok = c switch { 0 => va == vb, 1 => va != vb, 2 => va >= vb, _ => vb >= va };
                         target = Word(ip + 3);
                     }
                     if (!ok) { ip = baseAt + target; continue; }
@@ -190,21 +241,30 @@ public sealed class ScenarioVm
                         case 0xF9:
                             run.Ships.Add(a1);
                             break;
-                        case 0xE4: run.Gold = _vars[a1]; break;
-                        case 0xE6: run.Gold = Math.Min(PlayerState.MaxGold, run.Gold + _vars[a1]); break;
-                        case 0xE7: run.Gold = Math.Max(0, run.Gold - _vars[a1]); break;
+                        case 0xE4: Memory.Gold = _vars[a1]; break;
+                        case 0xE6: Memory.Gold = (int)Math.Min(PlayerState.MaxGold, (long)Memory.Gold + _vars[a1]); break;
+                        case 0xE7: Memory.Gold = Math.Max(0, Memory.Gold - _vars[a1]); break;
+                        case 0xD0 or 0xDC:
+                        {
+                            int rec = _code[ip + 3];
+                            if (op == 0xD0) rec = _vars[rec] & 0xFF;
+                            _ptrs[a1] = ScenarioMemory.At(a2, rec, _code[ip + 4]);
+                            break;
+                        }
                         case 0xFE:
                             ip = baseAt + Word(ip + 1);
                             continue;
                         case 0xF0: nextSection = true; break;
                         case 0xF1: nextChapter = true; break;
                         case 0xF2 or 0xF4 or 0xFF:
+                            run.Gold = Memory.Gold;
                             return run;
                     }
                     break;
             }
             ip += len;
         }
+        run.Gold = Memory.Gold;
         return run;
     }
 }
