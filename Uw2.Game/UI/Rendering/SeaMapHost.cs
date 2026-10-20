@@ -253,6 +253,25 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>화살표가 보여 주는 바람의 달(0 부터). 게임 시작 달인 4(May)로 둔다.</summary>
     private const int FlowMonth = 4;
 
+    /// <summary>
+    /// 남의 함대 — 새 게임의 일흔 함대 가운데 바다에 나와 있고(+0x29 비트 0) 배가 있는 것.
+    /// 아직 움직이지 않는다(뱃길 그래프 DATA1.LZW 4번 청크를 옮기면 간다).
+    /// </summary>
+    public List<StartData.Fleet> Others { get; } = [];
+
+    private double _othersScale = -1;
+
+    /// <summary>남의 함대 자리를 렌더러에 올린다. 눈금이 바뀌었을 때만 다시 짓는다.</summary>
+    private void PushOthers()
+    {
+        double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale;
+        if (Math.Abs(scale - _othersScale) < 1e-9) return;
+        _othersScale = scale;
+        // 제 배와 같은 자리 잡기 — 함대 자리가 그림 가로 한가운데 · 밑변이다.
+        var list = Others.Select(f => ((float)f.X, (float)f.Y, f.Heading is > 4)).ToList();
+        _renderer.SetOthers(list, (float)(_shipW * scale), (float)(_shipH * scale));
+    }
+
     /// <summary>선종 · 사람 표(<c>SDATA.DAT</c>). 없으면 배를 띄우지 못한다.</summary>
     public StartData? StartTables { get; private set; }
 
@@ -282,6 +301,10 @@ public sealed class SeaMapHost : HwndHost
     {
         fleet.Ships.Clear();
         if (StartTables is not { } start) return;
+        Others.Clear();
+        // 뭍 위 자리(항구에 든 함대)는 지도에 안 그린다 — 바다에 나온 함대만.
+        Others.AddRange(start.Fleets.Where(f => f.Active && f.ShipCount > 0 && fleet.CanSail(f.X, f.Y)));
+        _othersScale = -1;
         var captain = start.People[HeroPerson[Hero]];
         fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[StandInShipType], captain));
     }
@@ -530,6 +553,8 @@ public sealed class SeaMapHost : HwndHost
         _lastOrigin = origin;
 
         _renderer.ShowArrows = ShowArrows && CurrentPort < 0;
+        _renderer.ShowOthers = CurrentPort < 0 && Others.Count > 0;
+        if (_renderer.ShowOthers) PushOthers();
         _renderer.RenderTo(_backBufferView, w, h, origin, CellsPerPixel, ShipRectAt(origin));
         _swapChain!.Present(1, PresentFlags.None);
         _dirty = false;

@@ -21,6 +21,7 @@ namespace Uw2.Support.Local.Formats;
 ///     monsters.json               괴물 자리 서른 곳
 ///     ships.json                  선종 스물다섯 (SDATA.DAT)
 ///     people.json                 사람 백스물 — 이름 · 능력치 · 레벨 (SDATA.DAT)
+///     fleets.png         133x70   새 게임 함대 일흔(값 = 날바이트, SDATA.DAT 0x247B)
 ///     wind.png           30x45    표 셋을 세로로 쌓음(값 = 날바이트)
 ///     world/
 ///       cells.png        1080x540 값 = 칸 값
@@ -326,6 +327,8 @@ public sealed class AssetPack
         var start = StartData.Load(sdataPath);
         WriteJson(Path.Combine(outDir, "ships.json"), start.ShipTypes.Select(ShipTypeJson.Of).ToArray());
         WriteJson(Path.Combine(outDir, "people.json"), start.People.Select(PersonJson.Of).ToArray());
+        IndexedPng.Write(Path.Combine(outDir, "fleets.png"), start.FleetBytes,
+                         StartData.FleetSize, StartData.FleetCount, DataPalette());
     }
 
     // ------------------------------------------------------------------ 읽기
@@ -379,8 +382,10 @@ public sealed class AssetPack
 
             var shipTypes = ReadJson<ShipTypeJson[]>(Path.Combine(dir, "ships.json"));
             var people = ReadJson<PersonJson[]>(Path.Combine(dir, "people.json"));
+            string fleetsPath = Path.Combine(dir, "fleets.png");
+            byte[]? fleetBytes = File.Exists(fleetsPath) ? IndexedPng.Read(fleetsPath).Pixels : null;
             var start = shipTypes != null && people != null
-                ? StartData.FromTables([.. shipTypes.Select(t => t.To())], [.. people.Select(p => p.To())])
+                ? StartData.FromTables([.. shipTypes.Select(t => t.To())], [.. people.Select(p => p.To())], fleetBytes)
                 : null;
 
             return new AssetPack

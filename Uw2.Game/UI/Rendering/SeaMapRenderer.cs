@@ -51,6 +51,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         Texture2D<float4> Ship    : register(t4);
         Texture2D<float>  ArrowTex: register(t5);
         Texture2D<uint>   FlowGrid: register(t6);
+        Texture2D<float4> Others  : register(t7);
 
         cbuffer Frame : register(b0)
         {
@@ -64,6 +65,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             float4 ShipSize;
             float4 SpriteSrc;
             float4 Arrows;
+            float4 OtherInfo;
         };
 
         struct VSOut { float4 pos : SV_Position; };
@@ -110,8 +112,35 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             return Glyph(px - center - float2(0, h), h, (word >> 8) & 0xFFu, float3(0.42, 0.90, 1.00));
         }
 
+        float4 OthersAt(float2 px)
+        {
+            int n = int(OtherInfo.x);
+            for (int k = 0; k < n; k++)
+            {
+                float4 f = Others.Load(int3(k, 0, 0));
+                float dx = f.x - OriginCell.x;
+                if (Grid.z > 0.5)
+                {
+                    if (dx < -MapCells.x * 0.5) dx += MapCells.x;
+                    if (dx > MapCells.x * 0.5) dx -= MapCells.x;
+                }
+                float2 at = float2(dx, f.y - OriginCell.y) / CellPerPixel;
+                float2 s = (px - (at - float2(OtherInfo.y * 0.5, OtherInfo.z))) / OtherInfo.yz;
+                if (any(s < 0) || any(s >= 1)) continue;
+                if (f.z > 0.5) s.x = 1.0 - s.x;
+                float4 c = Ship.Load(int3(int2(s * ShipSize.xy), 0));
+                if (c.a > 0) return float4(c.rgb * 0.78, 1);
+            }
+            return float4(0, 0, 0, 0);
+        }
+
         float4 PS(VSOut i) : SV_Target
         {
+            if (OtherInfo.x > 0)
+            {
+                float4 o = OthersAt(i.pos.xy);
+                if (o.a > 0) return o;
+            }
             if (ShipRect.z > 0)
             {
                 float2 s = (i.pos.xy - ShipRect.xy) / ShipRect.zw;
@@ -177,6 +206,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         public float SpriteW, SpriteH, ShipFlip, ShipPad1;
         public float SrcX, SrcY, SrcW, SrcH;
         public float ArrowOn, ArrowGrid, ArrowCols, ArrowRows;
+        public float OtherCount, OtherW, OtherH, OtherPad;
     }
 
     private ID3D11Device _device = null!;
@@ -191,6 +221,32 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     private ID3D11ShaderResourceView _shipSrv = null!;
     private ID3D11ShaderResourceView _arrowSrv = null!;
     private ID3D11ShaderResourceView _flowSrv = null!;
+    private ID3D11ShaderResourceView _othersSrv = null!;
+    private int _otherCount;
+    private float _otherW, _otherH;
+
+    /// <summary>남의 함대를 몇 척까지 그리는지.</summary>
+    public const int MaxOthers = 64;
+
+    /// <summary>
+    /// 남의 함대 자리(칩 눈금)를 건다 — 배 그림을 조금 어둡게 찍는다. <paramref name="w"/>·<paramref name="h"/> 는 화면 점.
+    /// </summary>
+    public void SetOthers(IReadOnlyList<(float X, float Y, bool West)> fleets, float w, float h)
+    {
+        var data = new float[MaxOthers * 4];
+        int n = Math.Min(MaxOthers, fleets.Count);
+        for (int i = 0; i < n; i++)
+        {
+            data[i * 4] = fleets[i].X;
+            data[i * 4 + 1] = fleets[i].Y;
+            data[i * 4 + 2] = fleets[i].West ? 1 : 0;
+            data[i * 4 + 3] = 1;
+        }
+        var old = _othersSrv;
+        _othersSrv = CreateImmutable(data, MaxOthers, 1, Format.R32G32B32A32_Float, sizeof(float) * 4);
+        old?.Dispose();
+        _otherCount = n; _otherW = w; _otherH = h;
+    }
     private int _atlasCols = AtlasCols;
 
     /// <summary>스왑체인을 걸 때 쓴다.</summary>
@@ -220,6 +276,9 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     /// 세계지도에서만 뜻이 있다 — 항구에서는 부르는 쪽이 끈다.
     /// </summary>
     public bool ShowArrows { get; set; }
+
+    /// <summary>남의 함대를 그릴지. 항구에서는 부르는 쪽이 끈다.</summary>
+    public bool ShowOthers { get; set; }
 
     /// <summary>화살표에 쓸 표(<see cref="FlowArrows.Grid"/>, 30 x 15)를 건다.</summary>
     public void SetFlow(ushort[] grid)
@@ -272,6 +331,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         SetShipSprite(new uint[1], 1, 1);
         _arrowSrv = CreateImmutable(FlowArrows.Alpha, FlowArrows.AtlasWidth, FlowArrows.CellSize, Format.R8_UNorm, 1);
         SetFlow(new ushort[WindCurTable.Cols * WindCurTable.Rows]);
+        SetOthers([], 0, 0);
     }
 
     /// <summary>
@@ -439,6 +499,9 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             ArrowGrid = WindCurTable.ChipsPerCell,
             ArrowCols = WindCurTable.Cols,
             ArrowRows = WindCurTable.Rows,
+            OtherCount = ShowOthers ? _otherCount : 0,
+            OtherW = _otherW,
+            OtherH = _otherH,
         };
 
         var map = _ctx.Map(_cb, 0, Vortice.Direct3D11.MapMode.WriteDiscard);
@@ -452,12 +515,13 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         _ctx.VSSetShader(_vs);
         _ctx.PSSetShader(_ps);
         _ctx.PSSetConstantBuffer(0, _cb);
-        _ctx.PSSetShaderResources(0, [_cellSrv, _atlasSrv, _paletteSrv, _flatSrv, _shipSrv, _arrowSrv, _flowSrv]);
+        _ctx.PSSetShaderResources(0, [_cellSrv, _atlasSrv, _paletteSrv, _flatSrv, _shipSrv, _arrowSrv, _flowSrv, _othersSrv]);
         _ctx.Draw(3, 0);
     }
 
     public void Dispose()
     {
+        _othersSrv?.Dispose();
         _flowSrv?.Dispose();
         _arrowSrv?.Dispose();
         _shipSrv?.Dispose();
