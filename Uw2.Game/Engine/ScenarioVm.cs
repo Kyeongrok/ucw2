@@ -13,7 +13,8 @@ namespace Uw2.Game.Engine;
 ///                    항구 0xA3 은 「0x82 아래 아무 항구」, 건물 0xFF 는 「아무 건물」
 ///   뛰기 · 갈래 자리  모두 S 에서 잰다
 /// </code>
-/// 옮긴 명령: 넣기 · 셈(00), 견주어 뛰기(10), 뛰기 FE, 대사 C8 · D4, 배 주기 F9, 돈 E4 · E6 · E7, 그침 F2 · F4 · FF.
+/// 옮긴 명령: 넣기 · 셈(00), 견주어 뛰기(10), 뛰기 FE, 대사 C8 · D4, 배 주기 F9, 돈 E4 · E6 · E7, 그침 F2 · F4 · FF,
+/// 다음 절 F0 · 다음 장 F1 — 이벤트가 끝난 뒤 넘긴다(<c>0x0043F7BA</c>). 다음 장은 절을 0 으로, 깃발 앞 서른둘을 지운다.
 /// 나머지는 길이(<see cref="Scenario.LengthAt"/>)만큼 넘긴다 — 얼굴(CC) · 말하는 쪽(C0) · 고르기(DC?) 따위는 아직이다.
 /// 게임 기억을 가리키는 변수(갈래 1, <c>0x0049F260</c> 표)는 0 으로 읽는다.
 /// </remarks>
@@ -81,6 +82,20 @@ public sealed class ScenarioVm
 
     private Run Execute(int baseAt, int ip, int gold, string name, string family)
     {
+        bool nextSection = false, nextChapter = false;
+        var run = Run_(baseAt, ip, gold, name, family, ref nextSection, ref nextChapter);
+        if (nextSection) Section++;
+        if (nextChapter)
+        {
+            Chapter++;
+            Section = 0;
+            Array.Clear(_flags, 0, 32);
+        }
+        return run;
+    }
+
+    private Run Run_(int baseAt, int ip, int gold, string name, string family, ref bool nextSection, ref bool nextChapter)
+    {
         var run = new Run { Gold = gold };
         for (int step = 0; step < MaxSteps && ip >= 0 && ip < _code.Length; step++)
         {
@@ -142,6 +157,8 @@ public sealed class ScenarioVm
                         case 0xFE:
                             ip = baseAt + Word(ip + 1);
                             continue;
+                        case 0xF0: nextSection = true; break;
+                        case 0xF1: nextChapter = true; break;
                         case 0xF2 or 0xF4 or 0xFF:
                             return run;
                     }
