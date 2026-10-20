@@ -636,6 +636,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("출항", (_, _) => PutToSea()));
         bar.Children.Add(Button("저장", (_, _) => SaveToSlot()));
         bar.Children.Add(Button("식량할당", (_, _) => SetRations()));
+        bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
 
         // 항구 고르개. 표를 못 읽으면 번호만 늘어놓는다.
         _portPick = new ComboBox
@@ -787,6 +788,72 @@ public sealed class SeaMapWindow : Window
     }
 
     private int _homePort = PortTable.Lisbon;
+
+    /// <summary>
+    /// 「함대」 — 목록 26(자함대정보 · 함선정보 · 인물정보 · 주인공정보 · 적하정보 …) 가운데 넷을 글로 보인다.
+    /// 원본은 그림 창(목록 47 의 머리 글)이다.
+    /// </summary>
+    private void ShowFleetInfo()
+    {
+        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보"];
+        int pick = BuildingMenu.Ask(this, "함대", items);
+        if (pick < 0) return;
+        var p = _host.Player;
+        var vm = _host.Scenario;
+        var st = _host.StartTables;
+        var sb = new System.Text.StringBuilder();
+        string Captain(PlayerState.Ship s) => _host.PersonName(s.Captain >= 0 ? s.Captain : _host.HeroPersonNumber);
+        int Get(int person, int field) => vm != null ? Navigators.Get(vm.Memory, person, field) : 0;
+        switch (pick)
+        {
+            case 0:
+                foreach (var s in p.Ships)
+                {
+                    string type = st != null && s.Type < st.Templates.Count ? st.Templates[s.Type].Name ?? "" : "";
+                    sb.AppendLine($"{s.Name} ({type}) — 선장 {Captain(s)}");
+                    sb.AppendLine($"    내구 {s.Hull}/{s.MaxHull} · 선원 {s.Crew}/{s.MaxCrew} · 사기 {s.Morale} · 짐 {s.Load}/{s.Room}");
+                }
+                if (p.Scurvy || p.Fever) sb.AppendLine((p.Scurvy ? "괴혈병 " : "") + (p.Fever ? "열병" : ""));
+                break;
+            case 1:
+                if (vm == null) break;
+                foreach (var (_, person, wage) in Navigators.Mates(vm.Memory))
+                {
+                    var stats = Enumerable.Range(0, 7).Select(k => Get(person, Navigators.Stats + k));
+                    string role = Get(person, Navigators.Status) == Navigators.Captain ? "선장" : "쉬는 중";
+                    sb.AppendLine($"{_host.PersonName(person)} — {role} · 급여 {wage} · 호감 {Get(person, Navigators.Liking)}");
+                    sb.AppendLine($"    능력치 {string.Join(" · ", stats)} · 항해 {Get(person, Navigators.NavLevel)} · 전투 {Get(person, Navigators.BattleLevel)}");
+                }
+                if (sb.Length == 0) sb.AppendLine("동료가 없습니다.");
+                break;
+            case 2:
+            {
+                int hero = _host.HeroPersonNumber;
+                var stats = Enumerable.Range(0, 7).Select(k => Get(hero, Navigators.Stats + k));
+                string nation = _host.HeroNation < NationNames.Length ? NationNames[_host.HeroNation] : "없음";
+                sb.AppendLine($"{_host.PersonName(hero)} — {nation} · 작위 {_host.HeroRank}");
+                sb.AppendLine($"능력치 {string.Join(" · ", stats)}");
+                sb.AppendLine($"항해 레벨 {Get(hero, Navigators.NavLevel)} · 전투 레벨 {Get(hero, Navigators.BattleLevel)} · 운 {Get(hero, Church.Luck)}");
+                sb.AppendLine($"돈 {p.Gold}{BalanceText()}");
+                if (vm != null)
+                {
+                    var owned = ItemShop.Owned(vm.Memory).Select(i => ItemShop.Get(vm.Memory, i).Name);
+                    sb.AppendLine($"아이템 {string.Join(" · ", owned)}");
+                }
+                break;
+            }
+            default:
+                if (_host.Economy is not { } eco) break;
+                foreach (var s in p.Ships)
+                {
+                    var cargo = s.Cargo.Where(c => c.Good >= 0).Select(c => $"{eco.GoodsNames[c.Good]} {c.Amount}");
+                    sb.AppendLine($"{s.Name}: 물 {s.Supplies[0]} · 식량 {s.Supplies[1]} · 자재 {s.Supplies[2]} · 탄약 {s.Supplies[3]}"
+                                  + (cargo.Any() ? " · " + string.Join(" · ", cargo) : ""));
+                }
+                break;
+        }
+        MessageBox.Show(this, sb.Length > 0 ? sb.ToString() : "—", items[pick]);
+    }
 
     /// <summary>
     /// 「식량할당」 — 물 · 식량 비율 0 ~ 100(<c>0x00441800</c>, 하나씩 올리고 내린다). 배마다 하루에
