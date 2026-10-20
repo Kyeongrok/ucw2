@@ -1481,14 +1481,80 @@ public sealed class SeaMapWindow : Window
         ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", head), new ScenarioVm.Line("", tail)]);
     }
 
-    /// <summary>주점 「도박」(<c>0x00426B20</c>) — 블랙잭 · 다이스. 돈이 없으면 0x3F2. 다이스는 아직이다.</summary>
+    /// <summary>주점 「도박」(<c>0x00426B20</c>) — 블랙잭 · 다이스. 돈이 없으면 0x3F2.</summary>
     private void Gamble()
     {
         var p = _host.Player;
         if (p.Gold <= 0) { Say(0x3F2, "금화도 없는 놈을 상대할 순 없지."); return; }
         int game = BuildingMenu.Ask(this, "도박", ["Black Jack", "Dice"]);
         if (game == 0) PlayBlackJack();
-        else if (game == 1) Note(" · 다이스는 아직 없습니다");
+        else if (game == 1) PlayDice();
+    }
+
+    /// <summary>
+    /// 다이스 한 자리(<see cref="Dice"/>, <c>0x004079D0</c>) — 걸고 흥정한 뒤 셋이 굴린다. 주인공은 남길 눈 자리(1 ~ 5)를 적어 두 번까지 다시 굴리고,
+    /// 남은 같은 눈을 남긴다. 원본은 눈 그림을 눌러 고르고 시작하는 이를 돌려 가며 굴린다.
+    /// </summary>
+    private void PlayDice()
+    {
+        var p = _host.Player;
+        int start = p.Gold;
+        if (p.Gold < Dice.MinBet) { Say(0x3F2, "금화도 없는 놈을 상대할 순 없지."); return; }
+        if (MessageBox.Show(this, MsgOr(0x3E9, "당신, 우리들과 다이스를 하겠소？"), "다이스", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        Say(0x3EA, "헛, 봉이 또 오는군！");
+        string Show(int[] d) => string.Join(" ", d.Select(x => x + 1));
+        while (true)
+        {
+            int most = Math.Min(p.Gold, Dice.MaxBet);
+            int bet = AmountDialog.Ask(this, MsgOr(0x3C2, "도박금은 얼마요？") + $" ({Dice.MinBet}-{most})", most);
+            if (bet <= 0) break;
+            if (bet < Dice.MinBet) { Say(0x3C3, "뭐야 이거！ 애들 장난도 아니구."); continue; }
+            if (Dice.Raise(bet, Random.Shared.Next) is not { } raise)
+                SayText(MsgOr(0x3E1, "그걸로 좋소.") + "\n" + MsgOr(0x3E2, "나도."));
+            else if (MessageBox.Show(this, MsgOr(0x3D9, $"나는 금화 {raise}닢으로 했으면 좋겠는데.", raise), "다이스", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            {
+                bet = raise;
+                SayText(MsgOr(0x3DA, "당신이 좋다면 난 상관없소.") + "\n" + MsgOr(0x3DB, "그래, 그렇게 나와야지."));
+            }
+            else
+            {
+                var (agreed, msg) = Dice.Refuse(bet, raise, Random.Shared.Next);
+                bet = agreed;
+                SayText(MsgOr(msg, $"도박금은 금화 {bet}닢으로 하지.", bet)
+                        + "\n" + MsgOr(msg == 0x3DF ? 0x3E0 : msg == 0x3DD ? 0x3DE : 0x3DB, "좋소."));
+            }
+            bet = Math.Min(bet, p.Gold);
+            p.SetGold(p.Gold - bet);
+            var rand = Random.Shared;
+            int[] Npc()
+            {
+                var d = Dice.Roll(new int[Dice.Count], new bool[Dice.Count], rand.Next);
+                for (int r = 0; r < Dice.Rerolls; r++) d = Dice.Roll(d, Dice.Keep(d), rand.Next);
+                return d;
+            }
+            int[] a = Npc(), b = Npc();
+            var mine = Dice.Roll(new int[Dice.Count], new bool[Dice.Count], rand.Next);
+            for (int r = 0; r < Dice.Rerolls; r++)
+            {
+                string? keep = TextDialog.Ask(this, MsgOr(0x3D8, "이 눈으로 승부를？") + $"  [{Show(mine)}]  남길 자리(1-5, 다 남기면 12345)", "12345", 5);
+                if (keep == null || keep.Distinct().Count(c => c is >= '1' and <= '5') == 5) break;
+                bool[] k = [.. Enumerable.Range(1, Dice.Count).Select(i => keep.Contains((char)('0' + i)))];
+                mine = Dice.Roll(mine, k, rand.Next);
+            }
+            int result = Dice.Judge(mine, a, b);
+            int say = result switch { 0 => 0x3E5, 4 => 0x3E7, 5 or 6 => 0x3E8, _ => 0x3E6 };
+            SayText($"갑  {Show(a)}\n을  {Show(b)}\n당신  {Show(mine)}\n\n" + MsgOr(say, result == 0 ? "쳇, 제법인데！" : "도박금은 내가 가지겠어."));
+            p.SetGold(Math.Min(PlayerState.MaxGold, p.Gold + Dice.Payout(result, bet)));
+            if (p.Gold < Dice.MinBet)
+            {
+                SayText(MsgOr(0x3EB, "안됐네！ 그렇다고 너무 풀죽진 말게.") + "\n" + MsgOr(0x3EC, "돈이 생기면 또 오게！"));
+                return;
+            }
+            if (MessageBox.Show(this, MsgOr(0x3ED, "또 한판하지 않겠소？"), "다이스", MessageBoxButton.YesNo) != MessageBoxResult.Yes) break;
+        }
+        if (p.Gold > start + 500) SayText(MsgOr(0x3EE, "어！ 벌써 돌아가는 거요？") + "\n" + MsgOr(0x3EF, "이기고 도망가다니 더러운 놈이다！"));
+        else if (p.Gold + 500 < start) SayText(MsgOr(0x3F0, "뭐야, 벌써 그만두는 거야？") + "\n" + MsgOr(0x3F1, "흐흐, 역시 봉이였어！"));
+        Note($" · 소지금 {start} → {p.Gold}");
     }
 
     /// <summary>
