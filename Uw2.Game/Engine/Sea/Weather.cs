@@ -126,6 +126,15 @@ public sealed class Weather
         });
     }
 
+    /// <summary>성스런 향유 — 폭풍이면 멎게 한다(<c>0x0041FB90</c>, 0x0049F598 &amp; 0xF == 1). 멎었으면 참.</summary>
+    public bool Calm()
+    {
+        if (Current != Kind.Storm) return false;
+        Current = Kind.Clear;
+        Brewing = false;
+        return true;
+    }
+
     /// <summary>날씨가 바람에 미치는 것 — 폭풍은 7, 무풍은 0. 조짐 동안은 그대로다.</summary>
     public int Apply(int windSpeed) => Brewing ? windSpeed : Current switch
     {

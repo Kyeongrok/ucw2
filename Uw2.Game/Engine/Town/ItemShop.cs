@@ -77,6 +77,32 @@ public static class ItemShop
     public static int Haggle(int offer, int luck, int charm, Func<int, int> rand) =>
         rand(100) <= luck ? offer + offer * charm / 100 : -1;
 
+    /// <summary>장비했는지 — 아이템 +0x13 의 0x10(<c>0x0041F787</c>).</summary>
+    public const int Equipped = 0x10, MaxEquipGroup = 6;
+
+    public static bool IsEquipped(ScenarioMemory m, int index) =>
+        (m.Read(ScenarioMemory.At(Table, index, 0x13), false) & Equipped) != 0;
+
+    /// <summary>
+    /// 「장비」(<c>0x0041F740</c>) — 갈래 0 ~ 6 만 된다. 입고 있으면 벗고, 아니면 같은 갈래의 다른 것을 벗기고 입는다.
+    /// 됐으면 지금 입었는지, 안 되면 null.
+    /// </summary>
+    public static bool? ToggleEquip(ScenarioMemory m, int index)
+    {
+        var at = ScenarioMemory.At(Table, index, 0x13);
+        int kind = m.Read(at, false);
+        if ((kind & 0x0F) > MaxEquipGroup) return null;
+        if ((kind & Equipped) != 0) { m.Write(at, kind & ~Equipped, false); return false; }
+        foreach (int other in Owned(m))
+        {
+            var o = ScenarioMemory.At(Table, other, 0x13);
+            int ok = m.Read(o, false);
+            if ((ok & 0x0F) == (kind & 0x0F)) m.Write(o, ok & ~Equipped, false);
+        }
+        m.Write(at, kind | Equipped, false);
+        return true;
+    }
+
     public static void Sell(ScenarioMemory m, int index, int price, ref int gold)
     {
         for (int i = 0; i < OwnedSlots; i++)

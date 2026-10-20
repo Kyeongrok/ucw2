@@ -655,4 +655,21 @@ public class AssetTests
         Assert.Equal([5], run.Ships);
         Assert.Equal([(5, "헤르메스Ⅱ세")], run.ShipNames);
     }
+
+    [Fact]
+    public void EquipTogglesWithinAGroupAndToolsCannotBeWorn()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, pack.Start!.ItemBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        int gold = 1_000_000;
+        foreach (int i in (int[])[0, 1, 20]) Uw2.Game.Engine.Town.ItemShop.Buy(m, i, ref gold);    // 단도 · 다음 칼 · 사분의
+        Assert.Equal(Uw2.Game.Engine.Town.ItemShop.Get(m, 0).Group, Uw2.Game.Engine.Town.ItemShop.Get(m, 1).Group);
+        Assert.True(Uw2.Game.Engine.Town.ItemShop.ToggleEquip(m, 0));
+        Assert.True(Uw2.Game.Engine.Town.ItemShop.ToggleEquip(m, 1));
+        Assert.False(Uw2.Game.Engine.Town.ItemShop.IsEquipped(m, 0));                       // 같은 갈래는 하나만
+        Assert.False(Uw2.Game.Engine.Town.ItemShop.ToggleEquip(m, 1));
+        Assert.Null(Uw2.Game.Engine.Town.ItemShop.ToggleEquip(m, 20));                       // 갈래 7 — 장비할 수 없다
+    }
 }

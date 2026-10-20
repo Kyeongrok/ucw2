@@ -1001,6 +1001,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("식량할당", (_, _) => SetRations()));
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
         bar.Children.Add(Button("상륙", (_, _) => Land()));
+        bar.Children.Add(Button("아이템", (_, _) => UseItem()));
 
         // 항구 고르개. 표를 못 읽으면 번호만 늘어놓는다.
         _portPick = new ComboBox
@@ -1255,6 +1256,67 @@ public sealed class SeaMapWindow : Window
         if (spot is { } s) AtVillage(s.Index);
         else OnShore();
         f.UnderSail = true;
+    }
+
+    /// <summary>
+    /// 「아이템」 — 가진 것을 골라 목록 33(장비 · 사용, <c>0x0041F630</c>). 쓰기는 갈래마다 다르다(<c>0x0041F8F0</c>):
+    /// 7 사분의 · 육분의 · 경위의는 지금 자리(경위도), 8 의 회중시계는 시각, 9 의 쥐약 · 성스런 향유 · 라임 주스는 쓰고 없어진다.
+    /// </summary>
+    private void UseItem()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        var owned = ItemShop.Owned(m);
+        if (owned.Count == 0) { Note(" · 가진 아이템이 없습니다"); return; }
+        int pick = BuildingMenu.Ask(this, "아이템", owned.Select(i =>
+            ItemShop.Get(m, i).Name + (ItemShop.IsEquipped(m, i) ? " (장비)" : "")).ToList());
+        if (pick < 0) return;
+        int item = owned[pick];
+        var it = ItemShop.Get(m, item);
+        int how = BuildingMenu.Ask(this, it.Name, ["장  비", "사  용"]);
+        if (how < 0) return;
+        if (how == 0)
+        {
+            Note(ItemShop.ToggleEquip(m, item) switch
+            {
+                true => " · 아이템을 장비합니다",
+                false => " · 아이템을 벗습니다",
+                null => " · 이 아이템은 장비할수 없습니다",
+            });
+            return;
+        }
+        var p = _host.Player;
+        var f = _host.Fleet;
+        string said;
+        bool usedUp = false;
+        switch (it.Group)
+        {
+            case 7 when f != null:
+            {
+                // 지금 자리 — 경도는 (x + 0x7BD) mod 2160 을 6 으로, 위도는 (640 − y) x 8 / 57(모험소문과 같은 자).
+                int x = ((int)f.X + 0x7BD) % ChipMap.Width, y = 640 - (int)f.Y;
+                bool west = x > ChipMap.Width / 2;
+                if (west) x = ChipMap.Width - x;
+                said = $"{(west ? "서경" : "동경")} {x / 6}도 · {(y >= 0 ? "북위" : "남위")} {Math.Abs(y) * 8 / 57}도";
+                break;
+            }
+            case 8 when item == 0x17 && f != null: said = $"지금은 {Fleet.Clock(f.TimeOfDay)}"; break;
+            case 9 when item == 0x29: said = "특별히 아무일도 일어나지 않았다"; usedUp = true; break;   // 쥐 떼는 아직 없다
+            case 9 when item == 0x2A:
+                said = f?.Weather.Calm() == true
+                    ? (f.TimeOfDay is >= 12 and < 60 ? "폭풍이 멈췄다…지금은낮이다" : "폭풍이 멈췄다…지금은밤이다")
+                    : "특별히 아무일도 일어나지 않았다";
+                usedUp = true;
+                break;
+            case 9 when item == 0x2B:
+                said = p.Scurvy ? "괴혈병이 나았다…" : "맛있다";
+                p.Scurvy = false;
+                usedUp = true;
+                break;
+            default: said = "특별히 아무일도 일어나지 않았다"; break;
+        }
+        if (usedUp) { int none = 0; ItemShop.Sell(m, item, 0, ref none); }
+        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(it.Name, said)]);
     }
 
     /// <summary>탐색 덤(<c>0x0049A164</c>) — 부락에 내릴 때마다 0 에서 시작하고 「환대」 가 5 씩 올린다.</summary>
