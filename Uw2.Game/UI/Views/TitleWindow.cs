@@ -36,7 +36,7 @@ public sealed class TitleWindow : Window
         ("Catalina Erantzo", "세빌리아"),
         ("Pietro Conti",     "제노바"),
         ("Ali Vezas",        "이스탄불"),
-        ("Ernst von Bohr",   "함부르크"),
+        ("Ernst von Bohr",   "암스테르담"),    // SDATA 주인공 함대 50 의 머문 항구 33
         ("Otto Baynes",      "런던"),
     ];
 

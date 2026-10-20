@@ -180,7 +180,8 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     public void ShowHomePort(int hero)
     {
-        string[] homes = ["리스본", "세빌리아", "제노바", "이스탄불", "함부르크", "런던"];
+        // 고향은 SDATA.DAT 주인공 함대의 머문 항구(+0x26) 그대로다 — 에른스트는 암스테르담(33)이다.
+        string[] homes = ["리스본", "세빌리아", "제노바", "이스탄불", "암스테르담", "런던"];
         string want = hero >= 0 && hero < homes.Length ? homes[hero] : homes[0];
         _host.SetHero(hero);
 
