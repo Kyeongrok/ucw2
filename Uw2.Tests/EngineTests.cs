@@ -153,4 +153,25 @@ public class EngineTests
         Assert.Equal((20, 15), (p.Ships[0].Crew, p.Ships[1].Crew));
         Assert.Equal(0, p.Gold);
     }
+
+    [Fact]
+    public void BankKeepsOneSignedBalanceWithMonthlyInterest()
+    {
+        var p = new PlayerState(5000);
+        Assert.Equal(5000, Uw2.Game.Engine.Town.Bank.MaxDeposit(p.Gold, p.Balance));
+        Assert.Equal(0, Uw2.Game.Engine.Town.Bank.MaxDeposit(1000, 0));          // 1000 을 넘어야 한다
+        p.Transfer(4000);
+        Assert.Equal((1000, 4000), (p.Gold, p.Balance));
+        Assert.Equal(0, Uw2.Game.Engine.Town.Bank.MaxLoan(p.Balance, 0));        // 예금이 있으면 못 빌린다
+        p.NewMonth();
+        Assert.Equal(4120, p.Balance);                                           // 3%
+        p.Transfer(-4120);
+        Assert.Equal(1000, Uw2.Game.Engine.Town.Bank.MaxLoan(p.Balance, 0));
+        Assert.Equal(11000, Uw2.Game.Engine.Town.Bank.MaxLoan(p.Balance, 1));    // 1000 + 10000 x 1²
+        p.Transfer(-1000);
+        p.NewMonth();
+        Assert.Equal(-1100, p.Balance);                                          // 빚 10%
+        Assert.Equal(1100, Uw2.Game.Engine.Town.Bank.MaxRepay(p.Gold, p.Balance));
+        Assert.Equal(1_000_000, Uw2.Game.Engine.Town.Bank.WithInterest(990_000));
+    }
 }

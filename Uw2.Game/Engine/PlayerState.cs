@@ -47,6 +47,19 @@ public sealed class PlayerState
 
     public PlayerState(int gold) => Gold = Math.Clamp(gold, 0, MaxGold);
 
+    /// <summary>은행 잔고 — 0 보다 크면 예금, 작으면 빚(<see cref="Town.Bank"/>).</summary>
+    public int Balance { get; private set; }
+
+    /// <summary>돈과 잔고 사이로 옮긴다 — 양수는 돈 → 잔고(예금 · 상환), 음수는 잔고 → 돈(출금 · 대출).</summary>
+    public void Transfer(int amount)
+    {
+        Gold = Math.Clamp(Gold - amount, 0, MaxGold);
+        Balance += amount;
+    }
+
+    /// <summary>달이 바뀔 때 — 이자를 붙인다.</summary>
+    public void NewMonth() => Balance = Town.Bank.WithInterest(Balance);
+
     /// <summary>돈을 바로 매긴다 — 시나리오 돈 명령(E4 · E6 · E7)이 쓴다.</summary>
     public void SetGold(int gold) => Gold = Math.Clamp(gold, 0, MaxGold);
 

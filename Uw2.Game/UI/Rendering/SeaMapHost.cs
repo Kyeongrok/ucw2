@@ -242,6 +242,7 @@ public sealed class SeaMapHost : HwndHost
         if (Map != null && Chips != null)
         {
             Fleet = new Fleet(Map, Chips, Wind);
+            Fleet.NewMonth += () => Player.NewMonth();
             Crew(Fleet);
             FleetReady?.Invoke(Fleet);
         }
@@ -379,6 +380,11 @@ public sealed class SeaMapHost : HwndHost
             g[ScenarioVm.ValueTime] = Fleet.TimeOfDay;
         }
         Scenario.GameValues[ScenarioVm.ValuePort] = CurrentPort < 0 ? 255 : CurrentPort;
+        // 은행 잔고 — 표 2 +4 낱말 x 100 + +6 바이트(0x0049F5AC · 0x0049F5AE).
+        int hundreds = Player.Balance / 100, rest = Player.Balance - hundreds * 100;
+        if (rest < 0) { hundreds--; rest += 100; }
+        Scenario.Memory.Write(new ScenarioMemory.Pointer(ScenarioMemory.GoldTable, 4), hundreds & 0xFFFF, true);
+        Scenario.Memory.Write(new ScenarioMemory.Pointer(ScenarioMemory.GoldTable, 6), rest, false);
         var m = Scenario.Memory;
         for (int i = 0; i < Player.Ships.Count; i++)
         {

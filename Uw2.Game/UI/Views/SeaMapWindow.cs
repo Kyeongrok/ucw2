@@ -32,7 +32,7 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8;
 
     /// <summary>항구 「보급」 — 넷 가운데 하나를 단(열 통)으로 싣는다(<see cref="Economy.SupplyPrice"/>).</summary>
     private void ShowSupplies()
@@ -101,9 +101,44 @@ public sealed class SeaMapWindow : Window
         if (b == TradeBuilding && pick == 1) { SellGoods(); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
+        if (b == BankBuilding) { UseBank(pick); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>은행 — 예금 · 출금 · 대출 · 상환(<see cref="Bank"/>). 작위는 아직 0 으로 친다.</summary>
+    private void UseBank(int pick)
+    {
+        var p = _host.Player;
+        string[] names = ["예금", "출금", "대출", "상환"];
+        if (pick is < 0 or > 3) return;
+        int most = pick switch
+        {
+            0 => Bank.MaxDeposit(p.Gold, p.Balance),
+            1 => Bank.MaxWithdraw(p.Gold, p.Balance),
+            2 => Bank.MaxLoan(p.Balance, rank: 0),
+            _ => Bank.MaxRepay(p.Gold, p.Balance),
+        };
+        if (most <= 0)
+        {
+            Note(pick switch
+            {
+                0 when p.Balance < 0 => " · 빚이 있으면 예금할 수 없습니다",
+                0 when p.Gold <= Bank.DepositFloorGold => " · 1000 넘게 가져와야 예금할 수 있습니다",
+                0 => " · 더는 맡길 수 없습니다",
+                1 => " · 맡긴 돈이 없습니다",
+                2 when p.Balance > 0 => " · 예금이 있으면 빌릴 수 없습니다",
+                2 => " · 더는 빌려 드릴 수 없습니다",
+                _ => " · 갚을 빚이 없습니다",
+            });
+            return;
+        }
+        string balance = p.Balance >= 0 ? $"예금 {p.Balance}" : $"빚 {-p.Balance}";
+        int n = AmountDialog.Ask(this, $"{names[pick]} — 돈 {p.Gold} · {balance}", most);
+        if (n <= 0) return;
+        p.Transfer(pick is 0 or 3 ? n : -n);
+        Note($" · {names[pick]} {n}");
     }
 
     /// <summary>주점 「선원 고용」 — 올 사람 · 값은 원본 셈(<see cref="Pub"/>), 앞 배부터 빈 자리를 채운다.</summary>

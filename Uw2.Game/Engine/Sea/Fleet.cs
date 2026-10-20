@@ -178,8 +178,12 @@ public sealed class Fleet
             DaysAtSea++;
             Date.NextDay();
             Weather.NewDay();
+            if (Date.Day == 0) NewMonth?.Invoke();
         }
     }
+
+    /// <summary>달이 바뀌었을 때(<c>0x0043AA52</c> — 은행 이자 따위).</summary>
+    public event Action? NewMonth;
 
     private bool _windSet;
 
