@@ -441,4 +441,33 @@ public class AssetTests
         string? dump = Environment.GetEnvironmentVariable("UW2_SURVEY");
         if (dump != null) File.WriteAllLines(dump, log);
     }
+
+    [Fact]
+    public void JoaoMeetsHisFatherWithFullMemoryAndTheSharedScenarioFirst()
+    {
+        var pack = Load();
+        string dir = Path.Combine(AssetDir, "snr");
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, pack.Start!.PeopleBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.NationTable, pack.Start.NationBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.HeroTable, pack.Start.HeroBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.FleetTable, pack.Start.FleetBytes);
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, pack.Start.ItemBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MarketTable, pack.Economy!.MarketBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PortStateTable, pack.Economy.StateBytes);
+        m.FillPorts(pack.Ports.Select(p => (p.X, p.Y, p.Name, p.Nation)));
+        m.FillGoodsNames(pack.Economy.GoodsNames);
+        var hero = new Uw2.Game.Engine.ScenarioVm(File.ReadAllBytes(Path.Combine(dir, "SNR1.DAT")),
+                                                  ScenarioText.Load(Path.Combine(dir, "SNR1.MES")), m);
+        var common = new Uw2.Game.Engine.ScenarioVm(File.ReadAllBytes(Path.Combine(dir, "SNR0.DAT")),
+                                                    ScenarioText.Load(Path.Combine(dir, "SNR0.MES")), m) { EndsAtChapterZero = true };
+        foreach (var vm in (Uw2.Game.Engine.ScenarioVm[])[hero, common])
+        {
+            vm.GameValues[2] = 21; vm.GameValues[3] = 4; vm.GameValues[4] = 16; vm.GameValues[5] = 0; vm.GameValues[7] = 24;
+        }
+        common.Enter(0, 7, 1000, "조안", "페레로");
+        var run = hero.Enter(0, 7, 1000, "조안", "페레로");
+        Assert.Contains(run!.Lines, l => l.Body.Contains("프레스터 존왕국"));
+    }
 }
