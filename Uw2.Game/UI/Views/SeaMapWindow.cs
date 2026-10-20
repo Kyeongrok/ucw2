@@ -29,8 +29,18 @@ public sealed class SeaMapWindow : Window
     /// <summary>마지막으로 든 건물 — 상태줄에 적는다. 항구를 옮기면 지운다.</summary>
     private string _doorNote = "";
 
-    /// <summary>건물 번호 3 — 항구(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3;
+    /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
+    private const int HarborBuilding = 3, TradeBuilding = 0;
+
+    /// <summary>교역소 — 「구입」을 고르면 이 항구에서 파는 것과 값(<see cref="Economy.ForSale"/>)을 늘어놓는다. 사고팔기는 아직이다.</summary>
+    private void Trade()
+    {
+        int pick = BuildingMenu.Ask(this, "교역소", BuildingMenu.Trade);
+        if (pick != 0 || _host.Economy is not { } eco) return;
+        var goods = eco.ForSale(_host.CurrentPort);
+        if (goods.Count == 0) { _doorNote = " · 이 항구 교역소에는 파는 것이 없습니다"; UpdateStatus(); return; }
+        BuildingMenu.Ask(this, "구입 — 한 통 값", goods.Select(g => $"{eco.GoodsNames[g.Good],-6}  {g.Price,5}").ToList());
+    }
 
     /// <summary>항구 고르기 — 출항만 된다. 보급 · 명명은 아직이다.</summary>
     private void Harbor()
@@ -108,6 +118,7 @@ public sealed class SeaMapWindow : Window
             UpdateStatus();
             // 항구는 고르기 창을 띄운다 — 그림을 그리는 틈 안이라 한 박자 뒤에 연다.
             if (open && b == HarborBuilding) Dispatcher.BeginInvoke(Harbor);
+            if (open && b == TradeBuilding) Dispatcher.BeginInvoke(Trade);
         };
         Loaded += (_, _) => OpenBest();
         KeyDown += OnKey;

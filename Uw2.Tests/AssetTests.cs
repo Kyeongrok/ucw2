@@ -57,4 +57,21 @@ public class AssetTests
     [Fact]
     public void FacesAreBaked() =>
         Assert.Equal(AssetPack.KaoCols * KaoImages.FaceW, Pack.FacesWidth);
+
+    [Fact]
+    public void LisbonMarketPricesFollow0x004208D0()
+    {
+        var eco = Pack.Economy!;
+        Assert.Equal(46, eco.GoodsNames.Count);
+        Assert.Equal("정향", eco.GoodsNames[0]);
+        Assert.Equal(0, eco.States[0].Zone);                          // 리스본은 시장 0
+        var sale = eco.ForSale(0);
+        Assert.Equal(10, sale.Count);                                 // 아홉 + 특산품
+        Assert.Equal((11, 36), sale[0]);                              // 유제품 30 x 102/100 x 12/10
+        Assert.Equal((12, 24), sale[1]);                              // 어육
+        Assert.Equal((15, 43), sale[3]);                              // 와인
+        Assert.Equal((16, 45), sale[^1]);                             // 특산품 돌소금
+        Assert.Equal(2, Economy.CategoryOf(11));
+        Assert.Equal(9, Economy.CategoryOf(45));
+    }
 }

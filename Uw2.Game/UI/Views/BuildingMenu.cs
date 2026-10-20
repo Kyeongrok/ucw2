@@ -10,12 +10,15 @@ namespace Uw2.Game.UI.Views;
 /// <remarks>
 /// <c>MENU.DAT</c> 는 목록마다 <c>06 개수</c> 머리를 달고 글을 0 으로 끊어 늘어놓는다 —
 /// 항구는 <c>06 03</c> 「출  항 · 보  급 · 명  명」, 그 뒤 <c>06 0C</c> 가 건물 이름 열둘이다(<c>0x9AD</c> 언저리).
-/// 지금은 항구만 있고, 고른 줄의 차례를 돌려준다(닫으면 -1).
+/// 항구 · 교역소가 있고, 고른 줄의 차례를 돌려준다(닫으면 -1).
 /// </remarks>
 public sealed class BuildingMenu : Window
 {
     /// <summary>항구 목록 — <c>MENU.DAT</c> 그대로.</summary>
     public static readonly string[] Harbor = ["출  항", "보  급", "명  명"];
+
+    /// <summary>교역소 목록 — <c>MENU.DAT 0xFF</c> 「구  입 · 매  각」.</summary>
+    public static readonly string[] Trade = ["구  입", "매  각"];
 
     private int _picked = -1;
 

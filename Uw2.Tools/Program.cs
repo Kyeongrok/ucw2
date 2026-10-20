@@ -67,6 +67,8 @@ public static class Program
         AssetPack.BakeDoors(Path.Combine(dir, "ZA_DAT.DAT"), outDir);
         AssetPack.BakeKao(Path.Combine(dir, "KAO.LZW"), outDir);
         AssetPack.BakeRoute(Path.Combine(dir, "DATA1.LZW"), outDir);
+        string han8 = Path.Combine(dir, "KOUKAI2-han8.exe");
+        if (File.Exists(han8)) AssetPack.BakeEconomy(Path.Combine(dir, "SDATA.DAT"), han8, outDir);
         var start = StartData.Load(Path.Combine(dir, "SDATA.DAT"));
         foreach (var t in start.ShipTypes)
             Console.WriteLine($"{t.Index,2}  내구 {t.Durability,3} 역풍 {t.Upwind,3} 돛 {t.Sail,3} 드는선원 {t.RequiredCrew,3}"

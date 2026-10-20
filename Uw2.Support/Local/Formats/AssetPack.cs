@@ -22,6 +22,9 @@ namespace Uw2.Support.Local.Formats;
 ///     ships.json                  선종 스물다섯 (SDATA.DAT)
 ///     people.json                 사람 백스물 — 이름 · 능력치 · 레벨 (SDATA.DAT)
 ///     fleets.png         133x70   새 게임 함대 일흔(값 = 날바이트, SDATA.DAT 0x247B)
+///     goods.json                  교역품 이름 마흔여섯 (KOUKAI2-han8.exe)
+///     markets.png        128x13   시장 열셋(값 = 날바이트, SDATA.DAT 0x605A)
+///     portstate.png      37x100   항구 형편 백(값 = 날바이트, SDATA.DAT 0x66DA)
 ///     wind.png           30x45    표 셋을 세로로 쌓음(값 = 날바이트)
 ///     world/
 ///       cells.png        1080x540 값 = 칸 값
@@ -325,6 +328,15 @@ public sealed class AssetPack
         IndexedPng.Write(Path.Combine(outDir, "kao", "finds.png"), na, nw, nh, pal);
     }
 
+    /// <summary>교역 표를 굽는다 — 이름은 한글판 EXE 에서, 시장 · 항구 형편은 <c>SDATA.DAT</c> 에서.</summary>
+    public static void BakeEconomy(string sdataPath, string han8ExePath, string outDir)
+    {
+        var e = Economy.Load(sdataPath, han8ExePath);
+        WriteJson(Path.Combine(outDir, "goods.json"), e.GoodsNames.ToArray());
+        IndexedPng.Write(Path.Combine(outDir, "markets.png"), e.MarketBytes, Economy.MarketSize, Economy.MarketCount, DataPalette());
+        IndexedPng.Write(Path.Combine(outDir, "portstate.png"), e.StateBytes, Economy.StateSize, Economy.StateCount, DataPalette());
+    }
+
     /// <summary><c>ZA_DAT.DAT</c> 의 문 자리를 굽는다(<c>port/doors.png</c>, 줄 하나가 항구 하나).</summary>
     public static void BakeDoors(string zaDatPath, string outDir)
     {
@@ -402,6 +414,11 @@ public sealed class AssetPack
                 var r = IndexedPng.Read(routePath);
                 routes = RouteGraph.FromBytes(r.Pixels, r.Height);
             }
+            Economy? economy = null;
+            var goodsNames = ReadJson<string[]>(Path.Combine(dir, "goods.json"));
+            string marketsPath = Path.Combine(dir, "markets.png"), statePath = Path.Combine(dir, "portstate.png");
+            if (goodsNames != null && File.Exists(marketsPath) && File.Exists(statePath))
+                economy = Economy.FromParts(goodsNames, IndexedPng.Read(marketsPath).Pixels, IndexedPng.Read(statePath).Pixels);
             string fleetsPath = Path.Combine(dir, "fleets.png");
             byte[]? fleetBytes = File.Exists(fleetsPath) ? IndexedPng.Read(fleetsPath).Pixels : null;
             var start = shipTypes != null && people != null
@@ -412,6 +429,7 @@ public sealed class AssetPack
             {
                 Start = start,
                 Routes = routes,
+                Economy = economy,
                 Cells = cells.Pixels,
                 WorldAtlas = chips.Pixels,
                 WorldAtlasSize = (chips.Width, chips.Height),
@@ -487,6 +505,9 @@ public sealed class AssetPack
 
     /// <summary>바람·해류 날바이트 1,350.</summary>
     public byte[] Wind { get; private init; } = [];
+
+    /// <summary>교역 표. 구워 두지 않았으면 null.</summary>
+    public Economy? Economy { get; private init; }
 
     /// <summary>뱃길 그래프. 구워 두지 않았으면 null.</summary>
     public RouteGraph? Routes { get; private init; }
