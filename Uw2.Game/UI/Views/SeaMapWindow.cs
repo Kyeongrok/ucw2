@@ -1016,6 +1016,9 @@ public sealed class SeaMapWindow : Window
                 _host.Player.SetGold(_host.Player.Gold - price);
                 int gain = Navigators.Treat(m, nav, hero);
                 Note($" · {name}에게 한턱냈습니다({price}) · 호감 +{gain}");
+                // 조합 「희귀한 물건」 일(SNR0 변수 6 = 11)에서 지도를 가진 이가 이 사람(변수 17)이면 지도를 판다(0x004252DD).
+                if (_host.Common is { Chapter: not 0 } job && job.GetVar(6) == 11 && (job.GetVar(17) & 0xFF) == nav && job.GetVar(18) != 0)
+                    SellMap(job.GetVar(18) & 0xFF);
             }
             else if (pick == 1)
             {
@@ -1227,6 +1230,30 @@ public sealed class SeaMapWindow : Window
         };
         if (port < ports.Ports.Count) lines.Add(new("", MsgOr(0x59, $"상선대는 {ports.Ports[port].Name}(를) 향하고 있는 모양인데요.", ports.Ports[port].Name)));
         ScenarioDialog.Play(this, _host.Faces, lines);
+    }
+
+    /// <summary>
+    /// 지도 팔기(<c>0x00424FD0</c>) — 보물 <paramref name="treasure"/>(0x5A + k)의 지도(− 10)를 금화 1000 에 판다(0x25C · 0x25D).
+    /// 이미 가졌으면 0x36F, 돈이 모자라면 0x25F, 칸이 차면 0x370. 사면 0x25E 와 함께 그 자리에 0x20 을 세운다(<c>0x004250C9</c>).
+    /// </summary>
+    private void SellMap(int treasure)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        int map = treasure - 10;
+        var owned = ItemShop.Owned(m);
+        if (owned.Contains(map) || owned.Contains(treasure)) { Say(0x36F, "뭐냐！ 용건은 이미 끝났을 텐데. 잘 가게！"); return; }
+        string name = ItemShop.Get(m, treasure).Name;
+        Say(0x25C, $"{name}？ 지도를 손에 넣어 찾아보았지만, 어디에도 없었어. 이제 포기했네.", name);
+        if (MessageBox.Show(this, MsgOr(0x25D, "그렇지, 이 지도를 금화 １０００닢에 팔아 주지. 사겠나？"), "지도", MessageBoxButton.YesNo)
+            != MessageBoxResult.Yes) return;
+        var p = _host.Player;
+        if (p.Gold < 1000) { Say(0x25F, "뭐야, 돈이 없다면 얘기할 필요도 없지."); return; }
+        if (!ItemShop.Give(m, map)) { Say(0x370, "당신, 소유하고 있는 아이템이 이미 한도에 이르고 있어."); return; }
+        p.SetGold(p.Gold - 1000);
+        if (Discoveries.MapTarget(m, map) is >= 0 and var spot)
+            m.Write(ScenarioMemory.At(Discoveries.Table, spot, Discoveries.Flags), Discoveries.Get(m, spot).Flags | Discoveries.Found, false);
+        Say(0x25E, "자, 지도를 받게. 열심히 찾아 보게나.");
     }
 
     /// <summary>주점 분위기 S(<c>0x0049A1B0</c>) — 주점에 들 때 매력 / 3 으로 정한다.</summary>
