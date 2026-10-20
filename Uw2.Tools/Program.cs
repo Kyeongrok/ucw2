@@ -32,6 +32,7 @@ public static class Program
                 case "bake": return Bake(Need(args, 1), Arg(args, 2) ?? "baked");
                 case "assets": return Assets(Need(args, 1), Arg(args, 2) ?? "asset", Arg(args, 3));
                 case "start": return Start(Need(args, 1), Arg(args, 2) ?? "asset");
+                case "snr": return Snr(Need(args, 1), int.Parse(Arg(args, 2) ?? "0"));
                 case "ports": return Ports(Arg(args, 1) ?? GameFolder.Find() ?? ".");
                 case "port": return PortBmp(Arg(args, 1) ?? GameFolder.Find() ?? ".", int.Parse(Arg(args, 2) ?? "0"), Arg(args, 3) ?? "port.bmp");
                 default: Usage(); return 1;
@@ -56,8 +57,22 @@ public static class Program
         uw2 ports  <폴더>
         uw2 port   <폴더> <번호> <낼 곳.bmp>
         uw2 assets <폴더> <낼 곳> [덧폴더]
+        uw2 snr    <SNRn.DAT> [이벤트]           시나리오 바이트코드를 늘어놓는다
         uw2 start  <폴더> <낼 곳>              선종 · 사람 표 · 걸음 경계 · 문 자리 · 얼굴만 굽는다
         """);
+
+    /// <summary>시나리오 이벤트 하나를 늘어놓는다.</summary>
+    private static int Snr(string path, int ev)
+    {
+        var d = File.ReadAllBytes(path);
+        var events = Scenario.Events(d);
+        Console.WriteLine($"{Path.GetFileName(path)} — 임자 {Scenario.OwnerOf(d)}, 이벤트 {events.Count}");
+        if (ev < 0 || ev >= events.Count) return 1;
+        int end = ev + 1 < events.Count ? events[ev + 1] : d.Length;
+        foreach (var (at, bytes) in Scenario.Disassemble(d, events[ev], end))
+            Console.WriteLine($"{at:X4}  {string.Join(' ', bytes.Select(b => b.ToString("X2"))),-20} {Scenario.NameOf(bytes[0])}");
+        return 0;
+    }
 
     /// <summary>선종 · 사람 표만 굽고 선종 표를 늘어놓는다.</summary>
     private static int Start(string dir, string outDir)

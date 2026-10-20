@@ -18,6 +18,86 @@ public static class Scenario
 {
     public const byte GiveShip = 0xF9;
 
+    /// <summary>
+    /// 명령 하나의 길이 — 일을 마친 손이 이벤트 자리(<c>0x004702B8</c>)를 이만큼 민다.
+    /// <list type="bullet">
+    /// <item><c>00xxxxxx</c> 넣기 · 셈(<c>0x0043E830</c>) — 3, 「넣기」(셈 0)에 줄 것이 바로 값(갈래 3)이면 4(<c>0C v hh ll</c>)</item>
+    /// <item><c>01xxxxxx</c>(<c>0x0043EB90</c>) — 3</item>
+    /// <item><c>10xxxxxx</c> 견주어 뛰기(<c>0x0043ED90</c>) — 5(맞으면 다음으로, 아니면 끝 두 바이트 자리로), 받을 곳 갈래 2 면 4</item>
+    /// <item><c>11xxxxxx</c> 명령 — 표(<see cref="CommandLength"/>)</item>
+    /// </list>
+    /// 모르는 명령은 0 을 돌려준다.
+    /// </summary>
+    public static int LengthAt(ReadOnlySpan<byte> d, int i)
+    {
+        byte op = d[i];
+        switch (op >> 6)
+        {
+            case 0:
+                int dest = (op >> 4) & 3, src = (op >> 2) & 3, calc = op & 3;
+                return dest != 2 && calc == 0 && src == 3 ? 4 : 3;
+            case 1: return 3;
+            case 2: return ((op >> 4) & 3) == 2 ? 4 : 5;
+            default: return CommandLength(op);
+        }
+    }
+
+    /// <summary>
+    /// 명령 바이트(0xC0~0xFF)의 길이 — 손마다 <c>0x004702B8</c> 에 더하는 값. 0 은 손이 없는(오류) 명령이다.
+    /// </summary>
+    public static int CommandLength(byte op) => op switch
+    {
+        0xC3 or 0xC4 or 0xC7 or 0xF0 or 0xF1 or 0xF2 or 0xF8 or 0xFF => 1,
+        0xC0 or 0xC5 or 0xCA or 0xCD or 0xD1 or 0xE4 or 0xE6 or 0xE7 or 0xE8 or 0xE9 or 0xEA
+            or 0xEC or 0xED or 0xEE or 0xF4 or 0xFB => 2,
+        0xC8 or 0xCC or 0xD4 or 0xE2 or 0xE3 or 0xF9 or 0xFC or 0xFE => 3,
+        0xC9 or 0xEB or 0xFA => 4,
+        0xD0 or 0xDC => 5,
+        0xCB => 6,
+        _ => 0,
+    };
+
+    /// <summary>사람이 읽을 이름 — 뜻을 굳힌 것만.</summary>
+    public static string NameOf(byte op) => op switch
+    {
+        < 0x40 => "넣기",
+        < 0x80 => "01",
+        < 0xC0 => "견주어뛰기",
+        0xE4 => "돈=",
+        0xE6 => "돈+=",
+        0xE7 => "돈-=",
+        0xF2 => "그침",
+        0xF4 => "끝맺음",
+        0xF9 => "배주기",
+        0xFE => "뛰기",
+        0xFF => "끝",
+        _ => $"명령{op:X2}",
+    };
+
+    /// <summary>한 이벤트를 늘어놓는다 — (자리, 바이트들). 모르는 바이트는 한 바이트씩 넘긴다.</summary>
+    public static IEnumerable<(int At, byte[] Bytes)> Disassemble(byte[] d, int start, int end)
+    {
+        for (int i = start; i < end;)
+        {
+            int n = LengthAt(d, i);
+            if (n <= 0 || i + n > end) n = 1;
+            yield return (i, d[i..(i + n)]);
+            i += n;
+        }
+    }
+
+    /// <summary>이벤트 첫 자리들 — 머리 0x12 부터 4바이트씩, FFFF FFFF 까지.</summary>
+    public static List<int> Events(byte[] d)
+    {
+        var list = new List<int>();
+        for (int o = 0x12; o + 4 <= d.Length; o += 4)
+        {
+            if (d[o] == 0xFF && d[o + 1] == 0xFF) break;
+            list.Add(d[o] << 8 | d[o + 1]);
+        }
+        return list;
+    }
+
     /// <summary>그 파일이 누구 것인지(머리 +5). 함께 쓰는 SNR0 은 0x80 이다.</summary>
     public static int OwnerOf(byte[] d) => d.Length > 6 && d[0] == (byte)'S' && d[1] == (byte)'N' ? d[5] : -1;
 
