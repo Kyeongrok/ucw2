@@ -399,6 +399,17 @@ public sealed class ScenarioVm
                         case 0xEE: _vars[a1] = (ushort)FreeRoom; break;
                         case 0xE2: Cargo?.Invoke(_vars[a1] & 0xFF, _vars[a2]); break;
                         case 0xE3: _vars[a2] = (ushort)(Cargo?.Invoke(_vars[a1] & 0xFF, int.MinValue) ?? 0); break;
+                        case 0xE8:
+                        {
+                            // 사람 a1 의 신상 장면(0x0043DC70) — 원본은 얼굴 · 능력치 창이다. 이름과 레벨 · 능력치를 한 줄로 보인다.
+                            var card = ScenarioMemory.At(ScenarioMemory.PeopleTable, a1, 0);
+                            string full = $"{ReadText(card)} {ReadText(card with { Offset = card.Offset + 13 })}".Trim();
+                            var stats = Enumerable.Range(0, 7).Select(k => Memory.Read(card with { Offset = card.Offset + 0x1C + k }, false));
+                            run.Lines.Add(new Line(full, $"항해 레벨 {Memory.Read(card with { Offset = card.Offset + 0x24 }, false)} · "
+                                                         + $"전투 레벨 {Memory.Read(card with { Offset = card.Offset + 0x25 }, false)}\n"
+                                                         + $"능력치 {string.Join(" · ", stats)}"));
+                            break;
+                        }
                         case 0xFC:
                         {
                             // 여급 a1 의 호감 += a2, 100 까지(0x0043E140) — 여급 표는 기억 표 5 다.

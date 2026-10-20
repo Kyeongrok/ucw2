@@ -633,4 +633,14 @@ public class AssetTests
         vm.Enter(0, 7, 0, "", "");
         Assert.Equal(100, Uw2.Game.Engine.Town.Barmaids.Get(vm.Memory, 1, Uw2.Game.Engine.Town.Barmaids.Liking));   // 70 + 70 → 100
     }
+
+    [Fact]
+    public void E8ShowsAPersonsCard()
+    {
+        var vm = new Uw2.Game.Engine.ScenarioVm(OneEvent(0xE8, 0x00, 0xFF), ScenarioText.FromBytes(new byte[8]));
+        vm.Memory.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, Load().Start!.PeopleBytes);
+        var run = vm.Enter(0, 7, 0, "", "")!;
+        Assert.Equal("조안 페레로", run.Lines[0].Speaker);
+        Assert.StartsWith("항해 레벨", run.Lines[0].Body);
+    }
 }
