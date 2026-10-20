@@ -32,6 +32,14 @@ public sealed class SeaMapWindow : Window
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
     private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2;
 
+    /// <summary>항구 「보급」 — 넷의 한 단(열 통) 값(<see cref="Economy.SupplyPrice"/>). 싣기는 아직이다.</summary>
+    private void ShowSupplies()
+    {
+        if (_host.Economy is not { } eco) return;
+        BuildingMenu.Ask(this, "보급 — 열 통 값", Enumerable.Range(0, 4)
+            .Select(k => $"{Economy.SupplyNames[k],-4} {(k == 0 ? "공짜" : eco.SupplyPrice(_host.CurrentPort, k).ToString()),6}").ToList());
+    }
+
     /// <summary>조선소 「함선 건조」 — 지을 수 있는 선종과 값(선종 +10)을 늘어놓는다. 짓기는 아직이다.</summary>
     private void ShowShipyard()
     {
@@ -56,6 +64,7 @@ public sealed class SeaMapWindow : Window
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
         if (b == TradeBuilding && pick == 1) { _doorNote = " · 팔 짐이 없습니다(짐칸은 아직 없습니다)"; UpdateStatus(); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
+        if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
     }

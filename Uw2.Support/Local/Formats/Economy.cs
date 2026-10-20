@@ -170,6 +170,28 @@ public sealed class Economy
         return s.Zone < Markets.Count ? Markets[s.Zone].Pays[good] * index / 100 : 0;
     }
 
+    /// <summary>보급 갈래 — 항구 「보급」의 넷(<c>MENU.DAT</c> 목록 21).</summary>
+    public static readonly string[] SupplyNames = ["물", "식량", "자재", "탄약"];
+
+    /// <summary>
+    /// 보급 한 단(열 통) 값 — <c>0x00422E80</c>. 물은 공짜, 식량은 <c>(식품 지수 + 50) x 20 / 100</c>,
+    /// 자재는 <c>(기타 지수 + 50) x 18 / 100</c>, 탄약은 <c>(식품 지수 + 50) x 120 / 100</c>
+    /// (원본도 탄약에 식품 지수 바이트 <c>+0x10</c> 을 쓴다).
+    /// </summary>
+    public int SupplyPrice(int port, int kind)
+    {
+        if (port < 0 || port >= States.Count) return 0;
+        var s = States[port];
+        int food = s.PriceIndex[2] + 50, other = s.PriceIndex[9] + 50;
+        return kind switch
+        {
+            1 => food * 20 / 100,
+            2 => other * 18 / 100,
+            3 => food * 120 / 100,
+            _ => 0,
+        };
+    }
+
     private static int Price(int baseValue, int index, bool permit) =>
         baseValue * (index + 50) / 100 * (permit ? 10 : 12) / 10;
 }

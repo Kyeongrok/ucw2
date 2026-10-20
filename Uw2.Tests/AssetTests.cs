@@ -79,6 +79,8 @@ public class AssetTests
         // 파는 값: 정향(향신료, 지수 49) 140 x 99/100 = 138, 특산품 돌소금은 38 x 102/200 = 19
         Assert.Equal(138, eco.SellPrice(0, 0));
         Assert.Equal(19, eco.SellPrice(0, 16));
+        // 보급: 식량 102 x 20/100 = 20, 자재 (51+50) x 18/100 = 18, 탄약 102 x 120/100 = 122
+        Assert.Equal((0, 20, 18, 122), (eco.SupplyPrice(0, 0), eco.SupplyPrice(0, 1), eco.SupplyPrice(0, 2), eco.SupplyPrice(0, 3)));
         Assert.Equal(2, Economy.CategoryOf(11));
         Assert.Equal(9, Economy.CategoryOf(45));
     }
