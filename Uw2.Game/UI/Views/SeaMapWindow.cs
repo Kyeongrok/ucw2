@@ -1853,6 +1853,14 @@ public sealed class SeaMapWindow : Window
     {
         double step = 20 * _host.CellsPerPixel;
 
+        // 개발용 — 도시에서 Ctrl+F1 ~ F12 는 걷지 않고 건물 0 ~ 11 에 든다.
+        if (_host.CurrentPort >= 0 && Keyboard.Modifiers == ModifierKeys.Control && e.Key is >= Key.F1 and <= Key.F12)
+        {
+            EnterBuilding(e.Key - Key.F1);
+            e.Handled = true;
+            return;
+        }
+
         // 도시에서는 방향키가 사람을 걷게 한다 — 누르고 있는 동안 걷도록 호스트가 그때그때 본다.
         if (_host.CurrentPort >= 0 && _host.Walker != null &&
             e.Key is Key.Left or Key.Right or Key.Up or Key.Down)
