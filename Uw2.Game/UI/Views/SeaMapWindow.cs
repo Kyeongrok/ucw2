@@ -1662,6 +1662,13 @@ public sealed class SeaMapWindow : Window
                 p.Scurvy = false;
                 usedUp = true;
                 break;
+            case 12 when Discoveries.MapTarget(m, item) is >= 0 and var target:
+            {
+                // 보물 지도(0x0041FE60 → 0x00443FE0) — 원본은 그 자리의 지도를 그린다. 우리는 5도 단위 경위도로 일러 준다.
+                var (east, lon, north, lat) = Discoveries.Degrees(Discoveries.Get(m, target));
+                said = $"{(east ? "동경" : "서경")} {lon}도 · {(north ? "북위" : "남위")} {lat}도 언저리를 가리키고 있다";
+                break;
+            }
             default: said = "특별히 아무일도 일어나지 않았다"; break;
         }
         if (usedUp) { int none = 0; ItemShop.Sell(m, item, 0, ref none); }

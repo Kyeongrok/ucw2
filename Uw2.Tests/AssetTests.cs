@@ -798,4 +798,18 @@ public class AssetTests
         Assert.True(Uw2.Game.Engine.Town.Shipyard.Rerate(ship, latina, latina.RequiredCrew, 0));
         Assert.Equal(latina.Capacity - latina.RequiredCrew, ship.Room);
     }
+
+    [Fact]
+    public void NewGameTiesTenHiddenDiscoveriesToTreasureMaps()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Sea.Discoveries.Table, pack.Start!.DiscoveryBytes);
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, pack.Start.ItemBytes);
+        Uw2.Game.Engine.Sea.Discoveries.Seed(m, new Random(7).Next);
+        var targets = Enumerable.Range(0x50, 10).Select(i => Uw2.Game.Engine.Sea.Discoveries.MapTarget(m, i)).ToList();
+        Assert.All(targets, t => Assert.True(t >= 0 && Uw2.Game.Engine.Sea.Discoveries.Get(m, t).IsAbsent));
+        Assert.Equal(10, targets.Distinct().Count());
+        Assert.Equal(-1, Uw2.Game.Engine.Sea.Discoveries.MapTarget(m, 0x20));
+    }
 }

@@ -40,8 +40,31 @@ public static class Discoveries
     public static Spot Get(ScenarioMemory m, int i) => new(i, (short)m.Read(At(i, 0), true), (short)m.Read(At(i, 2), true),
                                                           m.Read(At(i, Difficulty), false), m.Read(At(i, Flags), false));
 
-    /// <summary>새 게임 — 쉰 개만 이번 게임에 둔다(<c>0x00416AE0</c>).</summary>
+    /// <summary>보물 지도 — 아이템 0x50 ~ 0x59. +0x12 에 묶인 발견물 번호가 있다.</summary>
+    public const int FirstMap = 0x50, Maps = 10, MapLink = 0x12;
+
+    /// <summary>
+    /// 새 게임 — 쉰 개만 이번 게임에 두고(<c>0x00416AE0</c>), 남은 것 가운데 열을 보물 지도에 묶는다(<c>0x00416B35</c>):
+    /// rand(98) 로 고른 것이 아직 없고 +4 &lt; 0x5A 이면 +4 = 0x5A + k, 지도 0x50 + k 의 +0x12 = 그 번호.
+    /// </summary>
     public static void Seed(ScenarioMemory m, Func<int, int> rand)
+    {
+        Place(m, rand);
+        for (int k = 0; k < Maps;)
+        {
+            int i = rand(Used);
+            if ((m.Read(At(i, Flags), false) & Absent) == 0 || m.Read(At(i, Linked), false) >= 0x5A) continue;
+            m.Write(At(i, Linked), 0x5A + k, false);
+            m.Write(ScenarioMemory.At(Town.ItemShop.Table, FirstMap + k, MapLink), i, false);
+            k++;
+        }
+    }
+
+    /// <summary>그 지도가 가리키는 발견물 — 없으면 -1.</summary>
+    public static int MapTarget(ScenarioMemory m, int item) =>
+        item is >= FirstMap and < FirstMap + Maps ? m.Read(ScenarioMemory.At(Town.ItemShop.Table, item, MapLink), false) is var i && i < Used ? i : -1 : -1;
+
+    private static void Place(ScenarioMemory m, Func<int, int> rand)
     {
         for (int i = 0; i < Used; i++) m.Write(At(i, Flags), m.Read(At(i, Flags), false) | Absent, false);
         for (int placed = 0; placed < InGame;)
@@ -120,6 +143,16 @@ public static class Discoveries
     /// 운 &lt; rand(80) 이면 엉터리 자리다(경도 |rand(72) − 36| x 5, 늘 남위 |rand(27) − 10| x 5). 없으면 null(말 0x1EB).
     /// </summary>
     /// <returns>(동경이냐, 경도, 북위냐, 위도)</returns>
+    /// <summary>발견물 자리를 5도 단위 경위도로(모험소문 · 보물 지도가 쓴다).</summary>
+    public static (bool East, int Lon, bool North, int Lat) Degrees(Spot s)
+    {
+        int x = (s.X + 0x7BD) % ChipMap.Width;
+        bool west = x > ChipMap.Width / 2;
+        if (west) x = ChipMap.Width - x;
+        int y = 640 - s.Y;
+        return (!west, x / 6 / 5 * 5, y >= 0, Math.Abs(y) * 8 / 57 / 5 * 5);
+    }
+
     public static (bool East, int Lon, bool North, int Lat)? Rumour(ScenarioMemory m, int luck, Func<int, int> rand)
     {
         int i = Enumerable.Range(0, 50).FirstOrDefault(k => (Get(m, k).Flags & 0xC0) == 0, -1);
@@ -130,11 +163,6 @@ public static class Discoveries
             int lat = rand(27);
             return (lon < 36, Math.Abs(lon - 36) * 5, false, Math.Abs(lat - 10) * 5);
         }
-        var s = Get(m, i);
-        int x = (s.X + 0x7BD) % ChipMap.Width;
-        bool west = x > ChipMap.Width / 2;
-        if (west) x = ChipMap.Width - x;
-        int y = 640 - s.Y;
-        return (!west, x / 6 / 5 * 5, y >= 0, Math.Abs(y) * 8 / 57 / 5 * 5);
+        return Degrees(Get(m, i));
     }
 }
