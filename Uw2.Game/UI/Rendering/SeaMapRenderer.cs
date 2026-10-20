@@ -49,6 +49,8 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         Texture2D<float4> Palette : register(t2);
         Texture2D<float4> Flat    : register(t3);
         Texture2D<float4> Ship    : register(t4);
+        Texture2D<float>  ArrowTex: register(t5);
+        Texture2D<uint>   FlowGrid: register(t6);
 
         cbuffer Frame : register(b0)
         {
@@ -61,6 +63,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             float4 Grid;
             float4 ShipSize;
             float4 SpriteSrc;
+            float4 Arrows;
         };
 
         struct VSOut { float4 pos : SV_Position; };
@@ -71,6 +74,40 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             float2 uv = float2((id << 1) & 2, id & 2);
             o.pos = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
             return o;
+        }
+
+        float4 Glyph(float2 d, float h, uint b, float3 tint)
+        {
+            uint speed = b & 7u;
+            if (speed == 0) return float4(0, 0, 0, 0);
+            if (any(abs(d) >= h)) return float4(0, 0, 0, 0);
+            uint dir = (b >> 3) & 7u;
+            float2 t = d / h * 0.5 + 0.5;
+            int2 tx = int2(int(dir) * 32 + int(t.x * 32.0), int(t.y * 32.0));
+            float a = ArrowTex.Load(int3(tx, 0));
+            if (a <= 0.02) return float4(0, 0, 0, 0);
+            float strong = step(0.6, a);
+            float3 col = lerp(float3(0.04, 0.04, 0.07), tint, strong);
+            float lo = 0.45 + 0.55 * float(speed) / 7.0;
+            return float4(col, lerp(0.70, 0.90, strong) * lo);
+        }
+
+        float4 ArrowsAt(float2 cell, float2 px)
+        {
+            float grid = Arrows.y;
+            float2 g = floor(cell / grid);
+            int gy = int(g.y);
+            if (gy < 0 || gy >= int(Arrows.w)) return float4(0, 0, 0, 0);
+            int gx = int(g.x - floor(g.x / Arrows.z) * Arrows.z);
+
+            float cellPx = grid / CellPerPixel.x;
+            float h = clamp(cellPx * 0.22, 4.0, 14.0);
+            float2 center = px + ((g + 0.5) * grid - cell) / CellPerPixel;
+
+            uint word = FlowGrid.Load(int3(gx, gy, 0));
+            float4 a = Glyph(px - center + float2(0, h), h, word & 0xFFu, float3(1.00, 0.94, 0.72));
+            if (a.a > 0) return a;
+            return Glyph(px - center - float2(0, h), h, (word >> 8) & 0xFFu, float3(0.42, 0.90, 1.00));
         }
 
         float4 PS(VSOut i) : SV_Target
@@ -118,6 +155,11 @@ public sealed unsafe class SeaMapRenderer : IDisposable
                 float2 px = CellPerPixel / Grid.y;
                 if (g.x < px.x || g.y < px.y) col.rgb = lerp(col.rgb, float3(1, 1, 1), 0.25);
             }
+            if (Arrows.x > 0.5)
+            {
+                float4 a = ArrowsAt(cell, i.pos.xy);
+                col.rgb = lerp(col.rgb, a.rgb, a.a);
+            }
             return col;
         }
         """;
@@ -134,6 +176,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         public float GridOn, GridStep, WrapX, GridPad1;
         public float SpriteW, SpriteH, ShipFlip, ShipPad1;
         public float SrcX, SrcY, SrcW, SrcH;
+        public float ArrowOn, ArrowGrid, ArrowCols, ArrowRows;
     }
 
     private ID3D11Device _device = null!;
@@ -146,6 +189,8 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     private ID3D11ShaderResourceView _paletteSrv = null!;
     private ID3D11ShaderResourceView _flatSrv = null!;
     private ID3D11ShaderResourceView _shipSrv = null!;
+    private ID3D11ShaderResourceView _arrowSrv = null!;
+    private ID3D11ShaderResourceView _flowSrv = null!;
     private int _atlasCols = AtlasCols;
 
     /// <summary>스왑체인을 걸 때 쓴다.</summary>
@@ -169,6 +214,21 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     /// 가로로 둘러 감을지. <b>세계지도는 감고(경도 -180/180 잇기) 항구는 안 감는다.</b>
     /// </summary>
     public bool WrapX { get; set; } = true;
+
+    /// <summary>
+    /// 바람·해류 화살표를 얹을지. 칸 하나(72 x 72 칩)에 위 화살표가 바람, 아래가 해류다.
+    /// 세계지도에서만 뜻이 있다 — 항구에서는 부르는 쪽이 끈다.
+    /// </summary>
+    public bool ShowArrows { get; set; }
+
+    /// <summary>화살표에 쓸 표(<see cref="FlowArrows.Grid"/>, 30 x 15)를 건다.</summary>
+    public void SetFlow(ushort[] grid)
+    {
+        if (grid.Length != WindCurTable.Cols * WindCurTable.Rows) return;
+        var old = _flowSrv;
+        _flowSrv = CreateImmutable(grid, WindCurTable.Cols, WindCurTable.Rows, Format.R16_UInt, sizeof(ushort));
+        old?.Dispose();
+    }
 
     /// <summary>칸 지도의 크기(칩 단위).</summary>
     public int MapW { get; private set; } = ChipMap.Width;
@@ -210,6 +270,8 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         SetChipsCore(new byte[AtlasCols * ChipSheet.Size * (WorldChips.Count / AtlasCols) * ChipSheet.Size],
                      AtlasCols * ChipSheet.Size, WorldChips.Count / AtlasCols * ChipSheet.Size, AtlasCols);
         SetShipSprite(new uint[1], 1, 1);
+        _arrowSrv = CreateImmutable(FlowArrows.Alpha, FlowArrows.AtlasWidth, FlowArrows.CellSize, Format.R8_UNorm, 1);
+        SetFlow(new ushort[WindCurTable.Cols * WindCurTable.Rows]);
     }
 
     /// <summary>
@@ -373,6 +435,10 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             SrcY = _frameY,
             SrcW = _frameW > 0 ? _frameW : _shipW,
             SrcH = _frameH > 0 ? _frameH : _shipH,
+            ArrowOn = ShowArrows ? 1 : 0,
+            ArrowGrid = WindCurTable.ChipsPerCell,
+            ArrowCols = WindCurTable.Cols,
+            ArrowRows = WindCurTable.Rows,
         };
 
         var map = _ctx.Map(_cb, 0, Vortice.Direct3D11.MapMode.WriteDiscard);
@@ -386,12 +452,14 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         _ctx.VSSetShader(_vs);
         _ctx.PSSetShader(_ps);
         _ctx.PSSetConstantBuffer(0, _cb);
-        _ctx.PSSetShaderResources(0, [_cellSrv, _atlasSrv, _paletteSrv, _flatSrv, _shipSrv]);
+        _ctx.PSSetShaderResources(0, [_cellSrv, _atlasSrv, _paletteSrv, _flatSrv, _shipSrv, _arrowSrv, _flowSrv]);
         _ctx.Draw(3, 0);
     }
 
     public void Dispose()
     {
+        _flowSrv?.Dispose();
+        _arrowSrv?.Dispose();
         _shipSrv?.Dispose();
         _flatSrv?.Dispose();
         _paletteSrv?.Dispose();

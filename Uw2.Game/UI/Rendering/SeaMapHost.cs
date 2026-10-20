@@ -217,6 +217,7 @@ public sealed class SeaMapHost : HwndHost
 
     private bool Finish()
     {
+        if (Wind != null) _renderer.SetFlow(FlowArrows.Grid(Wind, FlowMonth));
         if (Map != null && Chips != null)
         {
             Fleet = new Fleet(Map, Chips, Wind);
@@ -234,6 +235,14 @@ public sealed class SeaMapHost : HwndHost
         CompositionTarget.Rendering += OnFrame;
         return true;
     }
+
+    /// <summary>
+    /// 세계지도에 바람·해류 화살표를 얹을지. 원본에 없는 보기다 — 항구에서는 안 그린다.
+    /// </summary>
+    public bool ShowArrows { get; set; }
+
+    /// <summary>화살표가 보여 주는 바람의 달. 함대 달과 같게 4월(게임 시작 달)로 둔다.</summary>
+    private const int FlowMonth = 4;
 
     /// <summary>선종 · 사람 표(<c>SDATA.DAT</c>). 없으면 배를 띄우지 못한다.</summary>
     public StartData? StartTables { get; private set; }
@@ -502,6 +511,7 @@ public sealed class SeaMapHost : HwndHost
         var origin = (Center.X - w / 2.0 * CellsPerPixel, Center.Y - h / 2.0 * CellsPerPixel);
         _lastOrigin = origin;
 
+        _renderer.ShowArrows = ShowArrows && CurrentPort < 0;
         _renderer.RenderTo(_backBufferView, w, h, origin, CellsPerPixel, ShipRectAt(origin));
         _swapChain!.Present(1, PresentFlags.None);
         _dirty = false;

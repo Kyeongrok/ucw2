@@ -24,6 +24,7 @@ public sealed class SeaMapWindow : Window
     private readonly TextBlock _status = new() { Margin = new Thickness(8, 4, 8, 4) };
     private string _gameDir = "";
     private CheckBox _chipToggle = null!;
+    private CheckBox _arrows = null!;
     private ComboBox _portPick = null!;
 
     public SeaMapWindow()
@@ -56,6 +57,8 @@ public sealed class SeaMapWindow : Window
         };
         bar.Children.Add(_portPick);
         bar.Children.Add(Toggle("조각 격자", v => { _host.Renderer.ShowGrid = v; _host.Invalidate(); }));
+        _arrows = Toggle("바람·해류", v => { _host.ShowArrows = v; _host.Invalidate(); });
+        bar.Children.Add(_arrows);
         _chipToggle = Toggle("칩으로 그리기", v => { _host.Renderer.UseChips = v; _host.Invalidate(); }, true);
         bar.Children.Add(_chipToggle);
         Grid.SetRow(bar, 0);
@@ -217,6 +220,7 @@ public sealed class SeaMapWindow : Window
             case Key.Up: _host.Center = (_host.Center.X, _host.Center.Y - step); break;
             case Key.Down: _host.Center = (_host.Center.X, _host.Center.Y + step); break;
             case Key.G: _host.Renderer.ShowGrid = !_host.Renderer.ShowGrid; break;
+            case Key.A: _arrows.IsChecked = !_host.ShowArrows; break;   // 바람·해류 화살표
             case Key.C: _host.Renderer.UseChips = !_host.Renderer.UseChips; break;
             case Key.F: _host.FitToWindow(); break;
             case Key.S: PutToSea(); return;
