@@ -597,7 +597,7 @@ public sealed class SeaMapHost : HwndHost
         Player.Ships.Add(grade < 0 ? ship : new PlayerState.Ship
         {
             Type = ship.Type, Name = ship.Name, Room = ship.Room, MaxCrew = ship.MaxCrew, Crew = 0,
-            Hull = ship.Hull, MaxHull = ship.MaxHull, Upwind = ship.Upwind, Sail = ship.Sail, Grade = grade, Captain = captain, Guns = ship.Guns,
+            Hull = ship.Hull, MaxHull = ship.MaxHull, Upwind = ship.Upwind, Sail = ship.Sail, Grade = grade, Captain = captain, Guns = ship.Guns, Figurehead = ship.Figurehead,
         });
         if (captain >= 0 && Scenario != null) Uw2.Game.Engine.Town.Navigators.Command(Scenario.Memory, captain, aboard: true);
         SyncLoad();

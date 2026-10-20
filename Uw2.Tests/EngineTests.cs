@@ -551,4 +551,13 @@ public class EngineTests
         Assert.Equal(2, Uw2.Game.Engine.Town.Pub.Hunter(50, n => n == 2 ? 7 : 0, _ => 1));
         Assert.Equal(-1, Uw2.Game.Engine.Town.Pub.Hunter(50, _ => 3, r => r == 200 ? 0 : 0)); // rand(3) 이 늘 0
     }
+
+    [Fact]
+    public void FigureheadChoicesGrowWithEconomyAndRareDays()
+    {
+        Assert.Equal((5, false), Uw2.Game.Engine.Town.Shipyard.FigureheadChoices(450, 900, 95, _ => 0));   // 경제가 800 이하
+        Assert.Equal((10, true), Uw2.Game.Engine.Town.Shipyard.FigureheadChoices(900, 900, 95, r => r == 20 ? 0 : 92));
+        Assert.Equal((9, true), Uw2.Game.Engine.Town.Shipyard.FigureheadChoices(900, 900, 95, r => r == 20 ? 0 : 10));
+        Assert.Equal(50000, Uw2.Game.Engine.Town.Shipyard.FigureheadPrice(10));
+    }
 }

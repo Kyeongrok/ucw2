@@ -1161,9 +1161,10 @@ public sealed class SeaMapWindow : Window
     /// <summary>조선소 「개조」 — 목록 23(선수상 · 무장 · 적재비율변경 · 이름변경, 손표 <c>0x00458CA0</c>) 가운데 된 것.</summary>
     private void Refit()
     {
-        int pick = BuildingMenu.Ask(this, "개조", ["적재비율변경", "이름변경"]);
-        if (pick == 0) { Rerate(); return; }
-        if (pick != 1) return;
+        int pick = BuildingMenu.Ask(this, "개조", ["선수상", "적재비율변경", "이름변경"]);
+        if (pick == 0) { BuyFigurehead(); return; }
+        if (pick == 1) { Rerate(); return; }
+        if (pick != 2) return;
         // 이름변경(<c>0x0042A470</c>) — 배를 고르고(0x111) 0x113 뒤 일곱 자까지 받는다. 값은 받지 않는다.
         var p = _host.Player;
         int which = BuildingMenu.Ask(this, MsgOr(0x111, "어느 부대요？"), p.Ships.Select(sh => sh.Name).ToList());
@@ -1174,6 +1175,34 @@ public sealed class SeaMapWindow : Window
         ship.Name = name;
         if (which == 0) _host.ShipName = name;
         Note($" · 배 이름을 「{name}」{(KoreanBatchim(name) ? "으로" : "로")} 바꿨습니다");
+    }
+
+    /// <summary>조선소 「선수상」(<c>0x00429E70</c>) — 배를 고르고(0x10B) 늘어놓은 것 가운데 하나를 500 x k² 에 단다(<see cref="Shipyard.FigureheadChoices"/>).</summary>
+    private void BuyFigurehead()
+    {
+        if (_host.Economy is not { } eco || _host.CurrentPort < 0 || _host.CurrentPort >= eco.States.Count) return;
+        var st = eco.States[_host.CurrentPort];
+        var (count, rare) = Shipyard.FigureheadChoices(st.Economy, st.Industry, HeroField(Church.Luck), Random.Shared.Next);
+        if (rare) Say(0x10A, "오늘은 진귀한 물건이 있소.");
+        var p = _host.Player;
+        while (true)
+        {
+            int which = BuildingMenu.Ask(this, MsgOr(0x10B, "어느 배의 선수상이오？"),
+                p.Ships.Select(sh => $"{sh.Name}  {(sh.Figurehead > 0 ? Shipyard.Figureheads[sh.Figurehead] : "없음")}").ToList());
+            if (which < 0) return;
+            var ship = p.Ships[which];
+            int k = BuildingMenu.Ask(this, MsgOr(0x10C, "어느 것으로 하겠소？"),
+                [.. Enumerable.Range(1, count).Select(i => $"{Shipyard.Figureheads[i],-6} {Shipyard.FigureheadPrice(i),7}")]) + 1;
+            if (k <= 0) continue;
+            int price = Shipyard.FigureheadPrice(k);
+            if (MessageBox.Show(this, MsgOr(0x10D, $"이 놈이라면 금화 {price}닢에 팔아 주지.\n좋겠소？", price), "선수상",
+                                MessageBoxButton.YesNo) != MessageBoxResult.Yes) continue;
+            if (price > p.Gold) { Say(0xCF, "금화가 부족합니다."); continue; }
+            p.SetGold(p.Gold - price);
+            ship.Figurehead = k;
+            Note($" · {ship.Name}에 {Shipyard.Figureheads[k]} 선수상을 달았습니다");
+            return;
+        }
     }
 
     /// <summary>조선소 「적재비율변경」(<c>0x0042A370</c>) — 값(선종 값)을 내고 선원 자리 · 대포 · 짐칸을 다시 나눈다(<see cref="Shipyard.Rerate"/>).</summary>

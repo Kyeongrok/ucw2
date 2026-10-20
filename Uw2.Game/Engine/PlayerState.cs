@@ -56,6 +56,9 @@ public sealed class PlayerState
         /// <summary>사기 0 ~ 100 — 함대 칸 곁 +0x1C. 새로 맡는 배는 60(0x0040B927).</summary>
         public int Morale { get; set; } = DefaultMorale;
 
+        /// <summary>선수상 1 ~ 10 — 함대 칸 곁 +0x1D(0 은 없음, <see cref="Town.Shipyard.Figureheads"/>).</summary>
+        public int Figurehead { get; set; }
+
         /// <summary>선장 사람 번호 — 함대 칸 곁 +0x1B. -1 은 주인공.</summary>
         public int Captain { get; set; } = -1;
 

@@ -89,6 +89,7 @@ public sealed class SaveGame
         public int Morale { get; set; } = PlayerState.DefaultMorale;
         public int Port { get; set; } = -1;
         public int Guns { get; set; }
+        public int Figurehead { get; set; }
     }
 
     public static PlayerData From(PlayerState p) => new()
@@ -103,7 +104,7 @@ public sealed class SaveGame
         Type = s.Type, Name = s.Name, Room = s.Room, Supplies = [.. s.Supplies],
         CargoGoods = [.. s.Cargo.Select(c => c.Good)], CargoAmounts = [.. s.Cargo.Select(c => c.Amount)],
         Crew = s.Crew, MaxCrew = s.MaxCrew, Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail,
-        Grade = s.Grade, Captain = s.Captain, Morale = s.Morale, Port = port, Guns = s.Guns,
+        Grade = s.Grade, Captain = s.Captain, Morale = s.Morale, Port = port, Guns = s.Guns, Figurehead = s.Figurehead,
     };
 
     private static PlayerState.Ship ToShip(ShipData s)
@@ -112,7 +113,7 @@ public sealed class SaveGame
         {
             Type = s.Type, Name = s.Name, Room = s.Room, MaxCrew = s.MaxCrew, Crew = s.Crew,
             Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail, Grade = s.Grade, Captain = s.Captain, Morale = s.Morale,
-            Guns = s.Guns,
+            Guns = s.Guns, Figurehead = s.Figurehead,
         };
         for (int k = 0; k < PlayerState.SupplyKinds && k < s.Supplies.Length; k++) ship.Supplies[k] = s.Supplies[k];
         for (int k = 0; k < PlayerState.CargoSlots && k < s.CargoGoods.Length && k < s.CargoAmounts.Length; k++)

@@ -98,6 +98,25 @@ public static class Shipyard
     /// <summary>
     /// 지을 때 고르는 등급 수(<c>0x00429A00</c>) — 3 + (공업 − 500) / 200 (공업 500 이하면 3). 선종 0x18 은 늘 6.
     /// </summary>
+    /// <summary>선수상 이름 1 ~ 10(<c>0x004574F6</c> 께, 11바이트씩). 0 은 없음.</summary>
+    public static readonly string[] Figureheads = ["", "바다표범", "제독", "유니콘", "사자", "독수리", "위인", "포세이돈", "용", "천사", "여신"];
+
+    /// <summary>
+    /// 「선수상」(<c>0x00429E70</c>) 에 늘어놓는 수 — min(8, 경제 / 100 + 1). 공업 · 경제가 다 800 을 넘고 운이 80 을 넘으면
+    /// rand(20) == 0 일 때 하나 더(말 0x10A 「오늘은 진귀한 물건이 있소.」), 그때 rand(운) ≥ 90 이면 또 하나. 두째 값이 진귀한 날이냐.
+    /// </summary>
+    public static (int Count, bool Rare) FigureheadChoices(int economy, int industry, int luck, Func<int, int> rand)
+    {
+        int n = Math.Min(8, economy / 100 + 1);
+        if (industry <= 800 || economy <= 800 || luck <= 80 || rand(20) != 0) return (n, false);
+        n++;
+        if (rand(luck) >= 90) n++;
+        return (n, true);
+    }
+
+    /// <summary>선수상 k 의 값 — 500 x k²(<c>0x00429FF8</c>).</summary>
+    public static int FigureheadPrice(int k) => 500 * k * k;
+
     public static int GradeChoices(int type, int industry) => type == 0x18 ? 6 : 3 + Math.Max(0, industry - 500) / 200;
 
     /// <summary>짓는 값 — 등급 x 값 / 10 + 4 x 값 / 5 (<c>0x004292C2</c>). 배 값에서 항구 지수를 뺀 꼴이다.</summary>
