@@ -858,7 +858,7 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     private void ShowFleetInfo()
     {
-        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보"];
+        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보"];
         int pick = BuildingMenu.Ask(this, "함대", items);
         if (pick < 0) return;
         var p = _host.Player;
@@ -894,7 +894,8 @@ public sealed class SeaMapWindow : Window
                 int hero = _host.HeroPersonNumber;
                 var stats = Enumerable.Range(0, 7).Select(k => Get(hero, Navigators.Stats + k));
                 string nation = _host.HeroNation < NationNames.Length ? NationNames[_host.HeroNation] : "없음";
-                sb.AppendLine($"{_host.PersonName(hero)} — {nation} · 작위 {_host.HeroRank}");
+                int fame = vm != null ? vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, _host.Hero, Patrons.FameField), true) : 0;
+                sb.AppendLine($"{_host.PersonName(hero)} — {nation} · 작위 {_host.HeroRank} · 모험가 명성 {fame}");
                 sb.AppendLine($"능력치 {string.Join(" · ", stats)}");
                 sb.AppendLine($"항해 레벨 {Get(hero, Navigators.NavLevel)} · 전투 레벨 {Get(hero, Navigators.BattleLevel)} · 운 {Get(hero, Church.Luck)}");
                 sb.AppendLine($"돈 {p.Gold}{BalanceText()}");
@@ -905,6 +906,18 @@ public sealed class SeaMapWindow : Window
                 }
                 break;
             }
+            case 4:
+                // 목록 26 「발견물정보」 — 찾은 것과 판 것.
+                if (vm == null) break;
+                for (int i = 0; i < Discoveries.Count; i++)
+                {
+                    var d = Discoveries.Get(vm.Memory, i);
+                    if (d.IsAbsent || !d.IsFound) continue;
+                    bool sold = (d.Flags & Patrons.Reported) != 0;
+                    sb.AppendLine($"{_host.Colony?.Name(i) ?? i.ToString()} ({Discoveries.KindNames[d.Kind]}){(sold ? " — 보고함" : "")}");
+                }
+                if (sb.Length == 0) sb.AppendLine(_host.Messages?[0x372] is { Length: > 0 } none ? none : "발견물이 없습니다.");
+                break;
             default:
                 if (_host.Economy is not { } eco) break;
                 foreach (var s in p.Ships)
