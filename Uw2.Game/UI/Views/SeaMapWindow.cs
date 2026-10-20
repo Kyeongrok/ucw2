@@ -29,6 +29,21 @@ public sealed class SeaMapWindow : Window
     /// <summary>마지막으로 든 건물 — 상태줄에 적는다. 항구를 옮기면 지운다.</summary>
     private string _doorNote = "";
 
+    /// <summary>건물 번호 3 — 항구(<see cref="PortDoors.Names"/>).</summary>
+    private const int HarborBuilding = 3;
+
+    /// <summary>항구 고르기 — 출항만 된다. 보급 · 명명은 아직이다.</summary>
+    private void Harbor()
+    {
+        int pick = BuildingMenu.Ask(this, "항", BuildingMenu.Harbor);
+        if (pick == 0) { PutToSea(); return; }
+        if (pick > 0)
+        {
+            _doorNote = $" · 「{BuildingMenu.Harbor[pick].Replace("  ", "")}」은 아직 없습니다";
+            UpdateStatus();
+        }
+    }
+
     /// <summary>항해사가 마지막으로 한 말(날씨) — 상태줄에 적는다.</summary>
     private string _seaNote = "";
     private ComboBox _portPick = null!;
@@ -88,9 +103,11 @@ public sealed class SeaMapWindow : Window
         _host.BuildingEntered += (b, open) =>
         {
             _doorNote = open
-                ? $" · 「{PortDoors.Names[b]}」에 들어갔습니다(안은 아직 없습니다)"
+                ? $" · 「{PortDoors.Names[b]}」에 들어갔습니다" + (b == HarborBuilding ? "" : "(안은 아직 없습니다)")
                 : $" · 「{PortDoors.Names[b]}」 — {PortDoors.LockedText}";
             UpdateStatus();
+            // 항구는 고르기 창을 띄운다 — 그림을 그리는 틈 안이라 한 박자 뒤에 연다.
+            if (open && b == HarborBuilding) Dispatcher.BeginInvoke(Harbor);
         };
         Loaded += (_, _) => OpenBest();
         KeyDown += OnKey;
