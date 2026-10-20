@@ -403,6 +403,7 @@ public sealed class SeaMapHost : HwndHost
             if (Economy is { } ge) Scenario.Memory.FillGoodsNames(ge.GoodsNames);
             if (StartTables is { ItemBytes.Length: > 0 } si) Scenario.Memory.Fill(Uw2.Game.Engine.Town.ItemShop.Table, si.ItemBytes);
             if (StartTables is { PatronBytes.Length: > 0 } sq) Scenario.Memory.Fill(Patrons.Table, sq.PatronBytes);
+            if (StartTables is { BarmaidBytes.Length: > 0 } sb) Scenario.Memory.Fill(Barmaids.Table, sb.BarmaidBytes);
             if (StartTables is { DiscoveryBytes.Length: > 0 } sd)
             {
                 Scenario.Memory.Fill(Discoveries.Table, sd.DiscoveryBytes);
@@ -537,6 +538,8 @@ public sealed class SeaMapHost : HwndHost
         {
             if (start.PatronBytes.Length > 0 && sv.Memory.Read(ScenarioMemory.At(Patrons.Table, 0, 0), false) == 0)
                 sv.Memory.Fill(Patrons.Table, start.PatronBytes);
+            if (start.BarmaidBytes.Length > 0 && sv.Memory.Read(ScenarioMemory.At(Barmaids.Table, 0, 0), false) == 0)
+                sv.Memory.Fill(Barmaids.Table, start.BarmaidBytes);
             if (start.DiscoveryBytes.Length > 0 && sv.Memory.Read(ScenarioMemory.At(Discoveries.Table, 0, 0), true) == 0)
             {
                 sv.Memory.Fill(Discoveries.Table, start.DiscoveryBytes);

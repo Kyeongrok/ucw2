@@ -556,4 +556,34 @@ public class AssetTests
         Assert.True(pyramid.East && pyramid.North);                                    // 피라미드 — 동경 · 북위
         Assert.Equal((true, 180, false, 50), Uw2.Game.Engine.Sea.Discoveries.Rumour(m, 0, n => n == 80 ? 79 : 0));   // 엉터리 — 동경 |0 − 36| x 5
     }
+
+    [Fact]
+    public void LisbonBarmaidWarmsToBoastsAndGifts()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Town.Barmaids.Table, pack.Start!.BarmaidBytes);
+        m.Fill(Uw2.Game.Engine.Sea.Discoveries.Table, pack.Start.DiscoveryBytes);
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, pack.Start.ItemBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        int maid = Uw2.Game.Engine.Town.Barmaids.InPort(m, 0);
+        Assert.Equal("카를로타", Uw2.Game.Engine.Town.Barmaids.Name(m, maid));
+        Assert.Equal(Uw2.Game.Engine.Town.Barmaids.Sincerity, Uw2.Game.Engine.Town.Barmaids.Taste(m, maid));
+        Assert.Null(Uw2.Game.Engine.Town.Barmaids.AskTaste(m, maid, _ => 0));          // 호감 0 — 비밀이예요
+        Assert.Null(Uw2.Game.Engine.Town.Barmaids.TellAge(m, maid));
+
+        m.Write(Uw2.Game.Engine.ScenarioMemory.At(16, 0, 6), 0x24, false);            // 스톤 헨지(유적, 어려움 10)를 찾았다
+        bool boasted = false;
+        Assert.Equal(0x13E, Uw2.Game.Engine.Town.Barmaids.Boast(m, maid, 0, ref boasted));   // 성의 — 맞장구에 두 배
+        Assert.Equal(4, Uw2.Game.Engine.Town.Barmaids.Get(m, maid, Uw2.Game.Engine.Town.Barmaids.Liking));
+        Uw2.Game.Engine.Town.Barmaids.Boast(m, maid, 0, ref boasted);
+        Assert.Equal(4, Uw2.Game.Engine.Town.Barmaids.Get(m, maid, Uw2.Game.Engine.Town.Barmaids.Liking));   // 한 번만
+
+        int gold = 100000;
+        Uw2.Game.Engine.Town.ItemShop.Buy(m, 51, ref gold);                             // 차이나드레스 — 힘 8
+        Assert.Equal([51], Uw2.Game.Engine.Town.Barmaids.Giftable(m));
+        Assert.Equal([0x141], Uw2.Game.Engine.Town.Barmaids.Gift(m, maid, 51));         // 성의라 맞장구는 없다
+        Assert.Equal(12, Uw2.Game.Engine.Town.Barmaids.Get(m, maid, Uw2.Game.Engine.Town.Barmaids.Liking));
+        Assert.Empty(Uw2.Game.Engine.Town.Barmaids.Giftable(m));
+    }
 }

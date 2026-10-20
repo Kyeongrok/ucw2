@@ -202,6 +202,7 @@ public sealed class SeaMapWindow : Window
         if (b == ShipyardBuilding && pick == 3) { SellShip(); return; }
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
         if (b == PubBuilding && pick == 3) { TalkToNavigator(pub: true); return; }
+        if (b == PubBuilding && pick == 4) { TalkToBarmaid(); return; }
         if (b == InnBuilding && pick == 0) { TalkToNavigator(pub: false); return; }
         if (b == InnBuilding && pick == 1) { ShowSupport(); return; }
         if (b == InnBuilding && pick == 2 && _host.Fleet is { } f)
@@ -221,6 +222,82 @@ public sealed class SeaMapWindow : Window
         if (b == HarborBuilding && pick == 2) { AtDock(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>이 항구에 든 뒤 여급에게 자랑했는지(<c>0x0049F5A4</c> 의 0x40).</summary>
+    private bool _boasted;
+    private int _boastPort = -1;
+
+    /// <summary>
+    /// 주점 「여급과 대화」 — 목록 13(업무정보 · 그녀의취향 · 그녀의연령, <c>0x00426910</c>)과 목록 14(자랑 · 선물, <c>0x004269A0</c>)를
+    /// 한 목록으로 늘어놓는다. 업무정보(<c>0x00426410</c>)는 아직이다.
+    /// </summary>
+    private void TalkToBarmaid()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        int maid = Barmaids.InPort(m, _host.CurrentPort);
+        if (maid < 0) { Note(" · 여급이 없습니다"); return; }
+        string name = Barmaids.Name(m, maid);
+        Say(0x18E, "무엇을 듣고 싶은가요？");
+        string[] items = ["업무정보", "그녀의취향", "그녀의연령", "자  랑", "선  물"];
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, $"{name} — 호감 {Barmaids.Get(m, maid, Barmaids.Liking)}", items);
+            if (pick < 0) return;
+            switch (pick)
+            {
+                case 0: Say(0x18F, "죄송해요, 모르겠어요."); break;
+                case 1:
+                    if (Barmaids.AskTaste(m, maid, Random.Shared.Next) is { } taste) Say(taste, "당신의 성의가 제일 기뻐요.");
+                    else Say(0x193, "후훗！ 그것은 비밀이예요.");
+                    break;
+                case 2:
+                    if (Barmaids.TellAge(m, maid) is { } age) Say(0x194, $"당신에게만 가르쳐 드리죠. {age}살예요.", age);
+                    else Say(0x193, "후훗！ 그것은 비밀이예요.");
+                    break;
+                case 3: BoastTo(maid); break;
+                default: GiftTo(maid); break;
+            }
+        }
+    }
+
+    /// <summary>「자랑」 — 찾은 발견물 하나를 골라 그림과 함께 보여 준다(<see cref="Barmaids.Boast"/>).</summary>
+    private void BoastTo(int maid)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var list = Barmaids.Boastable(vm.Memory);
+        if (list.Count == 0) { Say(0x138, "마치 본 것처럼 말하자만 안 속아요."); return; }
+        int pick = BuildingMenu.Ask(this, "자랑", list.Select(i => _host.Colony?.Name(i) ?? $"발견물 {i}").ToList());
+        if (pick < 0) return;
+        int disc = list[pick];
+        if (_boastPort != _host.CurrentPort) { _boastPort = _host.CurrentPort; _boasted = false; }   // 다른 항구에 들었다
+        int reply = Barmaids.Boast(vm.Memory, maid, disc, ref _boasted);
+        var lines = new List<ScenarioVm.Line>
+        {
+            new(_host.Colony?.Name(disc) ?? "", _host.Colony?.Text(disc) ?? "",
+                Face: _host.Colony?.Picture(disc) is >= 0 and var pic ? FaceSheet.FindFirst + pic : -1),
+            new("", MsgOr(0x139, "와！ 신기해라！")),
+        };
+        if (reply >= 0) lines.Add(new("", MsgOr(reply, "")));
+        ScenarioDialog.Play(this, _host.Faces, lines);
+    }
+
+    /// <summary>「선물」 — 옷 · 악세서리 · 보석(아이템 갈래 10 · 11)을 하나 내준다(<see cref="Barmaids.Gift"/>).</summary>
+    private void GiftTo(int maid)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var list = Barmaids.Giftable(vm.Memory);
+        if (list.Count == 0)
+        {
+            int none = (Barmaids.Get(vm.Memory, maid, Barmaids.Flags) & 1) == 0 ? 0x14B : 0x14A;
+            Say(none, "어머！ 가지고 싶은 물건이 없는데요.");
+            return;
+        }
+        int pick = BuildingMenu.Ask(this, "선물", list.Select(i => ItemShop.Get(vm.Memory, i).Name).ToList());
+        if (pick < 0) return;
+        var ids = Barmaids.Gift(vm.Memory, maid, list[pick]);
+        ScenarioDialog.Play(this, _host.Faces, [.. ids.Select(id => new ScenarioVm.Line("", MsgOr(id, "")))]);
     }
 
     /// <summary>
