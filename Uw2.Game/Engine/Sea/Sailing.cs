@@ -83,6 +83,19 @@ public static class Sailing
         return v;
     }
 
+    /// <summary>
+    /// 남 함대의 배 한 척 — <c>0x00418020</c>. 선원 · 짐 몫이 없고 제독의 항해 레벨 · 항해술을 쓴다.
+    /// </summary>
+    public static int AdmiralShipSpeed(int sailKind, int sail, int upwind, int angle, int windSpeed,
+                                       int navLevel, int seamanship)
+    {
+        int v = Efficiency[angle, sailKind & 7] * sail * windSpeed / 150;
+        v = Math.Min(LevelCap, v + v * navLevel / 10);
+        v = Math.Min(MaxSpeed, v * seamanship / 75);
+        if (IsHeadwind(angle)) v = v * upwind / 100;
+        return v;
+    }
+
     /// <summary>함대 빠르기 — 가장 느린 배. 바람이 자고 노 젓는 배가 없으면 0 이다.</summary>
     public static int FleetSpeed(IReadOnlyList<ShipSailing> ships, int heading, int windDir, int windSpeed)
     {

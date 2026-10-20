@@ -66,6 +66,7 @@ public static class Program
         AssetPack.BakeWalk(Path.Combine(dir, "PORTCHIP.LZW"), outDir);
         AssetPack.BakeDoors(Path.Combine(dir, "ZA_DAT.DAT"), outDir);
         AssetPack.BakeKao(Path.Combine(dir, "KAO.LZW"), outDir);
+        AssetPack.BakeRoute(Path.Combine(dir, "DATA1.LZW"), outDir);
         var start = StartData.Load(Path.Combine(dir, "SDATA.DAT"));
         foreach (var t in start.ShipTypes)
             Console.WriteLine($"{t.Index,2}  내구 {t.Durability,3} 역풍 {t.Upwind,3} 돛 {t.Sail,3} 드는선원 {t.RequiredCrew,3}"

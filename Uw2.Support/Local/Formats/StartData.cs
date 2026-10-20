@@ -41,8 +41,10 @@ public sealed class StartData
     /// <param name="Admiral">+0x2A 제독(사람 번호).</param>
     /// <param name="Port">+0x26 머문 · 고향 항구.</param>
     /// <param name="Flags">+0x29 — 비트 0 이 「바다에 나와 있다」. 주인공 함대는 0 으로 시작한다.</param>
+    /// <param name="TargetX">+0x04 · +0x06 목표 자리 — 새 게임에는 갈 항구 자리가 들어 있다.</param>
+    /// <param name="Home">+0x1C — 움직임 갈래 0 에서는 닿은 뒤 돌아갈 항구 번호(고향)다.</param>
     public readonly record struct Fleet(int Index, int X, int Y, int Heading, int Admiral, int Port, int Flags,
-                                        IReadOnlyList<Slot> Slots)
+                                        int TargetX, int TargetY, int Home, IReadOnlyList<Slot> Slots)
     {
         public bool Active => (Flags & 1) != 0;
         public int ShipCount => Slots.Count(s => s.Present);
@@ -104,7 +106,9 @@ public sealed class StartData
                                     raw[s + 6], raw[s + 7], raw[s + 8]);
             }
             fleets[k] = new Fleet(k, BitConverter.ToInt16(raw, o), BitConverter.ToInt16(raw, o + 2), raw[o + 0x1A],
-                                  raw[o + 0x2A], raw[o + 0x26], raw[o + 0x29], slots);
+                                  raw[o + 0x2A], raw[o + 0x26], raw[o + 0x29],
+                                  BitConverter.ToInt16(raw, o + 4), BitConverter.ToInt16(raw, o + 6), raw[o + 0x1C],
+                                  slots);
         }
         return fleets;
     }

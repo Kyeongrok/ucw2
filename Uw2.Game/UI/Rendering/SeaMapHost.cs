@@ -94,6 +94,7 @@ public sealed class SeaMapHost : HwndHost
         Chips = pack.ToChipMap();
         Wind = pack.Wind.Length > 0 ? WindCurTable.FromBytes(pack.Wind) : null;
         StartTables = pack.Start;
+        Routes = pack.Routes;
 
         var cells = Chips.Expand(Map);
         if (!InitRenderer(cells, ChipMap.Width, ChipMap.Height)) return false;
@@ -149,6 +150,7 @@ public sealed class SeaMapHost : HwndHost
         try { Wind = WindCurTable.Load(Path.Combine(gameDir, "WINDCUR.DAT")); }
         catch { Wind = null; }   // 없어도 지도는 돈다
 
+        try { Routes = RouteGraph.FromData1(Path.Combine(gameDir, "DATA1.LZW")); } catch { Routes = null; }
         try { StartTables = StartData.Load(Path.Combine(gameDir, "SDATA.DAT")); }
         catch { StartTables = null; }  // 없으면 배를 못 띄울 뿐 지도는 돈다
 
@@ -257,18 +259,24 @@ public sealed class SeaMapHost : HwndHost
     /// 남의 함대 — 새 게임의 일흔 함대 가운데 바다에 나와 있고(+0x29 비트 0) 배가 있는 것.
     /// 아직 움직이지 않는다(뱃길 그래프 DATA1.LZW 4번 청크를 옮기면 간다).
     /// </summary>
-    public List<StartData.Fleet> Others { get; } = [];
+    public List<NpcFleet> Others { get; } = [];
+
+    /// <summary>뱃길 그래프(DATA1.LZW 4번 청크). 없으면 남 함대가 안 움직인다.</summary>
+    public RouteGraph? Routes { get; private set; }
 
     private double _othersScale = -1;
+    private bool _othersMoved = true;
+    private readonly Random _npcRng = new();
 
-    /// <summary>남의 함대 자리를 렌더러에 올린다. 눈금이 바뀌었을 때만 다시 짓는다.</summary>
+    /// <summary>남의 함대 자리를 렌더러에 올린다. 눈금이 바뀌었거나 움직였을 때만 다시 짓는다.</summary>
     private void PushOthers()
     {
         double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale;
-        if (Math.Abs(scale - _othersScale) < 1e-9) return;
+        if (Math.Abs(scale - _othersScale) < 1e-9 && !_othersMoved) return;
         _othersScale = scale;
-        // 제 배와 같은 자리 잡기 — 함대 자리가 그림 가로 한가운데 · 밑변이다.
-        var list = Others.Select(f => ((float)f.X, (float)f.Y, f.Heading is > 4)).ToList();
+        _othersMoved = false;
+        // 제 배와 같은 자리 잡기 — 함대 자리가 그림 가로 한가운데 · 밑변이다. 항구에 든 함대는 안 그린다.
+        var list = Others.Where(f => !f.Docked).Select(f => ((float)f.X, (float)f.Y, f.Heading is > 4)).ToList();
         _renderer.SetOthers(list, (float)(_shipW * scale), (float)(_shipH * scale));
     }
 
@@ -302,8 +310,13 @@ public sealed class SeaMapHost : HwndHost
         fleet.Ships.Clear();
         if (StartTables is not { } start) return;
         Others.Clear();
-        // 뭍 위 자리(항구에 든 함대)는 지도에 안 그린다 — 바다에 나온 함대만.
-        Others.AddRange(start.Fleets.Where(f => f.Active && f.ShipCount > 0 && fleet.CanSail(f.X, f.Y)));
+        // 뭍 위 자리(항구에 든 함대)는 빼고 바다에 나온 함대만 띄운다. 고향은 +0x1C, 갈 데는 +0x04 · +0x06 이다.
+        if (Routes is { } routes && Ports is { } ports)
+            foreach (var f in start.Fleets.Where(f => f.Active && f.ShipCount > 0 && fleet.CanSail(f.X, f.Y)))
+            {
+                var home = f.Home < ports.Ports.Count ? (ports.Ports[f.Home].X, ports.Ports[f.Home].Y) : (f.TargetX, f.TargetY);
+                Others.Add(new NpcFleet(fleet, routes, _npcRng, f, start, home, (f.TargetX, f.TargetY)));
+            }
         _othersScale = -1;
         var captain = start.People[HeroPerson[Hero]];
         fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[StandInShipType], captain));
@@ -582,7 +595,15 @@ public sealed class SeaMapHost : HwndHost
         if (ticks <= 0) return;
         _carry -= ticks;
 
-        for (int i = 0; i < Math.Min(ticks, 20); i++) Fleet.Step();
+        for (int i = 0; i < Math.Min(ticks, 20); i++)
+        {
+            int day = Fleet.DaysAtSea;
+            Fleet.Step();
+            // 틱마다 남 함대도 다 한 걸음 간다(0x0041A362). 바람 · 해류는 제 함대 자리의 것을 같이 쓴다.
+            foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);
+            if (Fleet.DaysAtSea != day) foreach (var npc in Others) npc.NewDay();
+            _othersMoved = true;
+        }
         _renderer.ShipFacesWest = Fleet.Heading > Fleet.DirCount / 2;
         FollowShip(w, h);
         _dirty = true;

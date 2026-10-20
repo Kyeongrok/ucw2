@@ -140,7 +140,7 @@ public sealed class Fleet
                              : ((chipY & 1) == 0 ? rt : rb);
     }
 
-    private static int Wrap(int x) => ((x % ChipMap.Width) + ChipMap.Width) % ChipMap.Width;
+    internal static int Wrap(int x) => ((x % ChipMap.Width) + ChipMap.Width) % ChipMap.Width;
 
     /// <summary>한 틱 나아간다.</summary>
     public void Step()
@@ -200,9 +200,17 @@ public sealed class Fleet
         var (cx, cy) = WindCurTable.Vector(LastCurrent.Dir);
         int vx = hx * speed + cx * LastCurrent.Speed;
         int vy = hy * speed + cy * LastCurrent.Speed;
+        return Advance(ref _cellX, ref _cellY, ref _subX, ref _subY, vx, vy);
+    }
 
-        int sx = _subX + vx, sy = _subY + vy;
-        int nx = _cellX, ny = _cellY;
+    /// <summary>
+    /// 칸 안 걸음에 (vx, vy) 를 더해 한 틱 옮긴다 — 제 함대(<c>0x00448BC0</c>)와 남 함대(<c>0x00418A90</c>)가 같은 셈이다.
+    /// 막혀서 못 갔으면 false.
+    /// </summary>
+    internal bool Advance(ref int cellX, ref int cellY, ref int subX, ref int subY, int vx, int vy)
+    {
+        int sx = subX + vx, sy = subY + vy;
+        int nx = cellX, ny = cellY;
         bool crossX = false, crossY = false;
         if (sx >= Sailing.CellUnits) { nx++; sx -= Sailing.CellUnits; crossX = true; }
         else if (sx < 0) { nx--; sx += Sailing.CellUnits; crossX = true; }
@@ -213,14 +221,14 @@ public sealed class Fleet
 
         if ((crossX || crossY) && !CanSail(nx, ny))
         {
-            if (!CanSail(_cellX + Math.Sign(vx), _cellY + Math.Sign(vy))) return false;
-            _subX = crossX ? (vx > 0 ? Sailing.CellUnits - 1 : 0) : sx;
-            _subY = crossY ? (vy > 0 ? Sailing.CellUnits - 1 : 0) : sy;
+            if (!CanSail(cellX + Math.Sign(vx), cellY + Math.Sign(vy))) return false;
+            subX = crossX ? (vx > 0 ? Sailing.CellUnits - 1 : 0) : sx;
+            subY = crossY ? (vy > 0 ? Sailing.CellUnits - 1 : 0) : sy;
             return true;
         }
 
-        _cellX = Wrap(nx); _cellY = ny;
-        _subX = sx; _subY = sy;
+        cellX = Wrap(nx); cellY = ny;
+        subX = sx; subY = sy;
         return true;
     }
 

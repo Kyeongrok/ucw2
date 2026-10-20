@@ -27,6 +27,7 @@ namespace Uw2.Support.Local.Formats;
 ///       cells.png        1080x540 값 = 칸 값
 ///       chips.png        256x128  값 = 색인 0~15  (칩 128장)
 ///       quad.png         256x4    값 = 칩 번호    (그림표)
+///       route.png        16x622   뱃길 마디(값 = 날바이트, DATA1.LZW 4번 청크의 쓰는 마디만)
 ///     port/
 ///       maps.png         1056x960 96x96 지도 101장을 11x10 으로 깔았다(값 = 칩 번호)
 ///       chips-0..6.png   256x240  값 = 색인 0~15  (벌마다 칩 240장)
@@ -91,6 +92,8 @@ public sealed class AssetPack
         var sheet = WorldChips.Load(gameDirectory);
         var atlas = sheet.ToAtlas(AtlasCols, out int cw, out int ch);
         IndexedPng.Write(Path.Combine(outDir, "world", "chips.png"), atlas, cw, ch, pal);
+
+        BakeRoute(Find("DATA1.LZW"), outDir);
 
         var quads = QuadBytes(gameDirectory);
         IndexedPng.Write(Path.Combine(outDir, "world", "quad.png"), quads, ChipMap.QuadCount, 4,
@@ -284,6 +287,16 @@ public sealed class AssetPack
         return p;
     }
 
+    /// <summary>뱃길 그래프를 굽는다 — 쓰는 마디만, 줄 하나가 마디 하나다.</summary>
+    public static void BakeRoute(string data1Path, string outDir)
+    {
+        var chunks = LsArchive.ReadAll(data1Path);
+        int count = BitConverter.ToInt16(chunks[5], 0);
+        Directory.CreateDirectory(Path.Combine(outDir, "world"));
+        IndexedPng.Write(Path.Combine(outDir, "world", "route.png"), chunks[4][..(count * RouteGraph.NodeSize)],
+                         RouteGraph.NodeSize, count, DataPalette());
+    }
+
     /// <summary><c>PORTCHIP.LZW</c> 의 걸음 경계만 굽는다(<c>port/walk.png</c>).</summary>
     public static void BakeWalk(string portChipPath, string outDir)
     {
@@ -382,6 +395,13 @@ public sealed class AssetPack
 
             var shipTypes = ReadJson<ShipTypeJson[]>(Path.Combine(dir, "ships.json"));
             var people = ReadJson<PersonJson[]>(Path.Combine(dir, "people.json"));
+            string routePath = Path.Combine(dir, "world", "route.png");
+            RouteGraph? routes = null;
+            if (File.Exists(routePath))
+            {
+                var r = IndexedPng.Read(routePath);
+                routes = RouteGraph.FromBytes(r.Pixels, r.Height);
+            }
             string fleetsPath = Path.Combine(dir, "fleets.png");
             byte[]? fleetBytes = File.Exists(fleetsPath) ? IndexedPng.Read(fleetsPath).Pixels : null;
             var start = shipTypes != null && people != null
@@ -391,6 +411,7 @@ public sealed class AssetPack
             return new AssetPack
             {
                 Start = start,
+                Routes = routes,
                 Cells = cells.Pixels,
                 WorldAtlas = chips.Pixels,
                 WorldAtlasSize = (chips.Width, chips.Height),
@@ -466,6 +487,9 @@ public sealed class AssetPack
 
     /// <summary>바람·해류 날바이트 1,350.</summary>
     public byte[] Wind { get; private init; } = [];
+
+    /// <summary>뱃길 그래프. 구워 두지 않았으면 null.</summary>
+    public RouteGraph? Routes { get; private init; }
 
     /// <summary>선종 · 사람 표. 구워 두지 않았으면 null.</summary>
     public StartData? Start { get; private init; }
