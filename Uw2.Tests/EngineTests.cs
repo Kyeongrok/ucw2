@@ -638,4 +638,23 @@ public class EngineTests
         Assert.Equal(255, Uw2.Game.Engine.Town.Barmaids.Get(m, 3, Uw2.Game.Engine.Town.Barmaids.ProbeDays));   // 맡기지 않은 이는 그대로
         Assert.Equal(2 + 50 / 10, Uw2.Game.Engine.Town.Barmaids.Commission(m, 2, 3, 1, spy: true, _ => 2));
     }
+
+    [Fact]
+    public void DiceJudgesHandsLikeTheOriginal()
+    {
+        static int[] D(params int[] d) => d;
+        Assert.Equal(10, Uw2.Game.Engine.Town.Dice.Pairs(D(3, 3, 3, 3, 3)));
+        Assert.Equal(4, Uw2.Game.Engine.Town.Dice.Pairs(D(1, 1, 4, 4, 4)));
+        Assert.Equal(2, Uw2.Game.Engine.Town.Dice.Pairs(D(0, 0, 2, 5, 5)));
+        Assert.Equal(0, Uw2.Game.Engine.Town.Dice.Judge(D(1, 1, 4, 4, 4), D(0, 0, 2, 5, 5), D(0, 1, 2, 3, 5)));
+        Assert.Equal(1, Uw2.Game.Engine.Town.Dice.Judge(D(0, 0, 2, 5, 5), D(1, 2, 2, 5, 5), D(0, 1, 2, 3, 5)));   // 두 짝: 작은 짝 2 > 0
+        Assert.Equal(5, Uw2.Game.Engine.Town.Dice.Judge(D(0, 1, 3, 3, 4), D(1, 2, 3, 3, 5), D(0, 1, 2, 4, 5)));   // 한 짝 3 끼리
+        Assert.Equal(6, Uw2.Game.Engine.Town.Dice.Judge(D(0, 1, 2, 3, 5), D(0, 1, 2, 4, 5), D(0, 2, 3, 4, 5)));   // 짝 없음끼리 — 원본 버그
+        Assert.Equal(new[] { true, true, false, true, true }, Uw2.Game.Engine.Town.Dice.Keep(D(0, 0, 2, 5, 5)));
+        Assert.Equal(new[] { 0, 0, 3, 5, 5 }, Uw2.Game.Engine.Town.Dice.Roll(D(0, 0, 2, 5, 5), [true, true, false, true, true], _ => 3));
+        Assert.Null(Uw2.Game.Engine.Town.Dice.Raise(250, _ => 1));
+        Assert.Equal(50 + 50 * 4 / 10, Uw2.Game.Engine.Town.Dice.Raise(50, r => r == 4 ? 1 : 3));
+        Assert.Equal(300, Uw2.Game.Engine.Town.Dice.Payout(0, 100));
+        Assert.Equal(150, Uw2.Game.Engine.Town.Dice.Payout(6, 100));
+    }
 }
