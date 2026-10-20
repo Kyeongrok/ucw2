@@ -209,6 +209,7 @@ public sealed class SeaMapWindow : Window
         if (b == ShipyardBuilding && pick == 2) { RepairShips(); return; }
         if (b == ShipyardBuilding && pick == 3) { SellShip(); return; }
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
+        if (b == PubBuilding && pick == 1) { FireCrew(); return; }
         if (b == PubBuilding && pick == 3) { TalkToNavigator(pub: true); return; }
         if (b == PubBuilding && pick == 4) { TalkToBarmaid(); return; }
         if (b == InnBuilding && pick == 0) { TalkToNavigator(pub: false); return; }
@@ -1143,6 +1144,21 @@ public sealed class SeaMapWindow : Window
                 if (Economy.CategoryOf(g) == cat) sb.AppendLine($"{eco.GoodsNames[g],-8} {eco.SellPrice(port, g),6}");
             MessageBox.Show(this, sb.ToString(), "시세 · 물가");
         }
+    }
+
+    /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>
+    private void FireCrew()
+    {
+        var p = _host.Player;
+        int pick = BuildingMenu.Ask(this, "선원 해고", p.Ships.Select(sh => $"{sh.Name}  선원 {sh.Crew}/{sh.MaxCrew}").ToList());
+        if (pick < 0) return;
+        var ship = p.Ships[pick];
+        int n = AmountDialog.Ask(this, $"{ship.Name} — 몇 명을 내리겠습니까？(0-{ship.Crew})", ship.Crew);
+        if (n <= 0) return;
+        ship.Crew -= Math.Min(n, ship.Crew);
+        if (ship.Crew == 0) ship.Morale = 0;
+        _host.SyncLoad();
+        Note($" · {ship.Name} 선원 {ship.Crew}명");
     }
 
     /// <summary>교역소 「매각」 — 실은 교역품을 골라 다 판다(<see cref="Economy.SellPrice"/>).</summary>
