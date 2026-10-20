@@ -192,7 +192,7 @@ public sealed class ScenarioVm
     /// <summary>고르기를 물을 곳. 없으면 늘 첫 항목.</summary>
     public Chooser? Choose { get; set; }
 
-    private int Word(int at) => at + 1 < _code.Length ? _code[at] << 8 | _code[at + 1] : 0;
+    private int Word(int at) => at >= 0 && at + 1 < _code.Length ? _code[at] << 8 | _code[at + 1] : 0;
 
     private int SectionStart()
     {
@@ -214,7 +214,8 @@ public sealed class ScenarioVm
         {
             int p = _code[t], b = _code[t + 1];
             if (p == 0xFF) break;
-            bool portOk = p == port || (p == 0xA3 && port < 0x82);
+            // 0xA3 은 「어느 항구든」 — 항구 번호(100 아래)일 때만이다. 0xA0 · 0xA1 · 0xA2 는 바다 · 싸움 자리 표다(0x0043FB1D).
+            bool portOk = p == port || (p == 0xA3 && port < 0x64);
             bool bldOk = b == building || b == 0xFF;
             if (portOk && bldOk) return Execute(s, s + Word(t + 2), gold, name, family);
         }

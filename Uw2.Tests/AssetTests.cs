@@ -598,4 +598,30 @@ public class AssetTests
         var run = vm.Enter(0, 0x15, 1000, "조안", "페레로");                          // 리스본 왕궁 알현(0x00427800)
         Assert.NotNull(run);                                                          // 걸린 이벤트가 있다(조건은 기억에 따른다)
     }
+
+    [Fact]
+    public void ScenariosHangEventsOnDaysAtSea()
+    {
+        // 바다 이벤트는 자리 0xA0 · 건물 = 바다에 나온 날 수다(0x00418D45). 장 · 절을 돌며 걸린 것을 센다.
+        string dir = Path.Combine(AssetDir, "snr");
+        var found = new List<string>();
+        for (int n = 0; n <= 6; n++)
+        {
+            var code = File.ReadAllBytes(Path.Combine(dir, $"SNR{n}.DAT"));
+            var text = ScenarioText.Load(Path.Combine(dir, $"SNR{n}.MES"));
+            for (int ch = 0; ch < 16; ch++)
+                for (int sec = 0; sec < 16; sec++)
+                    for (int day = 0; day < 40; day++)
+                    {
+                        var vm = new Uw2.Game.Engine.ScenarioVm(code, text) { Chapter = ch, Section = sec };
+                        if (vm.Enter(0xA0, day, 1000, "a", "b") is { Lines.Count: > 0 }) { found.Add($"SNR{n} {ch}.{sec} day {day}"); break; }
+                    }
+        }
+        Assert.Contains("SNR1 0.1 day 3", found);                                     // 조안 — 아버지를 뵌 뒤 바다 사흘째
+        var joao = new Uw2.Game.Engine.ScenarioVm(File.ReadAllBytes(Path.Combine(dir, "SNR1.DAT")),
+                                                  ScenarioText.Load(Path.Combine(dir, "SNR1.MES"))) { Chapter = 0, Section = 1 };
+        Assert.False(joao.Enter(0xA0, 2, 1000, "조안", "페레로") is { Lines.Count: > 0 });     // 이틀째는 아니다
+        var sea = joao.Enter(0xA0, 3, 1000, "조안", "페레로");
+        Assert.Contains(sea!.Lines, l => l.Body.Contains("마냐나"));                // 밀항자에게 성을 지어 준다
+    }
 }

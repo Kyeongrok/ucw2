@@ -669,6 +669,15 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;
 
+    /// <summary>
+    /// 바다에서 날이 바뀌었다 — 바다에 나온 날 수를 넘긴다. 원본은 바다 고리마다 「자리 0xA0 · 건물 = 날 수」 이벤트를 본다(<c>0x00418D45</c>).
+    /// 그리기 고리 밖에서 부르도록 디스패처에 미룬다.
+    /// </summary>
+    public event Action<int>? SeaDay;
+
+    /// <summary>바다 이벤트 자리 표(<c>0x00418D4B</c>).</summary>
+    public const int SeaEventPort = 0xA0;
+
     /// <summary>사람 기록 한 바이트 — 시나리오 기억이 있으면 거기서, 없으면 처음 표에서.</summary>
     private int HeroStat(int person, int field)
     {
@@ -1055,7 +1064,12 @@ public sealed class SeaMapHost : HwndHost
             Survey.Visit(Fleet.X, Fleet.Y);
             // 틱마다 남 함대도 다 한 걸음 간다(0x0041A362). 바람 · 해류는 제 함대 자리의 것을 같이 쓴다.
             foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);
-            if (Fleet.DaysAtSea != day) foreach (var npc in Others) npc.NewDay();
+            if (Fleet.DaysAtSea != day)
+            {
+                foreach (var npc in Others) npc.NewDay();
+                int today = Fleet.DaysAtSea;
+                Dispatcher.BeginInvoke(() => SeaDay?.Invoke(today));
+            }
             _othersMoved = true;
         }
         _renderer.ShipFacesWest = Fleet.Heading > Fleet.DirCount / 2;

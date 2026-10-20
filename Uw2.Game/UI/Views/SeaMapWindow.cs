@@ -1032,6 +1032,7 @@ public sealed class SeaMapWindow : Window
         Content = grid;
 
         _host.Painted += UpdateStatus;
+        _host.SeaDay += OnSeaDay;
         _host.DiseaseCaught += name =>
         {
             _seaNote = $" · {name}이 돌기 시작했습니다";
@@ -1484,6 +1485,29 @@ public sealed class SeaMapWindow : Window
         Retitle();
     }
 
+    /// <summary>
+    /// 바다 이벤트 — 함께 쓰는 시나리오와 주인공 것에 「자리 0xA0 · 건물 = 바다에 나온 날 수」 로 묻는다(<c>0x00418D45</c>).
+    /// 출항한 날(0)에도 한 번 본다.
+    /// </summary>
+    private void OnSeaDay(int day)
+    {
+        if (_host.CurrentPort >= 0 || _host.Fleet == null) return;
+        var (name, family) = _host.HeroName;
+        ScenarioVm.Chooser ask = (before, options) => ScenarioDialog.Ask(this, _host.Faces, before, options);
+        foreach (var vm in new[] { _host.Common, _host.Scenario })
+        {
+            if (vm == null) continue;
+            vm.Choose = ask;
+            _host.WriteShipSide();
+            if (vm.Enter(SeaMapHost.SeaEventPort, day, _host.Player.Gold, name, family) is not { Lines.Count: > 0 } run) continue;
+            ScenarioDialog.Play(this, _host.Faces, run.Pending);
+            _host.Apply(run);
+            _host.WriteShipSide();
+            _seaNote = $" · 바다 이벤트({day}일째)";
+            UpdateStatus();
+        }
+    }
+
     /// <summary>항구에서 나와 앞바다에 배를 띄운다.</summary>
     private void PutToSea()
     {
@@ -1491,6 +1515,7 @@ public sealed class SeaMapWindow : Window
         _host.ShowWorld();
         _portPick.SelectedIndex = -1;
         if (!_host.SailFrom(from)) _host.FitToWindow();
+        else Dispatcher.BeginInvoke(() => OnSeaDay(0));
         _host.CellsPerPixel = 1.0 / 6;               // 칩 하나에 여섯 점 — 배가 잘 보인다
         _host.Invalidate();
         Retitle();
