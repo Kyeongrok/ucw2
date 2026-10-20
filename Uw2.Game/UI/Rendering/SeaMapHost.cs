@@ -362,11 +362,21 @@ public sealed class SeaMapHost : HwndHost
 
     /// <summary>
     /// 제 배 곁 30바이트(표 9)를 시나리오 기억에 쓴다 — 보급 넷(+0) · 짐 양 다섯(+0x0C) · 짐 번호 다섯(+0x16, 0xFF 빈 칸).
-    /// 건물에 들기 전에 부른다.
+    /// 게임 값(날짜 · 시각 · 머문 항구 · 바다 칸)도 함께 채운다. 건물에 들기 전에 부른다.
     /// </summary>
     public void WriteShipSide()
     {
         if (Scenario == null) return;
+        if (Fleet != null)
+        {
+            var g = Scenario.GameValues;
+            g[ScenarioVm.ValueArea] = (int)Fleet.Y / 24 * 90 + (int)Fleet.X / 24;
+            g[ScenarioVm.ValueYear] = Fleet.Date.Year;
+            g[ScenarioVm.ValueMonth] = Fleet.Date.Month;
+            g[ScenarioVm.ValueDay] = Fleet.Date.Day;
+            g[ScenarioVm.ValueTime] = Fleet.TimeOfDay;
+        }
+        Scenario.GameValues[ScenarioVm.ValuePort] = CurrentPort < 0 ? 255 : CurrentPort;
         var m = Scenario.Memory;
         for (int i = 0; i < Player.Ships.Count; i++)
         {

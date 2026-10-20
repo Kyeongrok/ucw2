@@ -15,7 +15,7 @@ namespace Uw2.Game.Engine;
 /// </code>
 /// 바이트 갈래(<c>0x0043E830 · 0x0043EB90 · 0x0043ED90</c>):
 /// <code>
-///   00 DD SS WW a b   넣기 — 갈래 S 의 b 를 갈래 D 의 a 에. W 0 낱말 · 1 바이트, 3 은 게임 값 여덟(아직), 2 는 오류.
+///   00 DD SS WW a b   넣기 — 갈래 S 의 b 를 갈래 D 의 a 에. W 0 낱말 · 1 바이트, 3 은 게임 값 b(<see cref="GameValues"/>), 2 는 오류.
 ///                     D 가 깃발이면 0 아님을 넣는다. 받을 곳이 깃발이 아니고 W 0 · S 3 이면 b 뒤 한 바이트를 더 읽어 낱말
 ///   01 O B SS oo a b  셈 — B 0 이면 변수 a(낱말), 1 이면 가리키개 a 자리(바이트)에. O·oo 0 더하기 1 빼기 2 곱 3 나누기,
 ///                     O 가 서면 0 또는 1 그리고 2 · 3 은 가리키개 a 를 b 만큼 앞 · 뒤로
@@ -44,6 +44,19 @@ public sealed class ScenarioVm
     private readonly ScenarioMemory.Pointer[] _ptrs = new ScenarioMemory.Pointer[256];
 
     public ScenarioVm(byte[] code, ScenarioText text) { _code = code; _text = text; }
+
+    /// <summary>
+    /// 게임 값 여덟(<c>0x0043E8DA</c> 의 표 <c>0x0043EB60</c>) — <c>00 0x 11 a b</c>(W 3)가 변수 a 에 b 번을 넣는다. 부르는 쪽이 채운다.
+    /// <code>
+    ///   1  제 함대가 있는 바다 칸 — (y / 24) x 90 + x / 24 (칩 자리, 0x0046F8C8)
+    ///   2  해(0 부터, 0x004703D8)   3  달(0x004703DC)   4  날(0x004703E0)
+    ///   5  머문 항구(0x0045A1C0, 바다면 255)   6  0x004715AC(모름)   7  하루 안 시각(0x004703E4)
+    /// </code>
+    /// 0 은 받을 곳이 가리키개일 때 입력 글을 그 자리에 옮기는 것이라 여기서는 쓰지 않는다.
+    /// </summary>
+    public int[] GameValues { get; } = new int[8];
+
+    public const int ValueArea = 1, ValueYear = 2, ValueMonth = 3, ValueDay = 4, ValuePort = 5, ValueTime = 7;
 
     /// <summary>시나리오가 들여다보는 게임 기억 — 부르는 쪽이 아는 표를 채운다.</summary>
     public ScenarioMemory Memory { get; } = new();
@@ -155,7 +168,12 @@ public sealed class ScenarioVm
                 case 0:
                 {
                     int dest = (op >> 4) & 3, src = (op >> 2) & 3, w = op & 3;
-                    if (w >= 2 || dest == 3) break;                // 2 는 오류, 3 은 게임 값(아직), 받을 곳 3 은 가리키개 옮기기(아직)
+                    if (w == 3)
+                    {
+                        if (dest == 0 && a2 is >= 1 and < 8) _vars[a1] = (ushort)GameValues[a2];
+                        break;
+                    }
+                    if (w == 2 || dest == 3) break;                // 2 는 오류, 받을 곳 3 은 가리키개 옮기기(아직)
                     int v = src == 3 ? (len == 4 ? Word(ip + 2) : a2) : ValueOf(src, a2, w == 0);
                     Store(dest, a1, v, w == 0);
                     break;
