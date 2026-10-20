@@ -280,4 +280,21 @@ public class EngineTests
         Uw2.Game.Engine.Town.Navigators.Command(m, 90, aboard: false);
         Assert.Equal(90, Uw2.Game.Engine.Town.Navigators.FreeMate(m));
     }
+
+    [Fact]
+    public void UsedShipsAreRolledOncePerPortAndCachedForThree()
+    {
+        var m = new ScenarioMemory();
+        for (int i = 0; i < 24; i++) m.Write(new ScenarioMemory.Pointer(15, i), 0xFF, false);
+        var types = Enumerable.Range(0, 25).Select(i => new StartData.ShipType(i, 0, 30, 70, 80, 0, 5, 50, 10, 4, 100)).ToList();
+        int calls = 0;
+        Uw2.Game.Engine.Town.Shipyard.EnterPort(m, 0, 0, 500, 100, types, n => { calls++; return 0; });
+        // 리스본 갈래 0 의 줄 [0, 18, 5, …] 첫 칸 셋, 값싼 줄 첫 칸 둘 — 모두 0
+        Assert.Equal([(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)], Uw2.Game.Engine.Town.Shipyard.Used(m, 25).ToArray());
+        Uw2.Game.Engine.Town.Shipyard.TakeUsed(m, 1);
+        Uw2.Game.Engine.Town.Shipyard.EnterPort(m, 1, 0, 500, 100, types, _ => 1);
+        Uw2.Game.Engine.Town.Shipyard.EnterPort(m, 0, 0, 500, 100, types, _ => throw new Exception("다시 굴리면 안 된다"));
+        Assert.Equal(4, Uw2.Game.Engine.Town.Shipyard.Used(m, 25).Count);   // 산 칸은 빈 채로 남는다
+        Assert.Equal(5, calls);
+    }
 }

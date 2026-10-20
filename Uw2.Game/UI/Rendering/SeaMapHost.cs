@@ -366,6 +366,9 @@ public sealed class SeaMapHost : HwndHost
             if (StartTables is { PeopleBytes.Length: > 0 } sp) Scenario.Memory.Fill(ScenarioMemory.PeopleTable, sp.PeopleBytes);
             if (StartTables is { NationBytes.Length: > 0 } sn) Scenario.Memory.Fill(ScenarioMemory.NationTable, sn.NationBytes);
             if (StartTables is { HeroBytes.Length: > 0 } sh) Scenario.Memory.Fill(ScenarioMemory.HeroTable, sh.HeroBytes);
+            // 중고선 칸(표 15)은 비워 둔다 — 0 이면 「리스본의 발사 다섯」으로 읽힌다.
+            for (int i = 0; i < 8 * Uw2.Game.Engine.Town.Shipyard.UsedRecords; i++)
+                Scenario.Memory.Write(new ScenarioMemory.Pointer(Uw2.Game.Engine.Town.Shipyard.UsedTable, i), 0xFF, false);
             if (StartTables is { MiscBytes.Length: > 0 } sm)
             {
                 Scenario.Memory.Fill(ScenarioMemory.MiscTable, sm.MiscBytes);
@@ -693,6 +696,11 @@ public sealed class SeaMapHost : HwndHost
         if (port < 0 || port >= _portMaps.Ports) return false;
 
         CurrentPort = port;
+        if (Scenario != null && Economy is { } eco && StartTables is { } st && port < eco.States.Count)
+        {
+            var ps = eco.States[port];
+            Uw2.Game.Engine.Town.Shipyard.EnterPort(Scenario.Memory, port, ps.Yard, ps.Industry, ps.Economy, st.ShipTypes, Roll);
+        }
         // 항구에 든 함대는 그 앞바다에 매여 있다 — 출항 전에 세계지도를 열어도 (0, 0) 에 있지 않게 옮겨 둔다.
         if (Fleet != null && Ports != null && port < Ports.Ports.Count)
             Fleet.PlaceNearSea(Ports.Ports[port].X, Ports.Ports[port].Y);

@@ -80,6 +80,29 @@ public sealed class SeaMapWindow : Window
         Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 지었습니다{(mate >= 0 ? $" · 선장 {_host.PersonName(mate)}" : "")}");
     }
 
+    /// <summary>조선소 「중고선 구입」 — 항구에 들 때 마련한 다섯 칸(<see cref="Shipyard.EnterPort"/>), 값은 선종 값.</summary>
+    private void BuyUsedShip()
+    {
+        if (_host.StartTables is not { } start || _host.Scenario is not { } vm) return;
+        var p = _host.Player;
+        var used = Shipyard.Used(vm.Memory, start.ShipTypes.Count);
+        if (used.Count == 0) { Note(" · 지금은 중고선이 없습니다"); return; }
+        if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
+        int mate = _host.FreeMate;
+        if (mate < 0) { Note(" · 새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요"); return; }
+        string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
+        int pick = BuildingMenu.Ask(this, $"중고선 구입 — 돈 {p.Gold}",
+            used.Select(u => $"{NameOf(u.Type),-10} {start.ShipTypes[u.Type].Price,6}").ToList());
+        if (pick < 0) return;
+        var (slot, type) = used[pick];
+        int price = start.ShipTypes[type].Price;
+        if (p.Gold < price) { Note($" · 돈이 모자랍니다({NameOf(type)} {price})"); return; }
+        if (!_host.AddShip(type, captain: mate)) return;
+        p.SetGold(p.Gold - price);
+        Shipyard.TakeUsed(vm.Memory, slot);
+        Note($" · 중고 {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 샀습니다 · 선장 {_host.PersonName(mate)}");
+    }
+
     /// <summary>조선소 「수리」 — 배를 골라 고친다(<see cref="Shipyard.RepairCost"/>).</summary>
     private void RepairShips()
     {
@@ -149,6 +172,7 @@ public sealed class SeaMapWindow : Window
         if (b == TradeBuilding && pick == 2) { Invest(industry: false); return; }
         if (b == ShipyardBuilding && pick == 5) { Invest(industry: true); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
+        if (b == ShipyardBuilding && pick == 1) { BuyUsedShip(); return; }
         if (b == ShipyardBuilding && pick == 2) { RepairShips(); return; }
         if (b == ShipyardBuilding && pick == 3) { SellShip(); return; }
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
