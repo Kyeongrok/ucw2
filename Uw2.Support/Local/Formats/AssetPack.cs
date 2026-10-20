@@ -30,6 +30,7 @@ namespace Uw2.Support.Local.Formats;
 ///     goods.json                  교역품 이름 마흔여섯 (KOUKAI2-han8.exe)
 ///     menus.json                  고르기 목록 예순하나 (MENU.DAT)
 ///     snr/SNR0~6.DAT · .MES       시나리오 바이트코드 · 글(그대로 옮겨 둔 것)
+///     snr/MESSAGE.DAT             게임 말 1179(그대로)
 ///     start-ships.json            선종 본보기 스물다섯(이름 · 노 · 대포 · 자리)과 주인공 첫 선종(SNR1~6.DAT)
 ///     markets.png        128x13   시장 열셋(값 = 날바이트, SDATA.DAT 0x605A)
 ///     portstate.png      37x100   항구 형편 백(값 = 날바이트, SDATA.DAT 0x66DA)
@@ -357,6 +358,8 @@ public sealed class AssetPack
                 string src = Path.Combine(gameDirectory, $"SNR{n}.{ext}");
                 if (File.Exists(src)) File.Copy(src, Path.Combine(outDir, "snr", $"SNR{n}.{ext}"), true);
             }
+        string msg = Path.Combine(gameDirectory, "MESSAGE.DAT");
+        if (File.Exists(msg)) File.Copy(msg, Path.Combine(outDir, "snr", "MESSAGE.DAT"), true);
     }
 
     /// <summary><c>MENU.DAT</c> 목록을 굽는다.</summary>

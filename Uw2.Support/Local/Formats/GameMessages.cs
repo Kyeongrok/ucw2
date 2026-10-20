@@ -1,0 +1,64 @@
+using System.Text;
+
+namespace Uw2.Support.Local.Formats;
+
+/// <summary>
+/// 게임 말 <c>MESSAGE.DAT</c> — 머리가 2바이트 빅엔디언 자리들이고 첫 자리 / 2 가 말 수(1179)다. 글은 cp949, 끝에 0.
+/// </summary>
+/// <remarks>
+/// 원본 손이 <c>0x00436670(번호)</c> · <c>0x0042D0B0(번호, …)</c> 로 띄우는 말들이다. 안에 <c>%s</c> · <c>%d</c> 가 있어
+/// printf 처럼 채운다(<see cref="Format"/>). <c>\n</c> 은 줄 바꿈이다.
+/// </remarks>
+public sealed class GameMessages
+{
+    private readonly string[] _lines;
+
+    private GameMessages(string[] lines) => _lines = lines;
+
+    public int Count => _lines.Length;
+
+    public string this[int id] => id >= 0 && id < _lines.Length ? _lines[id] : "";
+
+    public static GameMessages Load(string path) => FromBytes(File.ReadAllBytes(path));
+
+    public static GameMessages FromBytes(byte[] d)
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var cp949 = Encoding.GetEncoding(949);
+        int Off(int i) => d[i * 2] << 8 | d[i * 2 + 1];
+        int n = d.Length >= 2 ? Off(0) / 2 : 0;
+        var lines = new string[n];
+        for (int i = 0; i < n; i++)
+        {
+            int a = Off(i), b = i + 1 < n ? Off(i + 1) : d.Length;
+            lines[i] = a < d.Length && b <= d.Length && b >= a ? cp949.GetString(d, a, b - a).TrimEnd('\0') : "";
+        }
+        return new GameMessages(lines);
+    }
+
+    /// <summary>printf 꼴로 채운다 — <c>%s</c> · <c>%d</c> · <c>%%</c>. 모자란 인자는 빈 글로.</summary>
+    public string Format(int id, params object[] args)
+    {
+        string f = this[id];
+        var sb = new StringBuilder();
+        int k = 0;
+        for (int i = 0; i < f.Length; i++)
+        {
+            if (f[i] == '%' && i + 1 < f.Length)
+            {
+                // %5d 처럼 폭이 붙은 것도 받는다.
+                int j = i + 1;
+                while (j < f.Length && (char.IsDigit(f[j]) || f[j] == '-')) j++;
+                if (j < f.Length && f[j] is 's' or 'd' or 'u' or 'c')
+                {
+                    sb.Append(k < args.Length ? args[k++]?.ToString() : "");
+                    i = j;
+                    continue;
+                }
+                if (f[i + 1] == '%') { sb.Append('%'); i++; continue; }
+            }
+            sb.Append(f[i]);
+        }
+        return sb.ToString();
+    }
+}

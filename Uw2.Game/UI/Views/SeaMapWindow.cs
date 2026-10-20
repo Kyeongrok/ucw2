@@ -32,7 +32,7 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9, PalaceBuilding = 5, GuildBuilding = 6;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9, PalaceBuilding = 5, GuildBuilding = 6, FortuneBuilding = 11;
 
     /// <summary>조합 일 갈래 — 0x00458688 부터 다섯(상품수송 · 상품구입 · 편지배달 · 해적퇴치 · 빚수금).</summary>
     private static readonly string[] JobNames = ["상품 수송", "상품 구입", "편지 배달", "해적 퇴치", "빚 수금"];
@@ -213,11 +213,52 @@ public sealed class SeaMapWindow : Window
         if (b == ChurchBuilding) { AtChurch(pick); return; }
         if (b == PalaceBuilding) { AtPalace(pick); return; }
         if (b == GuildBuilding && pick == 0) { OfferJobs(); return; }
+        if (b == FortuneBuilding) { TellFortune(pick); return; }
         if (b == ItemBuilding && pick == 0) { BuyItem(); return; }
         if (b == ItemBuilding && pick == 1) { SellItem(); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>게임 말 하나를 대사 창에 띄운다 — 말이 없으면 <paramref name="fallback"/>.</summary>
+    private void Say(int id, string fallback, params object[] args)
+    {
+        string text = _host.Messages is { } m && m[id].Length > 0 ? m.Format(id, args) : fallback;
+        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", text)]);
+    }
+
+    /// <summary>
+    /// 점술가(<c>0x00428416</c>) — 복채 50, 인생운은 운(+0x23) / 40 에 따라 말 0x12E 부터 셋, 사업운은 다음 항해 · 전투 레벨까지
+    /// 남은 경험(말 0x221 · 0x222, 경험표 <c>0x0041A490</c> = min(레벨, 18)² x 30 − 사람 +0x26 · +0x28).
+    /// 연애운(여급 표 5 의 호감, 0x00428290) · 동료운은 아직이다.
+    /// </summary>
+    private void TellFortune(int pick)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var p = _host.Player;
+        if (_host.Messages is { } m && MessageBox.Show(this, m[0x12B], "점술가", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (p.Gold < 50) { Say(0x12C, "돈이 모자랍니다."); return; }
+        p.SetGold(p.Gold - 50);
+        int hero = _host.HeroPersonNumber;
+        if (pick == 0)
+        {
+            int luck = Navigators.Get(vm.Memory, hero, Church.Luck);
+            Say(0x12E + Math.Min(2, luck / 40), "평범한 운세인 것 같군요.");
+            return;
+        }
+        if (pick == 1)
+        {
+            // 다음 레벨까지 — 경험표 0x0041A490 은 min(레벨, 18)² x 30, 경험은 사람 +0x26(항해) · +0x28(전투) 낱말.
+            int Need(int level) => Math.Min(level, 18) * Math.Min(level, 18) * 30;
+            int Word(int f) => vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, hero, f), true);
+            int nav = Need(Navigators.Get(vm.Memory, hero, Navigators.NavLevel)) - Word(0x26);
+            int battle = Need(Navigators.Get(vm.Memory, hero, Navigators.BattleLevel)) - Word(0x28);
+            Say(0x221, $"항해 레벨까지 경험 {nav}", nav);
+            Say(0x222, $"전투 레벨까지 경험 {battle}", battle);
+            return;
+        }
+        Say(0x12D, "그것은 아직 볼 수 없습니다.");
     }
 
     /// <summary>

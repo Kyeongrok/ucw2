@@ -355,6 +355,9 @@ public sealed class SeaMapHost : HwndHost
     /// </summary>
     public ScenarioVm? Common { get; private set; }
 
+    /// <summary>게임 말(<c>MESSAGE.DAT</c>). 없으면 null — 그때는 우리 글로 대신한다.</summary>
+    public GameMessages? Messages { get; private set; }
+
     /// <summary>주인공의 시나리오 기계. 파일이 없으면 null.</summary>
     public ScenarioVm? Scenario { get; private set; }
 
@@ -366,6 +369,8 @@ public sealed class SeaMapHost : HwndHost
         Scenario = null;
         Common = null;
         if (_scenarioDir == null) return;
+        string msgPath = Path.Combine(_scenarioDir, "MESSAGE.DAT");
+        Messages = File.Exists(msgPath) ? GameMessages.Load(msgPath) : null;
         for (int n = 1; n <= 6; n++)
         {
             string dat = Path.Combine(_scenarioDir, $"SNR{n}.DAT"), mes = Path.Combine(_scenarioDir, $"SNR{n}.MES");

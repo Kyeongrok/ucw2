@@ -470,4 +470,15 @@ public class AssetTests
         var run = hero.Enter(0, 7, 1000, "조안", "페레로");
         Assert.Contains(run!.Lines, l => l.Body.Contains("프레스터 존왕국"));
     }
+
+    [Fact]
+    public void GameMessagesReadAndFillLikePrintf()
+    {
+        var m = GameMessages.Load(Path.Combine(AssetDir, "snr", "MESSAGE.DAT"));
+        Assert.Equal(1179, m.Count);
+        Assert.Equal("선원은 충분해요.", m[0x1D]);
+        Assert.Equal("문이 잠겨 있습니다.", m[0x2FD]);
+        Assert.Equal("조안 페레로님이 아니십니까？", m.Format(1, "조안", "페레로"));
+        Assert.Contains("경험이 120 더", m.Format(0x221, 120));
+    }
 }
