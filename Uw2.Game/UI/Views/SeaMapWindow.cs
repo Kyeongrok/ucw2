@@ -184,13 +184,14 @@ public sealed class SeaMapWindow : Window
     }
 
     /// <summary>교역소 「투자」 · 조선소 「공업투자」 — 이달 투자에 더하고 주인공 나라의 몫을 올린다(<see cref="Economy.Invest"/>).</summary>
-    /// <remarks>원본은 여섯 나라 서울에서는 투자를 받지 않는다(0x00431A70, 나라 표 +0x0A) — 나라 표를 아직 안 읽어 거르지 않는다.</remarks>
+    /// <remarks>원본은 나라 서울에서는 투자를 받지 않는다(0x00431A70, 나라 표 +0x0A). 원본 셈은 앞 여섯 나라만 본다.</remarks>
     private void Invest(bool industry)
     {
         if (_host.Economy is not { } eco) return;
         int port = _host.CurrentPort;
         if (port < 0 || port >= eco.States.Count) return;
         var p = _host.Player;
+        if (_host.StartTables is { } st && st.Capitals.Take(6).Contains(port)) { Note(" · 서울에서는 투자를 받지 않습니다"); return; }
         int most = eco.MaxInvest(port, industry, p.Gold);
         if (most <= 0) { Note(" · 이달에는 더 받지 않습니다"); return; }
         string what = industry ? "공업투자" : "투자";

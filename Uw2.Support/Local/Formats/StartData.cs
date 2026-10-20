@@ -17,6 +17,9 @@ namespace Uw2.Support.Local.Formats;
 public sealed class StartData
 {
     public const int PersonOffset = 0x0CAF, PersonSize = 50, PersonCount = 120;
+
+    /// <summary>나라 표 — <c>0x7DD</c>, 32바이트 x 7(메모리 0x0045E268, 읽는 손 0x00403D20 의 마흔일곱째 fread). +0x0A 가 서울 항구.</summary>
+    public const int NationOffset = 0x07DD, NationSize = 32, NationCount = 7, CapitalField = 0x0A;
     public const int ShipTypeOffset = 0x4936, ShipTypeSize = 12, ShipTypeCount = 25;
     public const int FleetOffset = 0x247B, FleetSize = 0x85, FleetCount = 70, SlotCount = 10, SlotSize = 9;
 
@@ -114,6 +117,13 @@ public sealed class StartData
     /// <summary>사람 표 날바이트(120 x 50, 메모리 <c>0x0045A240</c>) — 시나리오 기억 표 3 이 쓴다. +0x2C 가 탄 함대.</summary>
     public byte[] PeopleBytes { get; init; } = [];
 
+    /// <summary>나라 표 날바이트(7 x 32) — 시나리오 기억 표 0.</summary>
+    public byte[] NationBytes { get; init; } = [];
+
+    /// <summary>나라마다 서울 항구 — 원본은 여기서 투자를 받지 않는다(<c>0x00431A70</c>).</summary>
+    public IEnumerable<int> Capitals =>
+        Enumerable.Range(0, NationBytes.Length / NationSize).Select(n => (int)NationBytes[n * NationSize + CapitalField]);
+
     private StartData(IReadOnlyList<ShipType> types, IReadOnlyList<Person> people, byte[] fleets)
     {
         ShipTypes = types; People = people; FleetBytes = fleets; Fleets = ParseFleets(fleets);
@@ -122,10 +132,12 @@ public sealed class StartData
     /// <summary>구워 둔 표로 만든다(<see cref="AssetPack"/>).</summary>
     public static StartData FromTables(IReadOnlyList<ShipType> types, IReadOnlyList<Person> people, byte[]? fleets = null,
                                        IReadOnlyList<ShipTemplate>? templates = null, IReadOnlyList<int>? heroShips = null,
-                                       IReadOnlyList<int>? heroGold = null, byte[]? peopleBytes = null) =>
+                                       IReadOnlyList<int>? heroGold = null, byte[]? peopleBytes = null,
+                                       byte[]? nationBytes = null) =>
         new(types, people, fleets ?? [])
         {
             Templates = templates ?? [], HeroShips = heroShips ?? [], HeroGold = heroGold ?? [], PeopleBytes = peopleBytes ?? [],
+            NationBytes = nationBytes ?? [],
         };
 
     private static Fleet[] ParseFleets(byte[] raw)
@@ -168,6 +180,7 @@ public sealed class StartData
         {
             Templates = s.Templates,
             PeopleBytes = s.PeopleBytes,
+            NationBytes = s.NationBytes,
             HeroShips = Scenario.HeroShips(game),
             HeroGold = Scenario.HeroGold(game),
         };
@@ -210,6 +223,7 @@ public sealed class StartData
         {
             Templates = templates,
             PeopleBytes = d.AsSpan(PersonOffset, PersonSize * PersonCount).ToArray(),
+            NationBytes = d.AsSpan(NationOffset, NationSize * NationCount).ToArray(),
         };
     }
 }

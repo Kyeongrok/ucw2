@@ -7,7 +7,7 @@ namespace Uw2.Game.Engine;
 /// <remarks>
 /// 표 스물(번호 → 원본 자리, 기록 크기). 자리 셈은 원본 그대로 「바탕 + r x 크기 + f」 이고 기록 크기가 0 이면 r 을 안 쓴다.
 /// <code>
-///    0  0x0045E268  32      7  0x0046F8C8 …  9(r &lt; 10, 그 위는 0x0049F9D0)   14  0x0045FF88 128  시장(SDATA 0x605A)
+///    0  0x0045E268  32  나라   7  0x0046F8C8 …  9(r &lt; 10, 그 위는 0x0049F9D0)   14  0x0045FF88 128  시장(SDATA 0x605A)
 ///    1  0x0045A1E8  14  주인공(+0x0D 작위)  8  0x0045BE08 0x85  함대(SDATA 0x247B)          15  0x00460608   8
 ///    2  0x0049F5A8   0  돈(+0) · 주인공(+7)     9  0x004610B0  30  제 배 곁(보급 · 짐)   16  0x00460620   7
 ///    3  0x0045A240  50  사람(+0x2C 함대)        10  0x00461560  22  배 기록          17  0x004608E0  20
@@ -20,7 +20,7 @@ namespace Uw2.Game.Engine;
 /// </remarks>
 public sealed class ScenarioMemory
 {
-    public const int TableCount = 20, GoldTable = 2, PeopleTable = 3, FleetTable = 8, PlayerShipTable = 9,
+    public const int TableCount = 20, NationTable = 0, GoldTable = 2, PeopleTable = 3, FleetTable = 8, PlayerShipTable = 9,
                      MarketTable = 14, PortStateTable = 13;
 
     /// <summary>표 2 +7 — 주인공 사람 번호(<c>0x0049F5AF</c>). 원본은 이것 + 1 로 <c>SNRn</c> 을 고른다(<c>0x00415AD9</c>).</summary>

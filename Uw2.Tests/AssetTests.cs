@@ -185,4 +185,12 @@ public class AssetTests
         var run = vm.Enter(0, 7, 100, "", "")!;
         Assert.Equal(108, run.Gold);
     }
+
+    [Fact]
+    public void NationTableGivesTheHeroesHomesAsCapitals()
+    {
+        var start = Load().Start!;
+        // 리스본 · 세빌리아 · 2 · 29(옷토) · 8(피에트로) · 33(에르네스트), 일곱째는 4
+        Assert.Equal([0, 1, 2, 29, 8, 33, 4], start.Capitals.ToArray());
+    }
 }
