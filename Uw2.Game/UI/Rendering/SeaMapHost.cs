@@ -100,7 +100,8 @@ public sealed class SeaMapHost : HwndHost
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
         Routes = pack.Routes;
-        Economy = pack.Economy;
+        _economyBase = pack.Economy;
+        Economy = _economyBase?.Clone();
         Menus = pack.Menus;
 
         var cells = Chips.Expand(Map);
@@ -159,8 +160,9 @@ public sealed class SeaMapHost : HwndHost
 
         try { Routes = RouteGraph.FromData1(Path.Combine(gameDir, "DATA1.LZW")); } catch { Routes = null; }
         try { Menus = MenuTable.Load(Path.Combine(gameDir, "MENU.DAT")); } catch { Menus = null; }
-        try { Economy = Economy.Load(Path.Combine(gameDir, "SDATA.DAT"), Path.Combine(gameDir, "KOUKAI2-han8.exe")); }
-        catch { Economy = null; }
+        try { _economyBase = Economy.Load(Path.Combine(gameDir, "SDATA.DAT"), Path.Combine(gameDir, "KOUKAI2-han8.exe")); }
+        catch { _economyBase = null; }
+        Economy = _economyBase?.Clone();
         _scenarioDir = gameDir;
         try { StartTables = StartData.Load(Path.Combine(gameDir, "SDATA.DAT")); }
         catch { StartTables = null; }  // 없으면 배를 못 띄울 뿐 지도는 돈다
@@ -242,7 +244,11 @@ public sealed class SeaMapHost : HwndHost
         if (Map != null && Chips != null)
         {
             Fleet = new Fleet(Map, Chips, Wind);
-            Fleet.NewMonth += () => Player.NewMonth();
+            Fleet.NewMonth += () =>
+            {
+                Player.NewMonth();
+                Economy?.NewMonth(_npcRng.Next);
+            };
             Crew(Fleet);
             FleetReady?.Invoke(Fleet);
         }
@@ -278,6 +284,9 @@ public sealed class SeaMapHost : HwndHost
 
     /// <summary>교역 표. 없으면 교역소가 비어 있다.</summary>
     public Economy? Economy { get; private set; }
+
+    /// <summary>읽어 온 그대로의 교역 표 — 새 게임마다 사본을 뜬다(달마다 항구 형편이 바뀌므로).</summary>
+    private Economy? _economyBase;
 
     /// <summary>뱃길 그래프(DATA1.LZW 4번 청크). 없으면 남 함대가 안 움직인다.</summary>
     public RouteGraph? Routes { get; private set; }
@@ -380,6 +389,7 @@ public sealed class SeaMapHost : HwndHost
             g[ScenarioVm.ValueTime] = Fleet.TimeOfDay;
         }
         Scenario.GameValues[ScenarioVm.ValuePort] = CurrentPort < 0 ? 255 : CurrentPort;
+        if (Economy != null) Scenario.Memory.Fill(ScenarioMemory.PortStateTable, Economy.StateBytes);
         // 은행 잔고 — 표 2 +4 낱말 x 100 + +6 바이트(0x0049F5AC · 0x0049F5AE).
         int hundreds = Player.Balance / 100, rest = Player.Balance - hundreds * 100;
         if (rest < 0) { hundreds--; rest += 100; }
@@ -501,6 +511,7 @@ public sealed class SeaMapHost : HwndHost
             }
         _othersScale = -1;
         // 첫 배는 그 주인공 시나리오(SNRn.DAT)의 첫 이벤트가 주는 선종이다 — 배 주기 명령 F9.
+        Economy = _economyBase?.Clone();
         int person = HeroPerson[Hero];
         var captain = start.People[person];
         HeroName = (captain.Name, captain.Family);

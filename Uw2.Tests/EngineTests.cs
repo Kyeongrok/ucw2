@@ -189,4 +189,20 @@ public class EngineTests
         Assert.Equal(240, Uw2.Game.Engine.Town.Shipyard.Value(240, 2, 50));
         Assert.Equal(120, Uw2.Game.Engine.Town.Shipyard.SellPrice(240, 2, 50));
     }
+
+    [Fact]
+    public void PortsGrowFromInvestmentAndPriceIndexesDriftTowardFifty()
+    {
+        var states = new byte[Economy.StateSize];
+        states[0] = 0xE8; states[1] = 0x03;          // 경제 1000
+        states[2] = 0x2C; states[3] = 0x01;          // 투자 300
+        states[4] = 100; states[6] = 0x58; states[7] = 0x02;   // 공업 100 · 투자 600
+        for (int i = 0; i < 10; i++) states[0x0E + i] = (byte)(i < 5 ? 40 : 60);
+        var eco = Economy.FromParts([], [], states);
+        eco.NewMonth(_ => 2);                        // 주사위 늘 2 → 3 씩
+        Assert.Equal(1000, eco.States[0].Economy);   // 1000 에서 자른다
+        Assert.Equal(102, eco.States[0].Industry);
+        Assert.Equal(43, eco.States[0].PriceIndex[0]);
+        Assert.Equal(57, eco.States[0].PriceIndex[9]);
+    }
 }

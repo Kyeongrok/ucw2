@@ -67,7 +67,7 @@ public sealed class Economy
 
     public IReadOnlyList<string> GoodsNames { get; }
     public IReadOnlyList<Market> Markets { get; }
-    public IReadOnlyList<PortState> States { get; }
+    public IReadOnlyList<PortState> States { get; private set; }
 
     /// <summary>구워 둘 때 쓰는 날바이트.</summary>
     public byte[] MarketBytes { get; }
@@ -81,6 +81,38 @@ public sealed class Economy
     }
 
     public static Economy FromParts(IReadOnlyList<string> names, byte[] markets, byte[] states) => new(names, markets, states);
+
+    /// <summary>날바이트를 떠 온 사본 — 게임마다 따로 바뀌게.</summary>
+    public Economy Clone() => new(GoodsNames, (byte[])MarketBytes.Clone(), (byte[])StateBytes.Clone());
+
+    public const int EconomyCap = 1000, InvestDivisor = 300;
+
+    /// <summary>
+    /// 달이 바뀔 때 항구 형편 백을 고친다(<c>0x0042B8A0</c>).
+    /// 경제(+0)에 경제 투자(+2) / 300, 공업(+4)에 공업 투자(+6) / 300 을 더해 1000 에서 자르고 투자는 0 으로.
+    /// 값 지수 열(+0x0E)은 저마다 1~5 씩 50 쪽으로 간다(50 을 넘으면 빼고 아니면 더한다).
+    /// </summary>
+    /// <param name="rand">0 이상 n 미만을 돌려주는 주사위(<c>0x0044E0D2</c>).</param>
+    public void NewMonth(Func<int, int> rand)
+    {
+        var r = StateBytes;
+        for (int o = 0; o + StateSize <= r.Length; o += StateSize)
+        {
+            for (int k = 0; k < 2; k++)
+            {
+                int at = o + k * 4;
+                int v = Math.Min(EconomyCap, BitConverter.ToUInt16(r, at) + BitConverter.ToUInt16(r, at + 2) / InvestDivisor);
+                r[at] = (byte)v; r[at + 1] = (byte)(v >> 8);
+                r[at + 2] = 0; r[at + 3] = 0;
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                int d = rand(5) + 1, v = r[o + 0x0E + i];
+                r[o + 0x0E + i] = (byte)(v > 50 ? v - d : v + d);
+            }
+        }
+        States = [.. Enumerable.Range(0, r.Length / StateSize).Select(k => ParseState(r, k * StateSize))];
+    }
 
     /// <summary><c>SDATA.DAT</c> 와 한글판 EXE(이름)에서 읽는다.</summary>
     public static Economy Load(string sdataPath, string han8ExePath)
