@@ -731,4 +731,19 @@ public class AssetTests
         Uw2.Game.Engine.Town.Palace.ExpirePermits(m);
         Assert.Empty(Uw2.Game.Engine.Town.ItemShop.Owned(m));
     }
+
+    [Fact]
+    public void SailingNearAnUnknownPortFindsItOnceForFame()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.FillPorts(pack.Ports!.Select(p => (p.X, p.Y, p.Name, p.Nation)));
+        var unknown = pack.Ports.First(p => (p.Nation & 0x30) == 0);
+        Assert.Empty(Uw2.Game.Engine.Sea.Sighting.Look(m, unknown.X + 30, unknown.Y, 100, 8, _ => 0, _ => 4));    // 멀다
+        Assert.Empty(Uw2.Game.Engine.Sea.Sighting.Look(m, unknown.X + 5, unknown.Y, 100, 8, _ => 199, _ => 4));   // 보이지만 놓쳤다
+        var seen = Uw2.Game.Engine.Sea.Sighting.Look(m, unknown.X + 5, unknown.Y, 100, 8, _ => 0, _ => 4);
+        Assert.Contains(seen, x => x.Port && x.Index == unknown.Index && x.Fame == (unknown.Index < 100 ? 100 : 50));
+        Assert.Empty(Uw2.Game.Engine.Sea.Sighting.Look(m, unknown.X + 5, unknown.Y, 100, 8, _ => 0, _ => 4).Where(x => x.Port && x.Index == unknown.Index));
+        Assert.Equal(80, Uw2.Game.Engine.Sea.Sighting.AddFame(m, 0, 80));
+    }
 }

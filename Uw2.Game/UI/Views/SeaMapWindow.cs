@@ -1131,6 +1131,7 @@ public sealed class SeaMapWindow : Window
 
         _host.Painted += UpdateStatus;
         _host.SeaDay += OnSeaDay;
+        _host.Sighted += OnSighted;
         _host.DiseaseCaught += name =>
         {
             _seaNote = name == "쥐 떼" ? M(0x1D9, "쥐 떼가 일었습니다") : M(0x1DA, $"{name}에 걸린 자가 있습니다");
@@ -1840,6 +1841,22 @@ public sealed class SeaMapWindow : Window
         }
         _host.Invalidate();
         Retitle();
+    }
+
+    /// <summary>
+    /// 새로 알아본 항구 · 부락(<c>0x00447E20</c>) — 「제독, ○○항을 발견하였다」 「제독, 부락을 발견하였다」 뒤 모험가 명성(0x1DC).
+    /// 항구는 이제 고르기 목록에 든다.
+    /// </summary>
+    private void OnSighted(List<Sighting.Sight> seen)
+    {
+        var lines = new List<ScenarioVm.Line>();
+        foreach (var s in seen)
+        {
+            string what = s.Port && _host.Ports is { } pt && s.Index < pt.Ports.Count ? pt.Ports[s.Index].Name + "항" : "부락";
+            string fame = s.Fame > 0 ? "\n" + MsgOr(0x1DC, $"모험가의 명성이 {s.Fame} 높아졌습니다.", s.Fame) : "";
+            lines.Add(new ScenarioVm.Line("", $"제독, {Josa(what, "을", "를")} 발견하였다" + fame));
+        }
+        ScenarioDialog.Play(this, _host.Faces, lines);
     }
 
     /// <summary>

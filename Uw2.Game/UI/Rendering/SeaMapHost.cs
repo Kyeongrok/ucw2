@@ -700,6 +700,26 @@ public sealed class SeaMapHost : HwndHost
     /// </summary>
     public event Action<int>? SeaDay;
 
+    /// <summary>새로 알아본 항구 · 부락 — 명성은 이미 올렸다(<see cref="Sighting"/>).</summary>
+    public event Action<List<Sighting.Sight>>? Sighted;
+
+    /// <summary>틱마다 둘레를 본다 — 눈은 주인공과 동료 가운데 가장 높은 지식, 안개면 2 칩 안만.</summary>
+    private void LookAround()
+    {
+        if (Scenario is not { } vm || Fleet == null) return;
+        var m = vm.Memory;
+        int eye = Navigators.Mates(m).Select(t => Navigators.Get(m, t.Person, Navigators.Stats + 3))
+            .Append(Navigators.Get(m, HeroPersonNumber, Navigators.Stats + 3)).Max();
+        int sight = Fleet.Weather.Current == Weather.Kind.Fog ? 0
+            : Sighting.BaseSight * (ItemShop.Owned(m).Contains(Sighting.Telescope) ? 2 : 1);
+        var raw = Economy?.StateBytes;
+        var seen = Sighting.Look(m, (int)Fleet.X, (int)Fleet.Y, eye, sight, Roll,
+                                 p => raw != null && p * Economy.StateSize + 0x1C < raw.Length ? raw[p * Economy.StateSize + 0x1C] : 2);
+        if (seen.Count == 0) return;
+        foreach (var s in seen) Sighting.AddFame(m, Hero, s.Fame);
+        Dispatcher.BeginInvoke(() => Sighted?.Invoke(seen));
+    }
+
     /// <summary>바다 이벤트 자리 표(<c>0x00418D4B</c>).</summary>
     public const int SeaEventPort = 0xA0;
 
@@ -1087,6 +1107,7 @@ public sealed class SeaMapHost : HwndHost
             int day = Fleet.DaysAtSea;
             Fleet.Step();
             Survey.Visit(Fleet.X, Fleet.Y);
+            LookAround();
             // 틱마다 남 함대도 다 한 걸음 간다(0x0041A362). 바람 · 해류는 제 함대 자리의 것을 같이 쓴다.
             foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);
             if (Fleet.DaysAtSea != day)
