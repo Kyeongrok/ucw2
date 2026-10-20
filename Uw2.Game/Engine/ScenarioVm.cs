@@ -35,6 +35,7 @@ namespace Uw2.Game.Engine;
 ///   EB v hh ll 변수 v = 주사위(hhll) — 씨앗 = 씨앗 x 0x5D588B65 + 1, (씨앗 &gt;&gt; 8 &amp; 0x7FFF) % hhll (0x0043DD80)
 ///   EC v · ED v  씨앗 = 변수 v &lt;&lt; 8 · 변수 v = 씨앗 &gt;&gt; 8 (0x0043DDE0 · 0x0043DE00)
 ///   EE v       변수 v = 우리 배 수 (0x0043DE20)
+///   FB p       사람 p 가 동료로 든다 — 빈 동료 칸에, 처지 6, 함대 · 머무는 곳은 주인공 것(0x0043E0D0)
 ///   씨앗은 이벤트를 열 때 ((주인공 +0x26 낱말 + 항해 레벨) x 해 x 달 + 날 + 시각) &lt;&lt; 8 (0x0043F9F0)
 /// </code>
 /// 나머지는 길이(<see cref="Scenario.LengthAt"/>)만큼 넘긴다.
@@ -90,6 +91,9 @@ public sealed class ScenarioVm
     {
         public List<Line> Lines { get; } = [];
         public List<int> Ships { get; } = [];
+
+        /// <summary>동료로 든 사람(FB).</summary>
+        public List<int> Joined { get; } = [];
         public int Gold { get; set; }
 
         /// <summary>
@@ -331,6 +335,23 @@ public sealed class ScenarioVm
                         case 0xEC: _seed = (uint)((short)_vars[a1] << 8); break;
                         case 0xED: _vars[a1] = (ushort)(_seed >> 8); break;
                         case 0xEE: _vars[a1] = (ushort)ShipCount; break;
+                        case 0xFB:
+                        {
+                            int heroP = Memory.Read(new ScenarioMemory.Pointer(ScenarioMemory.GoldTable, ScenarioMemory.HeroField), false);
+                            for (int i = 0; i < 30; i++)
+                            {
+                                var slot = new ScenarioMemory.Pointer(6, 3 + i);
+                                if (Memory.Read(slot, false) != 0xFF) continue;
+                                Memory.Write(slot, a1, false);
+                                break;
+                            }
+                            Memory.Write(ScenarioMemory.At(ScenarioMemory.PeopleTable, a1, 0x2E), 6, false);
+                            foreach (int f in (int[])[0x2C, 0x2D])
+                                Memory.Write(ScenarioMemory.At(ScenarioMemory.PeopleTable, a1, f),
+                                             Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, heroP, f), false), false);
+                            run.Joined.Add(a1);
+                            break;
+                        }
                         case 0xD0 or 0xDC:
                         {
                             int rec = _code[ip + 3];
