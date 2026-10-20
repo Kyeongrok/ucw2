@@ -141,6 +141,9 @@ public sealed class SeaMapWindow : Window
         Note($" · {ship.Name}{(KoreanBatchim(ship.Name) ? "을" : "를")} {prices[pick]}에 팔았습니다");
     }
 
+    /// <summary>이름 뒤 토씨 — 받침이 있으면 <paramref name="with"/>, 없으면 <paramref name="without"/>.</summary>
+    private static string Josa(string name, string with, string without) => name + (KoreanBatchim(name) ? with : without);
+
     private static bool KoreanBatchim(string s) =>
         s.Length > 0 && s[^1] is >= '가' and <= '힣' && (s[^1] - '가') % 28 != 0;
 
@@ -160,7 +163,8 @@ public sealed class SeaMapWindow : Window
             ScenarioDialog.Play(this, _host.Faces, run.Pending);
             _host.Apply(run);
             Note($" · 「{PortDoors.Names[b]}」 이벤트");
-            return;
+            // 그침(F2)으로 끝난 이벤트는 건물 볼일을 대신한다. 끝(FF)이거나 여관이면 목록이 이어서 뜬다(0x00431FF9).
+            if (run.Stopped && b != InnBuilding) return;
         }
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
@@ -284,14 +288,14 @@ public sealed class SeaMapWindow : Window
                 var answer = Navigators.Ask(m, nav, hero, _host.HeroRank, _host.Roll, out int wage, needLiking: pub);
                 switch (answer)
                 {
-                    case Navigators.Answer.AlreadyBound: Note($" · {name}은(는) 이미 매인 몸입니다"); return;
+                    case Navigators.Answer.AlreadyBound: Note($" · {Josa(name, "은", "는")} 이미 매인 몸입니다"); return;
                     case Navigators.Answer.NoRoom: Note(" · 동료 칸이 다 찼습니다"); return;
-                    case Navigators.Answer.NotFriendly: Note($" · {name}은(는) 아직 마음을 열지 않았습니다"); continue;
-                    case Navigators.Answer.Refused: Note($" · {name}이(가) 거절했습니다"); return;
+                    case Navigators.Answer.NotFriendly: Note($" · {Josa(name, "은", "는")} 아직 마음을 열지 않았습니다"); continue;
+                    case Navigators.Answer.Refused: Note($" · {Josa(name, "이", "가")} 거절했습니다"); return;
                 }
                 if (MessageBox.Show(this, $"{name}: 한 달에 {wage}씩 주신다면 따르겠습니다.", "고용", MessageBoxButton.YesNo)
                     != MessageBoxResult.Yes) { Note(" · 고용하지 않았습니다"); return; }
-                if (Navigators.Join(m, nav, hero, wage)) Note($" · {name}이(가) 동료가 되었습니다(급여 {wage})");
+                if (Navigators.Join(m, nav, hero, wage)) Note($" · {Josa(name, "이", "가")} 동료가 되었습니다(급여 {wage})");
                 return;
             }
             else { Note(" · 결투는 아직 없습니다"); return; }

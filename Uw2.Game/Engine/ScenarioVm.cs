@@ -80,6 +80,12 @@ public sealed class ScenarioVm
         public List<int> Ships { get; } = [];
         public int Gold { get; set; }
 
+        /// <summary>
+        /// 그침(F2 · F4)으로 끝났는지 — 원본은 그때 손이 0 을 돌려 건물 목록을 띄우지 않는다(<c>0x0043F652</c> → <c>0x00431FF9</c>).
+        /// 끝(FF)이면 이벤트 다음에 그 건물 목록이 뜬다.
+        /// </summary>
+        public bool Stopped { get; set; }
+
         /// <summary>고르기 앞에서 이미 보인 대사 수 — 나머지(<see cref="Pending"/>)를 끝에 보인다.</summary>
         public int Shown { get; set; }
         public IReadOnlyList<Line> Pending => Lines.Skip(Shown).ToList();
@@ -275,6 +281,7 @@ public sealed class ScenarioVm
                         case 0xF0: nextSection = true; break;
                         case 0xF1: nextChapter = true; break;
                         case 0xF2 or 0xF4 or 0xFF:
+                            run.Stopped = op != 0xFF;
                             run.Gold = Memory.Gold;
                             return run;
                     }

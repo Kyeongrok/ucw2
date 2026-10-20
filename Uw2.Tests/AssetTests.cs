@@ -130,6 +130,7 @@ public class AssetTests
         Assert.NotNull(run);
         Assert.Contains(run!.Lines, l => l.Body.Contains("프레스터 존왕국"));
         Assert.Contains(5, run.Ships);                                        // 카라벨 라티나
+        Assert.True(run.Stopped);                                             // F8 F2 — 집 볼일은 이것으로 끝
         Assert.Contains(run.Lines, l => l.Speaker == "페레로 공작");          // §$s 공작§
         Assert.Null(vm.Enter(5, 7, 1000, "조안", "페레로"));                  // 튀니스에는 걸린 것이 없다
     }
