@@ -560,4 +560,19 @@ public class EngineTests
         Assert.Equal((9, true), Uw2.Game.Engine.Town.Shipyard.FigureheadChoices(900, 900, 95, r => r == 20 ? 0 : 10));
         Assert.Equal(50000, Uw2.Game.Engine.Town.Shipyard.FigureheadPrice(10));
     }
+
+    [Fact]
+    public void ArmamentAddsToTheSameKindAndReplacesAnother()
+    {
+        var ship = new PlayerState.Ship { Type = 0, Name = "x", Room = 10, Guns = 20 };
+        Assert.Equal(20, Uw2.Game.Engine.Town.Shipyard.GunRoom(ship, 4));
+        Uw2.Game.Engine.Town.Shipyard.Mount(ship, 4, 12);
+        Assert.Equal(8, Uw2.Game.Engine.Town.Shipyard.GunRoom(ship, 4));
+        Assert.Equal(20, Uw2.Game.Engine.Town.Shipyard.GunRoom(ship, 1));
+        Uw2.Game.Engine.Town.Shipyard.Mount(ship, 1, 5);
+        Assert.Equal((1, 5), (ship.GunKind, ship.Mounted));
+        Assert.Equal(-1, Uw2.Game.Engine.Town.Shipyard.GunRoom(new PlayerState.Ship { Type = 0, Name = "y", Room = 1 }, 1));
+        Assert.Equal((5, false), Uw2.Game.Engine.Town.Shipyard.GunChoices(500, 400, 99, _ => 0));
+        Assert.Equal((7, true), Uw2.Game.Engine.Town.Shipyard.GunChoices(1000, 1000, 99, _ => 0));
+    }
 }

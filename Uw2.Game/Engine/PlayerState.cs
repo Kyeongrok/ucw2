@@ -56,6 +56,10 @@ public sealed class PlayerState
         /// <summary>사기 0 ~ 100 — 함대 칸 곁 +0x1C. 새로 맡는 배는 60(0x0040B927).</summary>
         public int Morale { get; set; } = DefaultMorale;
 
+        /// <summary>단 대포 갈래 1 ~ 7 과 문 수 — 함대 칸 +8 의 아래 세 비트 · +6(<see cref="Town.Shipyard.GunNames"/>). 문 수는 <see cref="Guns"/> 까지.</summary>
+        public int GunKind { get; set; }
+        public int Mounted { get; set; }
+
         /// <summary>선수상 1 ~ 10 — 함대 칸 곁 +0x1D(0 은 없음, <see cref="Town.Shipyard.Figureheads"/>).</summary>
         public int Figurehead { get; set; }
 

@@ -1161,8 +1161,10 @@ public sealed class SeaMapWindow : Window
     /// <summary>조선소 「개조」 — 목록 23(선수상 · 무장 · 적재비율변경 · 이름변경, 손표 <c>0x00458CA0</c>) 가운데 된 것.</summary>
     private void Refit()
     {
-        int pick = BuildingMenu.Ask(this, "개조", ["선수상", "적재비율변경", "이름변경"]);
+        int pick = BuildingMenu.Ask(this, "개조", ["선수상", "무장", "적재비율변경", "이름변경"]);
         if (pick == 0) { BuyFigurehead(); return; }
+        if (pick == 1) { BuyGuns(); return; }
+        pick--;
         if (pick == 1) { Rerate(); return; }
         if (pick != 2) return;
         // 이름변경(<c>0x0042A470</c>) — 배를 고르고(0x111) 0x113 뒤 일곱 자까지 받는다. 값은 받지 않는다.
@@ -1201,6 +1203,42 @@ public sealed class SeaMapWindow : Window
             p.SetGold(p.Gold - price);
             ship.Figurehead = k;
             Note($" · {ship.Name}에 {Shipyard.Figureheads[k]} 선수상을 달았습니다");
+            return;
+        }
+    }
+
+    /// <summary>조선소 「무장」(<c>0x0042A080</c>) — 배를 고르고(0x10E) 대포 갈래 · 문 수를 정해 한 문 값 x 문 수를 낸다(<see cref="Shipyard.GunRoom"/>).</summary>
+    private void BuyGuns()
+    {
+        if (_host.Economy is not { } eco || _host.CurrentPort < 0 || _host.CurrentPort >= eco.States.Count) return;
+        var st = eco.States[_host.CurrentPort];
+        var (count, rare) = Shipyard.GunChoices(st.Economy, st.Industry, HeroField(Church.Luck), Random.Shared.Next);
+        if (rare) Say(0x10A, "오늘은 진귀한 물건이 있소.");
+        var p = _host.Player;
+        while (true)
+        {
+            int which = BuildingMenu.Ask(this, MsgOr(0x10E, "어느 부대의 대포요？"),
+                p.Ships.Select(sh => $"{sh.Name}  {Shipyard.GunNames[Math.Clamp(sh.GunKind, 0, 7)]} {sh.Mounted}/{sh.Guns}").ToList());
+            if (which < 0) return;
+            var ship = p.Ships[which];
+            int k = BuildingMenu.Ask(this, MsgOr(0x10C, "어느 것으로 하겠소？"),
+                [.. Enumerable.Range(1, count).Select(i => $"{Shipyard.GunNames[i],-6} {Shipyard.GunPrice[i],4}")]) + 1;
+            if (k <= 0) continue;
+            int room = Shipyard.GunRoom(ship, k);
+            if (room < 0) { Say(0x3FD, "이 배에는 무기를 실을 수 없소."); continue; }
+            if (room == 0) { Say(0x3FC, "이 배에는 이 이상 무기를 실을 수 없겠는데！"); continue; }
+            string ask = ship.GunKind == k
+                ? MsgOr(0x14E, $"{Shipyard.GunNames[k]}(는) 이미 {ship.Mounted}문 탑재하고 있습니다.\n앞으로 {room}문 탑재할 수 있습니다.", Shipyard.GunNames[k], ship.Mounted, room)
+                : MsgOr(0x10F, "몇문 싣겠소？");
+            int n = AmountDialog.Ask(this, ask, room);
+            if (n <= 0) continue;
+            int price = Shipyard.GunPrice[k] * n;
+            if (MessageBox.Show(this, MsgOr(0x110, $"{Shipyard.GunNames[k]}(를) {n}문 싣는다면 금화 {price}닢이오.\n좋겠소？", Shipyard.GunNames[k], n, price),
+                                "무장", MessageBoxButton.YesNo) != MessageBoxResult.Yes) continue;
+            if (price > p.Gold) { Say(0xCF, "금화가 부족합니다."); continue; }
+            p.SetGold(p.Gold - price);
+            Shipyard.Mount(ship, k, n);
+            Note($" · {ship.Name} — {Shipyard.GunNames[k]} {ship.Mounted}문");
             return;
         }
     }

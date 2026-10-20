@@ -35,6 +35,7 @@ public static class Shipyard
         ship.Room = cargo;
         ship.MaxCrew = crewRoom;
         ship.Guns = guns;
+        ship.Mounted = Math.Min(ship.Mounted, guns);
         return true;
     }
 
@@ -112,6 +113,35 @@ public static class Shipyard
         n++;
         if (rand(luck) >= 90) n++;
         return (n, true);
+    }
+
+    /// <summary>대포 이름 0 ~ 7(<c>0x004571F8</c>, 12바이트씩)과 한 문 값(<c>0x004572B8</c>).</summary>
+    public static readonly string[] GunNames = ["미탑재", "캐논", "데미캐논", "캐논페드로", "컬버린", "데미컬버린", "세이커", "카로네이드"];
+    public static readonly int[] GunPrice = [0, 360, 80, 40, 250, 40, 5, 600];
+
+    /// <summary>
+    /// 「무장」(<c>0x0042A080</c>) 에 늘어놓는 갈래 — min(6, (경제 + 공업) / 200 + 1). 공업 · 경제가 다 900 을 넘고 운이 90 을 넘으면
+    /// rand(20) == 0 일 때 하나 더(말 0x10A).
+    /// </summary>
+    public static (int Count, bool Rare) GunChoices(int economy, int industry, int luck, Func<int, int> rand)
+    {
+        int n = Math.Min(6, (economy + industry) / 200 + 1);
+        if (industry <= 900 || economy <= 900 || luck <= 90 || rand(20) != 0) return (n, false);
+        return (n + 1, true);
+    }
+
+    /// <summary>
+    /// 그 배에 갈래 k 를 더 실을 수 있는 문 수(<c>0x0042A190</c>) — 대포 자리(<see cref="PlayerState.Ship.Guns"/>)가 0 이면 -1(말 0x3FD).
+    /// 같은 갈래면 남은 자리(0 이면 말 0x3FC), 다른 갈래면 다 바꿔 실으므로 자리 전부.
+    /// </summary>
+    public static int GunRoom(PlayerState.Ship ship, int kind) =>
+        ship.Guns <= 0 ? -1 : ship.GunKind == kind ? ship.Guns - ship.Mounted : ship.Guns;
+
+    /// <summary>갈래 k 를 n 문 싣는다 — 같은 갈래면 더하고, 아니면 바꾼다.</summary>
+    public static void Mount(PlayerState.Ship ship, int kind, int n)
+    {
+        ship.Mounted = ship.GunKind == kind ? ship.Mounted + n : n;
+        ship.GunKind = kind;
     }
 
     /// <summary>선수상 k 의 값 — 500 x k²(<c>0x00429FF8</c>).</summary>
