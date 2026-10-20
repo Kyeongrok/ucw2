@@ -147,9 +147,14 @@ public readonly record struct ShipSailing(
     int Load, int Capacity,
     int NavLevel, int Seamanship)
 {
-    /// <summary>선종 표 한 줄과 선장으로 새 배를 띄운다 — 선원을 다 채우고 짐은 비운다.</summary>
+    public const int DefaultSailingShare = 50;
+
+    /// <summary>
+    /// 선종 표 한 줄과 선장으로 새 배를 띄운다 — 선원을 다 채우고 짐은 비운다. 돛 몫은 원본 새 배 채비대로 50%
+    /// (칸 곁 +9 = 0x32, +8 = 0x19 — <c>0x0043DF87</c> · <c>0x0040B920</c>)라 드는 선원의 곱절을 태워야 돛이 다 산다.
+    /// </summary>
     public static ShipSailing Fresh(StartData.ShipType type, StartData.Person captain, bool oars = false) =>
         new(type.SailKind, type.Sail, type.Upwind, oars,
-            Crew: Math.Max(type.RequiredCrew, type.MaxCrew), SailingShare: 100, type.RequiredCrew,
+            Crew: Math.Max(type.RequiredCrew, type.MaxCrew), SailingShare: DefaultSailingShare, type.RequiredCrew,
             Load: 0, type.Capacity, captain.NavLevel, captain.Seamanship);
 }
