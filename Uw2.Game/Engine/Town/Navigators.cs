@@ -110,6 +110,26 @@ public static class Navigators
         }
     }
 
+    /// <summary>
+    /// 바다 「급여설정」(<c>0x00441B50</c>) — 호감 80 이상이면 걱정 말라 하고(말 0xDC), 지금보다 적으면 마다한다(말 0xE0 「말도 안돼」).
+    /// 아니면 호감 += (새 급여 − 지금) / 5, 100 까지, 급여 / 10 을 적는다(말 0xDF). 급여는 2000 까지다.
+    /// </summary>
+    public const int MaxWage = 2000;
+
+    public enum WageAnswer { NoNeed, TooLow, Thanks }
+
+    public static WageAnswer SetWage(ScenarioMemory m, int slot, int person, int wage)
+    {
+        if (Get(m, person, Liking) >= 80) return WageAnswer.NoNeed;
+        var at = new ScenarioMemory.Pointer(MateTable, WageFirst + slot);
+        int now = m.Read(at, false) * 10;
+        wage = Math.Min(wage, MaxWage);
+        if (wage < now) return WageAnswer.TooLow;
+        Set(m, person, Liking, Math.Min(100, Get(m, person, Liking) + (wage - now) / 5));
+        m.Write(at, wage / 10, false);
+        return WageAnswer.Thanks;
+    }
+
     /// <summary>한턱낸다 — 오른 호감을 돌려준다.</summary>
     public static int Treat(ScenarioMemory m, int navigator, int hero)
     {

@@ -675,4 +675,21 @@ public class AssetTests
         Assert.False(Uw2.Game.Engine.Town.ItemShop.ToggleEquip(m, 1));
         Assert.Null(Uw2.Game.Engine.Town.ItemShop.ToggleEquip(m, 20));                       // 갈래 7 — 장비할 수 없다
     }
+
+    [Fact]
+    public void RaisingAMatesWageBuysLiking()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, pack.Start!.PeopleBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        Assert.True(Uw2.Game.Engine.Town.Navigators.Join(m, 85, 0, 300));
+        var (slot, person, wage) = Uw2.Game.Engine.Town.Navigators.Mates(m).Single();
+        Assert.Equal(300, wage);
+        int before = Uw2.Game.Engine.Town.Navigators.Get(m, person, Uw2.Game.Engine.Town.Navigators.Liking);
+        Assert.Equal(Uw2.Game.Engine.Town.Navigators.WageAnswer.TooLow, Uw2.Game.Engine.Town.Navigators.SetWage(m, slot, person, 200));
+        Assert.Equal(Uw2.Game.Engine.Town.Navigators.WageAnswer.Thanks, Uw2.Game.Engine.Town.Navigators.SetWage(m, slot, person, 400));
+        Assert.Equal(Math.Min(100, before + 20), Uw2.Game.Engine.Town.Navigators.Get(m, person, Uw2.Game.Engine.Town.Navigators.Liking));
+        Assert.Equal(400, Uw2.Game.Engine.Town.Navigators.Mates(m).Single().Wage);
+    }
 }

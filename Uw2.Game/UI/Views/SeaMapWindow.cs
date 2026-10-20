@@ -1067,6 +1067,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("저장", (_, _) => SaveToSlot()));
         bar.Children.Add(Button("식량할당", (_, _) => SetRations()));
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
+        bar.Children.Add(Button("급여설정", (_, _) => SetWages()));
         bar.Children.Add(Button("상륙", (_, _) => Land()));
         bar.Children.Add(Button("아이템", (_, _) => UseItem()));
 
@@ -1581,6 +1582,26 @@ public sealed class SeaMapWindow : Window
         Say(0x1AA, "깨끗한 물을 발견했습니다.");
         if (filled == 0) Say(0x1A6, "더이상 실을 수 없습니다.");
         else Note($" · 물 {filled}통을 실었습니다");
+    }
+
+    /// <summary>「급여설정」 — 바다 명령 목록 28 의 여섯째(<c>0x00441B10</c>). 동료를 골라 급여를 정한다(<see cref="Navigators.SetWage"/>).</summary>
+    private void SetWages()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var mates = Navigators.Mates(vm.Memory).ToList();
+        if (mates.Count == 0) { Say(0xE5, "동료가 없습니다."); return; }
+        int pick = BuildingMenu.Ask(this, "급여설정", mates.Select(t => $"{_host.PersonName(t.Person)}  급여 {t.Wage}").ToList());
+        if (pick < 0) return;
+        var (slot, person, wage) = mates[pick];
+        string name = _host.PersonName(person);
+        if (Navigators.Get(vm.Memory, person, Navigators.Liking) >= 80) { Say(0xDC, "제독님, 그런 걱정은 안 해도 됩니다."); return; }
+        while (true)
+        {
+            int amount = AmountDialog.Ask(this, MsgOr(0xDE, $"{name}의 급료를 얼마로 하겠습니까？", name) + $" (지금 {wage})", Navigators.MaxWage);
+            if (amount < 0) return;
+            if (Navigators.SetWage(vm.Memory, slot, person, amount) == Navigators.WageAnswer.Thanks) { Say(0xDF, "감사합니다."); return; }
+            Say(0xE0, "겨우 그 정도라니, 말도 안돼.");
+        }
     }
 
     /// <summary>
