@@ -23,7 +23,8 @@ namespace Uw2.Support.Local.Formats;
 /// (50 언저리) · <c>+0x18</c> 특산품 바탕 값(낱말) · <c>+0x1A</c> 특산품 · <c>+0x21</c> 시장 번호.
 ///
 /// 사는 값(<c>0x004208D0</c>): <c>바탕 x (갈래 지수 + 50) / 100</c> 에 그 나라 허가증(소지품 <c>0x23 + 나라</c>)이 없으면
-/// x 12/10 (<c>0x00420430</c>).
+/// x 12/10 (<c>0x00420430</c>). 파는 값(<c>0x004210E0</c>): <c>쳐 주는 값 x (갈래 지수 + 50) / 100</c>, 그 항구 특산품이면
+/// <c>특산품 바탕 x (지수 + 50) / 200</c>.
 /// </remarks>
 public sealed class Economy
 {
@@ -118,6 +119,18 @@ public sealed class Economy
         if (s.Special >= 0 && s.Special < GoodsCount)
             list.Add((s.Special, Price(s.SpecialBase, s.PriceIndex[CategoryOf(s.Special)], permit)));
         return list;
+    }
+
+    /// <summary>
+    /// 그 항구 교역소가 쳐 주는 값 — <c>0x004210E0</c>. 그 항구 특산품이면 바탕의 절반 셈(<c>/200</c>)이다.
+    /// </summary>
+    public int SellPrice(int port, int good)
+    {
+        if (port < 0 || port >= States.Count || good < 0 || good >= GoodsCount) return 0;
+        var s = States[port];
+        int index = s.PriceIndex[CategoryOf(good)] + 50;
+        if (good == s.Special) return s.SpecialBase * index / 200;
+        return s.Zone < Markets.Count ? Markets[s.Zone].Pays[good] * index / 100 : 0;
     }
 
     private static int Price(int baseValue, int index, bool permit) =>

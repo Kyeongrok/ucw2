@@ -36,6 +36,7 @@ public sealed class SeaMapWindow : Window
     private void Trade()
     {
         int pick = BuildingMenu.Ask(this, "교역소", BuildingMenu.Trade);
+        if (pick == 1) { _doorNote = " · 팔 짐이 없습니다(짐칸은 아직 없습니다)"; UpdateStatus(); return; }
         if (pick != 0 || _host.Economy is not { } eco) return;
         var goods = eco.ForSale(_host.CurrentPort);
         if (goods.Count == 0) { _doorNote = " · 이 항구 교역소에는 파는 것이 없습니다"; UpdateStatus(); return; }

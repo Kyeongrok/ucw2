@@ -71,6 +71,9 @@ public class AssetTests
         Assert.Equal((12, 24), sale[1]);                              // 어육
         Assert.Equal((15, 43), sale[3]);                              // 와인
         Assert.Equal((16, 45), sale[^1]);                             // 특산품 돌소금
+        // 파는 값: 정향(향신료, 지수 49) 140 x 99/100 = 138, 특산품 돌소금은 38 x 102/200 = 19
+        Assert.Equal(138, eco.SellPrice(0, 0));
+        Assert.Equal(19, eco.SellPrice(0, 16));
         Assert.Equal(2, Economy.CategoryOf(11));
         Assert.Equal(9, Economy.CategoryOf(45));
     }
