@@ -71,6 +71,44 @@ public sealed class SeaMapWindow : Window
         Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 지었습니다");
     }
 
+    /// <summary>조선소 「수리」 — 배를 골라 고친다(<see cref="Shipyard.RepairCost"/>).</summary>
+    private void RepairShips()
+    {
+        if (_host.StartTables is not { } start) return;
+        var p = _host.Player;
+        var costs = p.Ships.Select(s => Shipyard.RepairCost(start.ShipTypes[s.Type], s)).ToList();
+        if (costs.All(c => c == 0)) { Note(" · 고칠 곳이 없습니다"); return; }
+        int pick = BuildingMenu.Ask(this, $"수리 — 돈 {p.Gold}",
+            p.Ships.Select((s, i) => $"{s.Name,-10} 내구 {s.Hull,3}/{s.MaxHull,-3} {(costs[i] > 0 ? costs[i].ToString() : "-"),6}").ToList());
+        if (pick < 0) return;
+        if (costs[pick] == 0) { Note(" · 고칠 곳이 없습니다"); return; }
+        if (p.Gold < costs[pick]) { Note($" · 돈이 모자랍니다(수리 {costs[pick]})"); return; }
+        p.SetGold(p.Gold - costs[pick]);
+        Shipyard.Repair(start.ShipTypes[p.Ships[pick].Type], p.Ships[pick]);
+        Note($" · {p.Ships[pick].Name} 수리 {costs[pick]}");
+    }
+
+    /// <summary>조선소 「매각」 — 배 값의 반(<see cref="Shipyard.SellPrice"/>). 마지막 한 척은 못 판다.</summary>
+    private void SellShip()
+    {
+        if (_host.StartTables is not { } start || _host.Economy is not { } eco) return;
+        var p = _host.Player;
+        if (p.Ships.Count <= 1) { Note(" · 마지막 배는 팔 수 없습니다"); return; }
+        int port = _host.CurrentPort;
+        int avg = port >= 0 && port < eco.States.Count ? Shipyard.PriceIndexAverage(eco.States[port].PriceIndex) : 50;
+        var prices = p.Ships.Select(s => Shipyard.SellPrice(start.ShipTypes[s.Type].Price, s.Grade, avg)).ToList();
+        int pick = BuildingMenu.Ask(this, $"매각 — 돈 {p.Gold}",
+            p.Ships.Select((s, i) => $"{s.Name,-10} 선원 {s.Crew,3} {prices[i],7}").ToList());
+        if (pick < 0) return;
+        var ship = p.Ships[pick];
+        bool loaded = ship.Load > 0 || ship.Crew > 0;
+        if (loaded && MessageBox.Show(this, $"{ship.Name}에 짐이나 선원이 있습니다. 그래도 팔까요?", "매각",
+                                      MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (!_host.RemoveShip(pick)) return;
+        p.SetGold(p.Gold + prices[pick]);
+        Note($" · {ship.Name}{(KoreanBatchim(ship.Name) ? "을" : "를")} {prices[pick]}에 팔았습니다");
+    }
+
     private static bool KoreanBatchim(string s) =>
         s.Length > 0 && s[^1] is >= '가' and <= '힣' && (s[^1] - '가') % 28 != 0;
 
@@ -100,6 +138,8 @@ public sealed class SeaMapWindow : Window
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
         if (b == TradeBuilding && pick == 1) { SellGoods(); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
+        if (b == ShipyardBuilding && pick == 2) { RepairShips(); return; }
+        if (b == ShipyardBuilding && pick == 3) { SellShip(); return; }
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }

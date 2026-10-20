@@ -427,10 +427,36 @@ public sealed class SeaMapHost : HwndHost
         var t = start.Templates.Count > type ? start.Templates[type] : default;
         // 새 배는 선원 없이 온다(0x0043DF6A) — 주점에서 고용한다.
         Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], start.People[HeroPerson[Hero]], t.Oars) with { Crew = 0 });
-        Player.Ships.Add(new PlayerState.Ship
+        Player.Ships.Add(NewShip(start, type, crew: 0));
+        SyncLoad();
+        return true;
+    }
+
+    /// <summary>새 배 — 내구는 선종의 9/10, 선원 자리 · 짐 자리 · 등급은 본보기에서.</summary>
+    private static PlayerState.Ship NewShip(StartData start, int type, int crew)
+    {
+        var st = start.ShipTypes[type];
+        var t = start.Templates.Count > type ? start.Templates[type] : default;
+        int hull = Uw2.Game.Engine.Town.Shipyard.NewHull(st);
+        return new PlayerState.Ship
         {
-            Type = type, Name = t.Name ?? "", Room = t.CargoRoom, MaxCrew = start.ShipTypes[type].MaxCrew,
-        });
+            Type = type,
+            Name = t.Name ?? "",
+            Room = t.Name != null ? t.CargoRoom : st.Capacity,
+            MaxCrew = Math.Max(t.Name != null ? t.CrewRoom : st.MaxCrew, crew),
+            Crew = crew,
+            Hull = hull, MaxHull = hull, Upwind = st.Upwind, Sail = st.Sail,
+            Grade = t.Flags & 7,
+        };
+    }
+
+    /// <summary>배 한 척을 함대에서 뺀다 — 매각. 마지막 한 척은 못 뺀다.</summary>
+    public bool RemoveShip(int index)
+    {
+        if (Fleet == null || Player.Ships.Count <= 1 || index < 0 || index >= Player.Ships.Count) return false;
+        Player.Ships.RemoveAt(index);
+        if (index < Fleet.Ships.Count) Fleet.Ships.RemoveAt(index);
+        ShipName = Player.Ships[0].Name;
         SyncLoad();
         return true;
     }
@@ -486,14 +512,7 @@ public sealed class SeaMapHost : HwndHost
         fleet.Ships.Add(first);
         int gold = person < start.HeroGold.Count ? start.HeroGold[person] : 0;
         Player = new PlayerState(gold);
-        Player.Ships.Add(new PlayerState.Ship
-        {
-            Type = type,
-            Name = ShipName,
-            Room = type < start.Templates.Count ? start.Templates[type].CargoRoom : start.ShipTypes[type].Capacity,
-            Crew = first.Crew,
-            MaxCrew = first.Crew,
-        });
+        Player.Ships.Add(NewShip(start, type, first.Crew));
     }
 
     /// <summary>어디서 읽었는지 — 게임 폴더 아니면 「구운 자산」.</summary>

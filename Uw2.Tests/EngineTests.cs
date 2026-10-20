@@ -174,4 +174,19 @@ public class EngineTests
         Assert.Equal(1100, Uw2.Game.Engine.Town.Bank.MaxRepay(p.Gold, p.Balance));
         Assert.Equal(1_000_000, Uw2.Game.Engine.Town.Bank.WithInterest(990_000));
     }
+
+    [Fact]
+    public void ShipyardRepairsToMaxHullAndSellsForHalfTheValue()
+    {
+        // 카라벨 라티나 꼴: 내구 30 · 역풍 90 · 돛 75 · 값 240
+        var type = new StartData.ShipType(5, 0, 30, 90, 75, 0, 10, 120, 20, 5, 240);
+        Assert.Equal(27, Uw2.Game.Engine.Town.Shipyard.NewHull(type));
+        var ship = new PlayerState.Ship { Type = 5, Name = "배", Room = 80, Hull = 20, MaxHull = 27, Upwind = 88, Sail = 75 };
+        Assert.Equal(20 * (2 + 0 + 7), Uw2.Game.Engine.Town.Shipyard.RepairCost(type, ship));
+        Uw2.Game.Engine.Town.Shipyard.Repair(type, ship);
+        Assert.Equal((27, 90), (ship.Hull, ship.Upwind));
+        // 등급 2: (2 x 240 / 10 + 4 x 240 / 5) x (50 + 50) / 100 = 240 → 10 에서 자름 240, 판 값 120
+        Assert.Equal(240, Uw2.Game.Engine.Town.Shipyard.Value(240, 2, 50));
+        Assert.Equal(120, Uw2.Game.Engine.Town.Shipyard.SellPrice(240, 2, 50));
+    }
 }

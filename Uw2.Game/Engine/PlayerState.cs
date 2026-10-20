@@ -36,8 +36,19 @@ public sealed class PlayerState
         /// <summary>선원 — 함대 칸 +0(낱말). 새로 지은 배는 0 이다(<c>0x0043DF6A</c>).</summary>
         public int Crew { get; set; }
 
-        /// <summary>최대 선원 — 배 기록 +0x12.</summary>
+        /// <summary>최대 선원 — 배 기록 +0x12(선원 자리).</summary>
         public int MaxCrew { get; init; }
+
+        /// <summary>내구 · 최대 내구 — 함대 칸 +2 · +3.</summary>
+        public int Hull { get; set; }
+        public int MaxHull { get; set; }
+
+        /// <summary>지금 역풍 · 돛 성능 — 함대 칸 +4 · +5. 수리하면 선종 값으로 돌아온다.</summary>
+        public int Upwind { get; set; }
+        public int Sail { get; set; }
+
+        /// <summary>등급 — 배 기록 +0x10 의 아래 세 비트. 배 값에 든다(<see cref="Town.Shipyard.Value"/>).</summary>
+        public int Grade { get; init; }
 
         public int Vacancy => Math.Max(0, MaxCrew - Crew);
     }
