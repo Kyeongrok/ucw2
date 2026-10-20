@@ -220,4 +220,14 @@ public class AssetTests
         }
         else Assert.Equal(Uw2.Game.Engine.Town.Navigators.Answer.Refused, answer);
     }
+
+    [Fact]
+    public void LisbonsNavigatorsWaitAtTheInnNotThePub()
+    {
+        var start = Load().Start!;
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, start.PeopleBytes);
+        Assert.Empty(Uw2.Game.Engine.Town.Navigators.InTown(m, 0, hero: 0, pub: true));
+        Assert.Equal([85, 96], Uw2.Game.Engine.Town.Navigators.InTown(m, 0, hero: 0, pub: false));
+    }
 }

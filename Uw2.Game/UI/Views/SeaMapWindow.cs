@@ -32,7 +32,7 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4;
 
     /// <summary>항구 「보급」 — 넷 가운데 하나를 단(열 통)으로 싣는다(<see cref="Economy.SupplyPrice"/>).</summary>
     private void ShowSupplies()
@@ -149,7 +149,8 @@ public sealed class SeaMapWindow : Window
         if (b == ShipyardBuilding && pick == 2) { RepairShips(); return; }
         if (b == ShipyardBuilding && pick == 3) { SellShip(); return; }
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
-        if (b == PubBuilding && pick == 3) { TalkToNavigator(); return; }
+        if (b == PubBuilding && pick == 3) { TalkToNavigator(pub: true); return; }
+        if (b == InnBuilding && pick == 0) { TalkToNavigator(pub: false); return; }
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
@@ -212,25 +213,27 @@ public sealed class SeaMapWindow : Window
     }
 
     /// <summary>
-    /// 주점 「항해자와 대화」 — 주점에 있는 항해자를 골라 목록 12(한턱내기 · 항해자정보 · 고용 · 결투)로(<see cref="Navigators"/>).
-    /// 결투는 아직이다.
+    /// 주점 · 여관 「항해자와 대화」 — 거기 있는 항해자를 골라, 주점은 목록 12(한턱내기 · 항해자정보 · 고용 · 결투),
+    /// 여관은 항해자정보 · 고용으로(<see cref="Navigators"/>, 여관 고용은 호감을 보지 않는다 — 0x00426F50). 결투는 아직이다.
     /// </summary>
-    private void TalkToNavigator()
+    private void TalkToNavigator(bool pub)
     {
         if (_host.Scenario is not { } vm) return;
         var m = vm.Memory;
         int hero = _host.HeroPersonNumber, port = _host.CurrentPort;
-        var here = Navigators.InTown(m, port, hero);
-        if (here.Count == 0) { Note(" · 지금 주점에 항해자가 없습니다"); return; }
+        var here = Navigators.InTown(m, port, hero, pub);
+        if (here.Count == 0) { Note($" · 지금 {(pub ? "주점" : "여관")}에 항해자가 없습니다"); return; }
         int who = here.Count == 1 ? 0 : BuildingMenu.Ask(this, "누구와 이야기할까요", here.Select(_host.PersonName).ToList());
         if (who < 0) return;
         int nav = here[who];
         string name = _host.PersonName(nav);
         var items = _host.Menus?.Lists is { Count: > 12 } lists ? lists[12].ToList() : ["한턱내기", "항해자정보", "고용", "결투"];
+        if (!pub) items = items.Skip(1).Take(2).ToList();
         while (true)
         {
             int pick = BuildingMenu.Ask(this, $"{name} — 호감 {Navigators.Get(m, nav, Navigators.Liking)}", items);
             if (pick < 0) return;
+            if (!pub) pick++;                                   // 여관은 한턱내기가 없다
             if (pick == 0)
             {
                 int cls = _host.Economy is { } eco && port * Economy.StateSize + 0x24 < eco.StateBytes.Length
@@ -251,7 +254,7 @@ public sealed class SeaMapWindow : Window
             }
             else if (pick == 2)
             {
-                var answer = Navigators.Ask(m, nav, hero, _host.HeroRank, _host.Roll, out int wage);
+                var answer = Navigators.Ask(m, nav, hero, _host.HeroRank, _host.Roll, out int wage, needLiking: pub);
                 switch (answer)
                 {
                     case Navigators.Answer.AlreadyBound: Note($" · {name}은(는) 이미 매인 몸입니다"); return;
