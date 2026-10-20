@@ -304,6 +304,9 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>배를 띄우고 방향키로 몰지. 끄면 방향키가 지도를 옮긴다.</summary>
     public bool Sailing { get; set; } = true;
 
+    /// <summary>출항했는지. 항구에 들면 내리고 출항하면 올린다 — 매여 있는 동안은 세계지도를 봐도 배가 안 간다.</summary>
+    public bool AtSea { get; private set; }
+
     /// <summary>배가 화면 가장자리 이만큼 안에 들면 화면을 넘긴다(실픽셀).</summary>
     private const int FollowMargin = 120;
 
@@ -325,6 +328,7 @@ public sealed class SeaMapHost : HwndHost
 
         Fleet.Heading = 0;
         Fleet.UnderSail = true;
+        AtSea = true;
         CenterOnShip();
         _dirty = true;
         return true;
@@ -387,6 +391,10 @@ public sealed class SeaMapHost : HwndHost
         if (port < 0 || port >= _portMaps.Ports) return false;
 
         CurrentPort = port;
+        // 항구에 든 함대는 그 앞바다에 매여 있다 — 출항 전에 세계지도를 열어도 (0, 0) 에 있지 않게 옮겨 둔다.
+        if (Fleet != null && Ports != null && port < Ports.Ports.Count)
+            Fleet.PlaceNearSea(Ports.Ports[port].X, Ports.Ports[port].Y);
+        AtSea = false;
         _renderer.SetCells(_portMaps[port], PortMap.Size, PortMap.Size);
         _renderer.SetChips(_portSets[Math.Clamp(_portChipNo[port], 0, _portSets.Length - 1)]);
         _renderer.WrapX = false;
@@ -542,7 +550,7 @@ public sealed class SeaMapHost : HwndHost
             AdvanceWalker(dt, w, h);
             return;
         }
-        if (Fleet == null || !Sailing || !Fleet.UnderSail) return;
+        if (Fleet == null || !Sailing || !AtSea || !Fleet.UnderSail) return;
 
         _carry += dt / Fleet.TickSeconds;
         int ticks = (int)_carry;
