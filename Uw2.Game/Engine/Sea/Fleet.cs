@@ -166,6 +166,10 @@ public sealed class Fleet
             && ChipMap.CanSail(ChipAt(cx, cy + 1)) && ChipMap.CanSail(ChipAt(cx + 1, cy + 1));
     }
 
+    /// <summary>그 칩 하나가 바다인지 — 상륙은 함대 둘레에 바다가 아닌 칩이 있어야 한다.</summary>
+    public bool IsSea(int chipX, int chipY) =>
+        chipY >= 0 && chipY < ChipMap.Height && ChipMap.CanSail(ChipAt(chipX, chipY));
+
     private byte ChipAt(int chipX, int chipY)
     {
         int cx = Wrap(chipX);

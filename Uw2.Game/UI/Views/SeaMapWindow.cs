@@ -927,10 +927,9 @@ public sealed class SeaMapWindow : Window
         if (_host.Fleet is not { } f || _host.CurrentPort >= 0 || _host.Scenario is not { } vm) return;
         int fx = (int)Math.Floor(f.X), fy = (int)Math.Floor(f.Y);
         bool shore = false;
-        for (int dy = -1; dy <= 2 && !shore; dy++)
-            for (int dx = -1; dx <= 2 && !shore; dx++)
-                if ((dx is -1 or 2 || dy is -1 or 2) && !f.CanSail(fx + dx, fy + dy) && !f.CanSail(fx + dx - 1, fy + dy - 1))
-                    shore = true;
+        for (int dy = -2; dy <= 3 && !shore; dy++)
+            for (int dx = -2; dx <= 3 && !shore; dx++)
+                if (!f.IsSea(fx + dx, fy + dy)) shore = true;
         if (!shore) { Say(0x1B9, "그곳에는 상륙할 수 없습니다."); return; }
 
         var spot = Discoveries.Near(vm.Memory, fx, fy);
@@ -940,6 +939,7 @@ public sealed class SeaMapWindow : Window
         f.UnderSail = false;
         if (spot is { } s) AtVillage(s.Index);
         else OnShore();
+        f.UnderSail = true;
     }
 
     /// <summary>탐색 덤(<c>0x0049A164</c>) — 부락에 내릴 때마다 0 에서 시작하고 「환대」 가 5 씩 올린다.</summary>

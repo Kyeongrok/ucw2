@@ -530,6 +530,17 @@ public sealed class SeaMapHost : HwndHost
         SyncLoad();
         if (save.Scenario != null) Scenario?.Import(save.Scenario);
         if (save.Common != null) Common?.Import(save.Common);
+        // 발견물 · 임자 표가 생기기 전 세이브 — 표가 비었으면 새 게임처럼 채운다.
+        if (Scenario is { } sv)
+        {
+            if (start.PatronBytes.Length > 0 && sv.Memory.Read(ScenarioMemory.At(Patrons.Table, 0, 0), false) == 0)
+                sv.Memory.Fill(Patrons.Table, start.PatronBytes);
+            if (start.DiscoveryBytes.Length > 0 && sv.Memory.Read(ScenarioMemory.At(Discoveries.Table, 0, 0), true) == 0)
+            {
+                sv.Memory.Fill(Discoveries.Table, start.DiscoveryBytes);
+                Discoveries.Seed(sv.Memory, Random.Shared.Next);
+            }
+        }
         if (save.PortStates.Length > 0) Economy?.RestoreStates(save.PortStates);
         Fleet.Import(save.Fleet);
         if (save.Port >= 0) ShowPort(save.Port);
@@ -988,6 +999,8 @@ public sealed class SeaMapHost : HwndHost
             return;
         }
         if (Fleet == null || !Sailing || !AtSea || !Fleet.UnderSail) return;
+        // 대사 창 · 고르기 창이 떠 있는 동안은 바다 시간이 흐르지 않는다 — 원본도 창이 닫혀야 다음 틱이다.
+        if (Application.Current is { } app && app.Windows.OfType<Window>().Count(x => x.IsVisible) > 1) return;
 
         _carry += dt / Fleet.TickSeconds;
         int ticks = (int)_carry;
