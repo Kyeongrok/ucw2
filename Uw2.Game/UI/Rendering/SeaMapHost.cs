@@ -450,6 +450,52 @@ public sealed class SeaMapHost : HwndHost
         SyncLoad();
     }
 
+    /// <summary>지금 게임을 세이브 한 칸으로 담는다.</summary>
+    public SaveGame Capture(int homePort)
+    {
+        var save = new SaveGame
+        {
+            Hero = Hero, Port = CurrentPort, HomePort = homePort, SavedAt = DateTime.Now,
+            Fleet = Fleet?.Export() ?? new(), Player = SaveGame.From(Player), Scenario = Scenario?.Export(),
+            PortStates = Economy is { } eco ? (byte[])eco.StateBytes.Clone() : [],
+        };
+        string where = CurrentPort >= 0 ? SceneName : "바다";
+        save.Summary = $"{HeroName.Name} {HeroName.Family} · {Fleet?.Date} · {where} · 돈 {Player.Gold}";
+        return save;
+    }
+
+    /// <summary>
+    /// 세이브를 들인다 — 주인공을 새로 세운 뒤(<see cref="SetHero"/>) 돈 · 배 · 시나리오 · 항구 형편 · 함대 자리를 덮어쓴다.
+    /// 항구에 있었으면 그 항구를, 아니면 그 바다를 띄운다.
+    /// </summary>
+    public void Restore(SaveGame save)
+    {
+        SetHero(save.Hero);
+        if (Fleet == null || StartTables is not { } start) return;
+        Player = SaveGame.ToPlayer(save.Player);
+        Fleet.Ships.Clear();
+        foreach (var s in Player.Ships)
+        {
+            var t = start.Templates.Count > s.Type ? start.Templates[s.Type] : default;
+            var skipper = s.Captain >= 0 && s.Captain < start.People.Count ? start.People[s.Captain] : start.People[HeroPerson[Hero]];
+            Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[s.Type], skipper, t.Oars));
+        }
+        ShipName = Player.Ships.Count > 0 ? Player.Ships[0].Name : "";
+        SyncLoad();
+        if (save.Scenario != null) Scenario?.Import(save.Scenario);
+        if (save.PortStates.Length > 0) Economy?.RestoreStates(save.PortStates);
+        Fleet.Import(save.Fleet);
+        if (save.Port >= 0) ShowPort(save.Port);
+        else
+        {
+            ShowWorld();
+            Fleet.UnderSail = true;
+            AtSea = true;
+            CenterOnShip();
+            _dirty = true;
+        }
+    }
+
     /// <summary>함대 한 벌의 배 칸 — 열(<see cref="StartData.SlotCount"/>).</summary>
     public const int MaxShips = StartData.SlotCount;
 

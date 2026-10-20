@@ -396,6 +396,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("게임 폴더…", (_, _) => PickFolder()));
         bar.Children.Add(Button("세계지도", (_, _) => { _host.ShowWorld(); _portPick.SelectedIndex = -1; Retitle(); }));
         bar.Children.Add(Button("출항", (_, _) => PutToSea()));
+        bar.Children.Add(Button("저장", (_, _) => SaveToSlot()));
 
         // 항구 고르개. 표를 못 읽으면 번호만 늘어놓는다.
         _portPick = new ComboBox
@@ -542,6 +543,37 @@ public sealed class SeaMapWindow : Window
     }
 
     private int _homePort = PortTable.Lisbon;
+
+    /// <summary>세이브 칸을 골라 지금 게임을 담는다(<see cref="SaveGame"/>).</summary>
+    private void SaveToSlot()
+    {
+        int slot = BuildingMenu.Ask(this, "저장 — 칸을 고르세요", SaveGame.SlotLines());
+        if (slot < 0) return;
+        try
+        {
+            _host.Capture(_homePort).Write(slot);
+            Note($" · {slot + 1}번 칸에 저장했습니다");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Note($" · 저장하지 못했습니다 — {e.Message}");
+        }
+    }
+
+    /// <summary>세이브를 들여 그 항구나 바다에서 잇는다.</summary>
+    public void LoadGame(SaveGame save)
+    {
+        _homePort = save.HomePort;
+        _host.Restore(save);
+        if (save.Port >= 0) _portPick.SelectedIndex = save.Port;
+        else
+        {
+            _portPick.SelectedIndex = -1;
+            _host.CellsPerPixel = 1.0 / 6;
+        }
+        _host.Invalidate();
+        Retitle();
+    }
 
     /// <summary>항구에서 나와 앞바다에 배를 띄운다.</summary>
     private void PutToSea()

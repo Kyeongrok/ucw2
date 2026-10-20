@@ -95,6 +95,26 @@ public sealed class Fleet
     /// <summary>뭍에 막혀 뱃머리대로 못 간 틱이면 참.</summary>
     public bool Blocked { get; private set; }
 
+    /// <summary>세이브에 담을 자리 · 날짜.</summary>
+    public SaveGame.FleetState Export() => new()
+    {
+        CellX = _cellX, CellY = _cellY, SubX = _subX, SubY = _subY, Heading = Heading,
+        Year = Date.Year, Month = Date.Month, Day = Date.Day, TimeOfDay = TimeOfDay, DaysAtSea = DaysAtSea,
+    };
+
+    public void Import(SaveGame.FleetState s)
+    {
+        _cellX = Wrap(s.CellX);
+        _cellY = Math.Clamp(s.CellY, 0, ChipMap.Height - 1);
+        _subX = Math.Clamp(s.SubX, 0, Sailing.CellUnits - 1);
+        _subY = Math.Clamp(s.SubY, 0, Sailing.CellUnits - 1);
+        Heading = s.Heading;
+        Date = new GameDate(s.Year, s.Month, s.Day);
+        TimeOfDay = Math.Clamp(s.TimeOfDay, 0, TicksPerDay - 1);
+        DaysAtSea = s.DaysAtSea;
+        Blocked = false;
+    }
+
     /// <summary>자리를 옮겨 놓는다. 칸 가운데에 세운다.</summary>
     public void PlaceAt(double x, double y)
     {

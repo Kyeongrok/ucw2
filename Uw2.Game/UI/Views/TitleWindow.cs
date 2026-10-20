@@ -92,6 +92,9 @@ public sealed class TitleWindow : Window
     /// <summary>고른 주인공이 정해지면 부른다 — 붙이는 쪽이 지도를 연다.</summary>
     public event Action<int>? HeroChosen;
 
+    /// <summary>「Load Data」에서 세이브를 골랐을 때.</summary>
+    public event Action<Uw2.Game.Engine.SaveGame>? SaveChosen;
+
     public TitleWindow()
     {
         Title = "대항해시대2";
@@ -280,7 +283,12 @@ public sealed class TitleWindow : Window
         {
             switch (_pick)
             {
-                case 0:                                   // Load Data — 세이브는 아직이다
+                case 0:
+                {
+                    int slot = BuildingMenu.Ask(this, "불러오기 — 칸을 고르세요", Uw2.Game.Engine.SaveGame.SlotLines());
+                    if (slot >= 0 && Uw2.Game.Engine.SaveGame.Read(slot) is { } save) SaveChosen?.Invoke(save);
+                    return;
+                }
                 case 1: _scene = Scene.Characters; _pick = 0; Draw(); return;
                 case 2: new SeaMapWindow().Show(); return;   // Environment 자리 — 지도를 연다
                 case 3: Close(); return;

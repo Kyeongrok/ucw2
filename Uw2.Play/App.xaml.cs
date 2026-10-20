@@ -25,6 +25,13 @@ public partial class App : Application
             map.ShowHomePort(hero);
             title.Close();
         };
+        title.SaveChosen += save =>
+        {
+            var map = new SeaMapWindow { Title = "대항해시대2 — 항해" };
+            map.Show();
+            map.LoadGame(save);
+            title.Close();
+        };
         title.Show();
     }
 }

@@ -82,6 +82,13 @@ public sealed class Economy
 
     public static Economy FromParts(IReadOnlyList<string> names, byte[] markets, byte[] states) => new(names, markets, states);
 
+    /// <summary>항구 형편 날바이트를 되돌린다 — 세이브를 불러올 때.</summary>
+    public void RestoreStates(byte[] states)
+    {
+        states.AsSpan(0, Math.Min(states.Length, StateBytes.Length)).CopyTo(StateBytes);
+        States = [.. Enumerable.Range(0, StateBytes.Length / StateSize).Select(k => ParseState(StateBytes, k * StateSize))];
+    }
+
     /// <summary>날바이트를 떠 온 사본 — 게임마다 따로 바뀌게.</summary>
     public Economy Clone() => new(GoodsNames, (byte[])MarketBytes.Clone(), (byte[])StateBytes.Clone());
 

@@ -297,4 +297,27 @@ public class EngineTests
         Assert.Equal(4, Uw2.Game.Engine.Town.Shipyard.Used(m, 25).Count);   // 산 칸은 빈 채로 남는다
         Assert.Equal(5, calls);
     }
+
+    [Fact]
+    public void SaveRoundTripsPlayerAndScenarioState()
+    {
+        var p = new PlayerState(5000) { FoodRate = 70 };
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "앞", Room = 120, MaxCrew = 20, Crew = 12, Hull = 27, MaxHull = 27, Captain = 90 });
+        p.Ships[0].Supplies[PlayerState.Water] = 30;
+        p.Buy(3, 10, 10);
+        p.Transfer(1000);
+        var vm = new ScenarioVm(new byte[0x40], ScenarioText.FromBytes(new byte[8])) { Chapter = 2, Section = 3 };
+        vm.Memory.Gold = 777;
+        var save = new SaveGame { Hero = 1, Port = 5, Player = SaveGame.From(p), Scenario = vm.Export() };
+        var json = System.Text.Json.JsonSerializer.Serialize(save);
+        var back = System.Text.Json.JsonSerializer.Deserialize<SaveGame>(json)!;
+
+        var q = SaveGame.ToPlayer(back.Player);
+        Assert.Equal((p.Gold, p.Balance, 70), (q.Gold, q.Balance, q.FoodRate));
+        Assert.Equal((12, 90, 30), (q.Ships[0].Crew, q.Ships[0].Captain, q.Ships[0].Supplies[PlayerState.Water]));
+        Assert.Equal(p.CargoTotals(), q.CargoTotals());
+        var vm2 = new ScenarioVm(new byte[0x40], ScenarioText.FromBytes(new byte[8]));
+        vm2.Import(back.Scenario!);
+        Assert.Equal((2, 3, 777), (vm2.Chapter, vm2.Section, vm2.Memory.Gold));
+    }
 }

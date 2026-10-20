@@ -91,6 +91,34 @@ public sealed class ScenarioVm
         public IReadOnlyList<Line> Pending => Lines.Skip(Shown).ToList();
     }
 
+    /// <summary>세이브에 담는 기계 상태 — 장 · 절 · 변수 · 깃발 · 가리키개 · 기억.</summary>
+    public sealed class State
+    {
+        public int Chapter { get; set; }
+        public int Section { get; set; }
+        public ushort[] Vars { get; set; } = [];
+        public bool[] Flags { get; set; } = [];
+        public int[] Pointers { get; set; } = [];
+        public byte[][] Memory { get; set; } = [];
+    }
+
+    public State Export() => new()
+    {
+        Chapter = Chapter, Section = Section, Vars = [.. _vars], Flags = [.. _flags],
+        Pointers = [.. _ptrs.SelectMany(p => (int[])[p.Table, p.Offset])], Memory = Memory.Export(),
+    };
+
+    public void Import(State s)
+    {
+        Chapter = s.Chapter;
+        Section = s.Section;
+        s.Vars.AsSpan(0, Math.Min(s.Vars.Length, _vars.Length)).CopyTo(_vars);
+        s.Flags.AsSpan(0, Math.Min(s.Flags.Length, _flags.Length)).CopyTo(_flags);
+        for (int i = 0; i < _ptrs.Length && 2 * i + 1 < s.Pointers.Length; i++)
+            _ptrs[i] = new ScenarioMemory.Pointer(s.Pointers[2 * i], s.Pointers[2 * i + 1]);
+        Memory.Import(s.Memory);
+    }
+
     /// <summary>고르기를 물을 곳. 없으면 늘 첫 항목.</summary>
     public Chooser? Choose { get; set; }
 

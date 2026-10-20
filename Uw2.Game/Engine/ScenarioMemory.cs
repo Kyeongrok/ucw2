@@ -43,6 +43,14 @@ public sealed class ScenarioMemory
             _tables[t] = new byte[Math.Max(Stride[t], 1) * 256 + 256];
     }
 
+    /// <summary>표 스물의 사본 — 세이브에 담는다.</summary>
+    public byte[][] Export() => [.. _tables.Select(t => (byte[])t.Clone())];
+
+    public void Import(byte[][] tables)
+    {
+        for (int t = 0; t < TableCount && t < tables.Length; t++) Fill(t, tables[t]);
+    }
+
     public static Pointer At(int table, int record, int field) =>
         new(table, (table < TableCount && Stride[table] > 0 ? record * Stride[table] : 0) + field);
 
