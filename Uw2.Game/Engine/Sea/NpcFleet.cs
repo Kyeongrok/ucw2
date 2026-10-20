@@ -13,8 +13,10 @@ namespace Uw2.Game.Engine.Sea;
 ///   해류 각 3~5   빠르기 -= min(빠르기 - 1, 해류세기)
 ///   해류 각 0·1·7 빠르기 += min(40 - 빠르기, 해류세기)
 /// </code>
-/// 뱃머리는 다음 마디(마지막엔 목표 자리)를 보고 정한다(<c>0x00448380</c>). 게임은 가로 · 세로 차를 쌓임 값으로
-/// 비스듬히 나눠 가는데, 우리는 <b>긴 축이 짧은 축의 두 배를 넘으면 곧게, 아니면 대각선</b>으로 어림한다.
+/// 뱃머리는 다음 마디(마지막엔 목표 자리)를 보고 정한다(<c>0x00448380</c>). 가로 · 세로 차를 쌓임 값(함대 +0x0E)으로
+/// 비스듬히 나눠 가는 선 긋기다 — 긴 축은 늘 한 칸, 짧은 축은 쌓임 값이 0 을 넘을 때만 한 칸. 마디가 바뀌면
+/// 쌓임 값을 <c>-(가로 차 / 2)</c> 로 새로 잡는다(깃발 0x200). 부호 둘을 3 x 3 표 <c>0x00461FF8</c>
+/// (<c>7 0 1 / 6 8 2 / 5 4 3</c>)로 방위로 바꾼다.
 ///
 /// 닿은 뒤의 일(<c>0x004184B0</c>)은 움직임 갈래(+0x1B)마다 다르다. 0 갈래는 항구 번호 <c>+0x1C</c>(고향)로
 /// 목표를 바꾸고 <c>rand(8) + 8</c> 을 +0x27 에 둔다. <b>우리는 처음 목표 항구와 고향을 오가며, 닿으면 그만큼의 날을
@@ -32,6 +34,8 @@ public sealed class NpcFleet
     private int _cellX, _cellY, _subX = Sailing.CellUnits / 2, _subY = Sailing.CellUnits / 2;
     private readonly List<(int X, int Y)> _route = [];
     private int _leg;
+    private int _err;                 // 함대 +0x0E
+    private bool _newLeg = true;      // 함대 +0x0C 의 0x200
     private bool _towardHome;
 
     public NpcFleet(Fleet sea, RouteGraph graph, Random rng, StartData.Fleet record, StartData start,
@@ -70,6 +74,7 @@ public sealed class NpcFleet
         var nodes = _graph.Path(_graph.Nearest(_cellX, _cellY), _graph.Nearest(target.X, target.Y));
         foreach (int n in nodes) _route.Add((_graph.Nodes[n].X, _graph.Nodes[n].Y));
         _route.Add(target);
+        _newLeg = true;
     }
 
     /// <summary>날 넘김 — 항구에 있으면 하루를 줄이고, 다 머물렀으면 다음 목표로 떠난다.</summary>
@@ -93,9 +98,12 @@ public sealed class NpcFleet
         if (Math.Max(Math.Abs(dx), Math.Abs(dy)) <= 1)
         {
             if (++_leg >= _route.Count) DaysInPort = _rng.Next(8) + 8;   // 0x004184B0 의 rand(8)+8
+            _newLeg = true;
             return;
         }
-        Heading = DirOf(dx, dy);
+        int steer = Steer(dx, dy);
+        if (steer == 8) return;
+        Heading = steer;
 
         int speed = Speed(wind, current);
         if (speed == 0) return;
@@ -122,14 +130,29 @@ public sealed class NpcFleet
         return speed;
     }
 
-    /// <summary>(dx, dy) 를 8방위로 — 긴 축이 짧은 축의 두 배를 넘으면 곧게 간다.</summary>
-    private static int DirOf(int dx, int dy)
+    /// <summary>
+    /// 그 마디 쪽으로 한 걸음 방위 — <c>0x00448380</c> 의 선 긋기. 8 이면 제자리다.
+    /// </summary>
+    private int Steer(int dx, int dy)
     {
-        int sx = Math.Sign(dx), sy = Math.Sign(dy);
-        if (Math.Abs(dx) > 2 * Math.Abs(dy)) sy = 0;
-        else if (Math.Abs(dy) > 2 * Math.Abs(dx)) sx = 0;
-        for (int d = 0; d < 8; d++)
-            if (WindCurTable.Dx[d] == sx && WindCurTable.Dy[d] == sy) return d;
-        return 0;
+        int adx = Math.Abs(dx), ady = Math.Abs(dy);
+        if (_newLeg) { _err = -(adx / 2); _newLeg = false; }
+        int sx, sy;
+        if (adx > ady)
+        {
+            sx = Math.Sign(dx);
+            _err += ady;
+            if (_err >= 0) { _err -= adx; sy = Math.Sign(dy); } else sy = 0;
+        }
+        else
+        {
+            sy = Math.Sign(dy);
+            _err += adx;
+            if (_err >= 0) { _err -= ady; sx = Math.Sign(dx); } else sx = 0;
+        }
+        return DirTable[(sy + 1) * 3 + sx + 1];
     }
+
+    /// <summary>부호 (dy, dx) → 방위 — <c>0x00461FF8</c>. 가운데 8 은 제자리다.</summary>
+    private static ReadOnlySpan<byte> DirTable => [7, 0, 1, 6, 8, 2, 5, 4, 3];
 }
