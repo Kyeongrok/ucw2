@@ -79,9 +79,11 @@ public sealed class PlayerState
 
     public const int Water = 0, Food = 1;
 
-    /// <summary>물 · 식량 비율 0~100(<c>0x0045BDA9</c> · <c>0x0045BDAA</c>) — 새 게임은 0, 「식량할당」 따위가 올리고 내린다(<c>0x00441800</c>).</summary>
-    public int WaterRate { get; set; }
-    public int FoodRate { get; set; }
+    public const int FullRation = 100;
+
+    /// <summary>물 · 식량 비율 0~100(<c>0x0045BDA9</c> · <c>0x0045BDAA</c>) — 새 게임은 100(SDATA 0x48DA · 0x48DB), 「식량할당」 따위가 올리고 내린다(<c>0x00441800</c>).</summary>
+    public int WaterRate { get; set; } = FullRation;
+    public int FoodRate { get; set; } = FullRation;
 
     /// <summary>
     /// 바다의 하루 — 배마다 식량 다음 물을 먹는다(<c>0x00417480</c> · <c>0x004176F0</c>).

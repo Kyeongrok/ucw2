@@ -223,7 +223,7 @@ public class EngineTests
     [Fact]
     public void ShipsEatFromTheirOwnHoldThenFromTheFirstThatHasIt()
     {
-        var p = new PlayerState(0) { FoodRate = 50, WaterRate = 0 };
+        var p = new PlayerState(0) { FoodRate = 50, WaterRate = 0 };   // 새 게임은 둘 다 100
         p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "앞", Room = 200, Crew = 20 });
         p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "뒤", Room = 200, Crew = 10 });
         p.Ships[0].Supplies[PlayerState.Food] = 30;
