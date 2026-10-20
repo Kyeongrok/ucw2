@@ -32,6 +32,9 @@ namespace Uw2.Support.Local.Formats;
 ///       chipno.png       100x1    값 = 벌 번호
 ///       walk.png         4x7      벌마다 걸음 경계 [0, a, b, c]
 ///       doors.png        24x101   항구마다 문 열둘 (x, y) — ZA_DAT.DAT
+///     kao/
+///       faces.png        1024x640 얼굴 64x80 백스물여덟을 16 x 8 로(값 = 색인 0~7)
+///       finds.png        768x384  발견물 48x48 백스물여덟을 16 x 8 로
 /// </code>
 /// </remarks>
 public sealed class AssetPack
@@ -106,6 +109,7 @@ public sealed class AssetPack
 
         BakeWalk(Find("PORTCHIP.LZW"), outDir);
         BakeDoors(Find("ZA_DAT.DAT"), outDir);
+        if (File.Exists(Find("KAO.LZW"))) BakeKao(Find("KAO.LZW"), outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
         IndexedPng.Write(Path.Combine(outDir, "port", "chipno.png"),
@@ -288,6 +292,25 @@ public sealed class AssetPack
         IndexedPng.Write(Path.Combine(outDir, "port", "walk.png"), walk, 4, PortChipSets.SetCount, DataPalette());
     }
 
+    /// <summary>얼굴 · 발견물 그림 한 줄에 놓는 장 수.</summary>
+    public const int KaoCols = 16;
+
+    /// <summary><c>KAO.LZW</c> 를 얼굴 판 · 발견물 판으로 굽는다(<see cref="KaoImages"/>).</summary>
+    public static void BakeKao(string kaoPath, string outDir)
+    {
+        var chunks = LsArchive.ReadAll(kaoPath);
+        var faces = chunks.Where(c => c.Length == KaoImages.FaceBytes)
+                          .Select(c => KaoImages.Decode(c, KaoImages.FaceW, KaoImages.FaceH)).ToArray();
+        var finds = chunks.Where(c => c.Length == KaoImages.FindBytes)
+                          .Select(c => KaoImages.Decode(c, KaoImages.FindW, KaoImages.FindH)).ToArray();
+        Directory.CreateDirectory(Path.Combine(outDir, "kao"));
+        var pal = GamePalette.SeaScreenRgb;
+        var fa = KaoImages.Atlas(faces, KaoImages.FaceW, KaoImages.FaceH, KaoCols, out int fw, out int fh);
+        IndexedPng.Write(Path.Combine(outDir, "kao", "faces.png"), fa, fw, fh, pal);
+        var na = KaoImages.Atlas(finds, KaoImages.FindW, KaoImages.FindH, KaoCols, out int nw, out int nh);
+        IndexedPng.Write(Path.Combine(outDir, "kao", "finds.png"), na, nw, nh, pal);
+    }
+
     /// <summary><c>ZA_DAT.DAT</c> 의 문 자리를 굽는다(<c>port/doors.png</c>, 줄 하나가 항구 하나).</summary>
     public static void BakeDoors(string zaDatPath, string outDir)
     {
@@ -319,6 +342,8 @@ public sealed class AssetPack
             var quad = IndexedPng.Read(Path.Combine(dir, "world", "quad.png"));
             var maps = IndexedPng.Read(Path.Combine(dir, "port", "maps.png"));
             var chipNo = IndexedPng.Read(Path.Combine(dir, "port", "chipno.png"));
+            string facesPath = Path.Combine(dir, "kao", "faces.png");
+            IndexedPng.Image? faces = File.Exists(facesPath) ? IndexedPng.Read(facesPath) : null;
             string doorsPath = Path.Combine(dir, "port", "doors.png");
             var doors = File.Exists(doorsPath) ? PortDoors.FromBytes(IndexedPng.Read(doorsPath).Pixels) : null;
             string walkPath = Path.Combine(dir, "port", "walk.png");
@@ -372,6 +397,8 @@ public sealed class AssetPack
                 PortChipSet = chipNo.Pixels,
                 PortWalkBounds = walkBounds,
                 Doors = doors,
+                Faces = faces?.Pixels ?? [],
+                FacesWidth = faces?.Width ?? 0,
                 Wind = wind.Pixels,
                 Ports = [.. ports.Select(p => new PortTable.Port(p.Index, p.Name, p.X, p.Y, p.Nation))],
                 Ship = ship,
@@ -417,6 +444,14 @@ public sealed class AssetPack
 
     /// <summary>항구마다 쓰는 칩 벌.</summary>
     public byte[] PortChipSet { get; private init; } = [];
+
+    /// <summary>얼굴 판(<c>kao/faces.png</c>) — 64 x 80 을 <see cref="KaoCols"/> 장씩. 없으면 빈 것.</summary>
+    public byte[] Faces { get; private init; } = [];
+    public int FacesWidth { get; private init; }
+
+    /// <summary>얼굴 하나가 판의 어디인지.</summary>
+    public static (int X, int Y) FaceAt(int face) =>
+        (face % KaoCols * KaoImages.FaceW, face / KaoCols * KaoImages.FaceH);
 
     /// <summary>항구마다 문 자리. 구워 두지 않았으면 null.</summary>
     public PortDoors? Doors { get; private init; }

@@ -15,9 +15,9 @@ namespace Uw2.Game.UI.Views;
 /// 원본 VGA 640x400 에 그리고 통째로 늘여 띄운다(<see cref="PixelScreen"/>). 글자는
 /// <c>HANKAKU.FNT</c> 를 그대로 찍는다 — 원본 메뉴에 쓰인 그 글꼴이다.
 ///
-/// <b>주인공 얼굴(<c>KAO.LZW</c>)은 아직 못 풀었다.</b> 청크가 1,920 · 864바이트 두 가지로
-/// 128명 x 2쪽인데, 겹판·꽉채움에 48x80·64x60·80x48 따위를 다 대 봐도 어긋난다. 세계지도처럼
-/// <b>한 겹 더</b> 있는 듯하다. 그때까지는 얼굴 자리에 이름을 적은 판을 놓는다.
+/// 주인공 판에는 얼굴(<c>KAO.LZW</c>, <see cref="KaoImages"/>)을 찍는다. 얼굴 차례는 사람 표 차례
+/// (조안 · 카탈리나 · 옷토 · 에르네스트 · 피에트로 · 알)라 이 창의 차례와 다르다(<see cref="HeroFace"/>).
+/// 구운 얼굴이 없으면 이름을 적은 판을 놓는다.
 /// </remarks>
 public sealed class TitleWindow : Window
 {
@@ -39,6 +39,9 @@ public sealed class TitleWindow : Window
         ("Ernst von Bohr",   "함부르크"),
         ("Otto Baynes",      "런던"),
     ];
+
+    /// <summary>이 창의 주인공 차례 → 얼굴 번호(= 사람 표 번호).</summary>
+    private static readonly int[] HeroFace = [0, 1, 4, 5, 3, 2];
 
     /// <summary>얼굴 판 크기.</summary>
     private const int PlateW = 62, PlateH = 78;
@@ -181,11 +184,21 @@ public sealed class TitleWindow : Window
             _screen.Fill(px, py, PlateW, PlateH, Ink);
             _screen.Rect(px, py, PlateW, PlateH, on ? Green : Orange, 3);
 
-            // 얼굴(KAO.LZW)을 아직 못 풀어 이름을 대신 적는다.
-            var words = name.Split(' ');
-            int ty = py + (PlateH - words.Length * 17) / 2 - 6;
-            for (int k = 0; k < words.Length; k++)
-                _screen.TextCentered(words[k], px + PlateW / 2, ty + k * 17, Cream);
+            if (_pack is { Faces.Length: > 0 } pack)
+            {
+                // 얼굴은 64 x 80 이고 판 안쪽은 그보다 조금 작다 — 테두리 안으로 들어오게 가장자리를 자른다.
+                var (sx, sy) = AssetPack.FaceAt(HeroFace[i]);
+                int cutX = (KaoImages.FaceW - (PlateW - 6)) / 2, cutY = (KaoImages.FaceH - (PlateH - 6)) / 2;
+                _screen.Blit(pack.Faces, pack.FacesWidth, sx + cutX, sy + cutY, PlateW - 6, PlateH - 6,
+                             px + 3, py + 3, _palette);
+            }
+            else
+            {
+                var words = name.Split(' ');
+                int ty = py + (PlateH - words.Length * 17) / 2 - 6;
+                for (int k = 0; k < words.Length; k++)
+                    _screen.TextCentered(words[k], px + PlateW / 2, ty + k * 17, Cream);
+            }
             _screen.TextCentered(home, px + PlateW / 2, py + PlateH - 20, on ? Green : Orange);
         }
 
