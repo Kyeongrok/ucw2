@@ -30,6 +30,12 @@ namespace Uw2.Game.Engine;
 ///   C9 v hh ll 고르기(0x0043D2B0) — 글 하나를 줄 바꿈(0x0A)으로 갈라 항목으로 띄우고 고른 차례(0 부터)를 변수 v 에.
 ///              물리기는 없다(0x00437FD0 은 0xFF 면 다시 묻는다)
 ///   D0 p t r f 가리키개 p 에 표 t 의 r 번 기록 f 자리(0x0043D510). D0 은 r 을 변수 r 에서, DC 는 그대로
+///   E9 f       예 · 아니오를 물어 깃발 f 를 세우거나 지운다(0x0043DCE0)
+///   EA v       변수 v = 돈 / 10000 (0x0043DD50)
+///   EB v hh ll 변수 v = 주사위(hhll) — 씨앗 = 씨앗 x 0x5D588B65 + 1, (씨앗 &gt;&gt; 8 &amp; 0x7FFF) % hhll (0x0043DD80)
+///   EC v · ED v  씨앗 = 변수 v &lt;&lt; 8 · 변수 v = 씨앗 &gt;&gt; 8 (0x0043DDE0 · 0x0043DE00)
+///   EE v       변수 v = 우리 배 수 (0x0043DE20)
+///   씨앗은 이벤트를 열 때 ((주인공 +0x26 낱말 + 항해 레벨) x 해 x 달 + 날 + 시각) &lt;&lt; 8 (0x0043F9F0)
 /// </code>
 /// 나머지는 길이(<see cref="Scenario.LengthAt"/>)만큼 넘긴다.
 /// </remarks>
@@ -55,6 +61,12 @@ public sealed class ScenarioVm
     /// 0 은 받을 곳이 가리키개일 때 입력 글을 그 자리에 옮기는 것이라 여기서는 쓰지 않는다.
     /// </summary>
     public int[] GameValues { get; } = new int[8];
+
+    /// <summary>우리 배 수 — EE 가 읽는다. 부르는 쪽이 채운다.</summary>
+    public int ShipCount { get; set; }
+
+    /// <summary>이벤트 주사위 씨앗(<c>0x0045E3AC</c>).</summary>
+    private uint _seed;
 
     public const int ValueArea = 1, ValueYear = 2, ValueMonth = 3, ValueDay = 4, ValuePort = 5, ValueTime = 7;
 
@@ -172,6 +184,10 @@ public sealed class ScenarioVm
 
     private Run Execute(int baseAt, int ip, int gold, string name, string family)
     {
+        int hero = Memory.Read(new ScenarioMemory.Pointer(ScenarioMemory.GoldTable, ScenarioMemory.HeroField), false);
+        int w26 = Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, hero, 0x26), true);
+        int lv = Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, hero, 0x24), false);
+        _seed = (uint)(((w26 + lv) * GameValues[ValueYear] * GameValues[ValueMonth] + GameValues[ValueDay] + GameValues[ValueTime]) << 8);
         bool nextSection = false, nextChapter = false;
         var run = Run_(baseAt, ip, gold, name, family, ref nextSection, ref nextChapter);
         if (nextSection) Section++;
@@ -296,6 +312,25 @@ public sealed class ScenarioVm
                         case 0xE4: Memory.Gold = _vars[a1]; break;
                         case 0xE6: Memory.Gold = (int)Math.Min(PlayerState.MaxGold, (long)Memory.Gold + _vars[a1]); break;
                         case 0xE7: Memory.Gold = Math.Max(0, Memory.Gold - _vars[a1]); break;
+                        case 0xE9:
+                        {
+                            int yes = Choose != null ? Choose(run.Pending, ["예", "아니오"]) : 0;
+                            if (Choose != null) run.Shown = run.Lines.Count;
+                            if (a1 < _flags.Length) _flags[a1] = yes == 0;
+                            break;
+                        }
+                        case 0xEA: _vars[a1] = (ushort)(Memory.Gold / 10000); break;
+                        case 0xEB:
+                        {
+                            int n = Word(ip + 2);
+                            if (n == 0) { _vars[a1] = 0; break; }
+                            _seed = unchecked(_seed * 0x5D588B65u + 1);
+                            _vars[a1] = (ushort)((int)((_seed >> 8) & 0x7FFF) % n);
+                            break;
+                        }
+                        case 0xEC: _seed = (uint)((short)_vars[a1] << 8); break;
+                        case 0xED: _vars[a1] = (ushort)(_seed >> 8); break;
+                        case 0xEE: _vars[a1] = (ushort)ShipCount; break;
                         case 0xD0 or 0xDC:
                         {
                             int rec = _code[ip + 3];

@@ -274,4 +274,22 @@ public class AssetTests
         int Favor(int n) => m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 0, 6 + n), false);
         Assert.Equal((70, 110), (Favor(0), Favor(3)));                             // 100 − 30 · 100 + 10
     }
+
+    [Fact]
+    public void YesNoRandomAndGoldInTenThousandsLandInVariables()
+    {
+        var vm = new Uw2.Game.Engine.ScenarioVm(OneEvent(
+            0xE9, 0x03,                        // 예 · 아니오 → 깃발 3
+            0xEA, 0x01,                        // 변수 1 = 돈 / 10000
+            0xEB, 0x02, 0x00, 0x05,            // 변수 2 = 주사위(5)
+            0xED, 0x04,                        // 변수 4 = 씨앗 >> 8
+            0xAD, 0x03, 0x00, 0x18,            // 깃발 3 이 서 있지 않으면 끝(+0x18)으로
+            0xE6, 0x01,                        // 돈 += 변수 1
+            0xFF), ScenarioText.FromBytes(new byte[8]));
+        vm.Choose = (_, options) => { Assert.Equal(["예", "아니오"], options); return 0; };
+        var run = vm.Enter(0, 7, 35000, "", "")!;
+        Assert.Equal(35003, run.Gold);                            // 예 → 깃발 3 → 돈 += 3
+        var st = vm.Export();
+        Assert.InRange(st.Vars[2], 0, 4);
+    }
 }

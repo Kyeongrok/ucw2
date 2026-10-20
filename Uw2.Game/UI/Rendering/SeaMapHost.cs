@@ -415,6 +415,7 @@ public sealed class SeaMapHost : HwndHost
             g[ScenarioVm.ValueTime] = Fleet.TimeOfDay;
         }
         Scenario.GameValues[ScenarioVm.ValuePort] = CurrentPort < 0 ? 255 : CurrentPort;
+        Scenario.ShipCount = Player.Ships.Count;
         if (Economy != null) Scenario.Memory.Fill(ScenarioMemory.PortStateTable, Economy.StateBytes);
         // 은행 잔고 — 표 2 +4 낱말 x 100 + +6 바이트(0x0049F5AC · 0x0049F5AE).
         int hundreds = Player.Balance / 100, rest = Player.Balance - hundreds * 100;
