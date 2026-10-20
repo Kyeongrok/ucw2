@@ -96,7 +96,7 @@ public sealed class PlayerState
     /// 먹는 양은 <c>선원 x 비율 / 100 + 1</c>(<see cref="DailyUse"/>)이고 제 배에 없으면 그것이 있는 앞 배에서 꺼낸다.
     /// 먹을 때마다 사기가 움직인다(<see cref="MoraleChange"/>) — <paramref name="lead"/> 는 배 차례 → 그 배 선장 능력치 +0x1C.
     /// 아무 배에도 없으면 먹지 못하고 사기를 <c>min(16, 사기)</c> 깎는다(<c>0x004176B0</c>).
-    /// 아무 배에도 없던 것의 수를 돌려준다. 사기 20 아래의 선상 반란(<c>0x00417650</c>)은 아직이다.
+    /// 사기가 20 아래면 선원이 달아난다(<see cref="Deserters"/>). 아무 배에도 없던 것의 수를 돌려준다.
     /// </summary>
     public int ConsumeDay(Func<int, int>? lead = null)
     {
@@ -112,13 +112,19 @@ public sealed class PlayerState
                 {
                     lacking++;
                     ship.Morale -= Math.Min(16, ship.Morale);
-                    continue;
                 }
-                from.Supplies[kind] -= Math.Min(need, from.Supplies[kind]);
-                ship.Morale = Math.Clamp(ship.Morale - MoraleChange(lead?.Invoke(i) ?? 0, rate), 0, 100);
+                else
+                {
+                    from.Supplies[kind] -= Math.Min(need, from.Supplies[kind]);
+                    ship.Morale = Math.Clamp(ship.Morale - MoraleChange(lead?.Invoke(i) ?? 0, rate), 0, 100);
+                }
+                if (ship.Morale < MutinyBelow) ship.Crew -= Deserters(ship.Crew, ship.Morale);
             }
         return lacking;
     }
+
+    /// <summary>달아나는 선원 — <c>min(선원, (20 − 사기) x 선원 / 100 + 1)</c>(<c>0x00417650</c>).</summary>
+    public static int Deserters(int crew, int morale) => Math.Min(crew, (MutinyBelow - morale) * crew / 100 + 1);
 
     /// <summary>
     /// 한 번 먹을 때 깎이는 사기(<c>0x004175ED</c>) — 괄호 = 100 − 선장 능력치 / 5 − 비율, 괄호 &gt; 0 이면 괄호 / 5,

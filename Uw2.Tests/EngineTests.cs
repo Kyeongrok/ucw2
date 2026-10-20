@@ -353,4 +353,16 @@ public class EngineTests
         p.Hire(10, 1);
         Assert.Equal(54, p.Ships[0].Morale);
     }
+
+    [Fact]
+    public void CrewDesertsWhenMoraleIsBelowTwenty()
+    {
+        Assert.Equal(11, PlayerState.Deserters(100, 10));        // (20 − 10) x 100 / 100 + 1
+        Assert.Equal(1, PlayerState.Deserters(3, 0));            // 20 x 3 / 100 = 0, + 1
+        var p = new PlayerState(0);
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "배", Room = 100, Crew = 50, Morale = 18 });
+        p.ConsumeDay(_ => 80);                                   // 둘 다 없다 — 16 깎여 2, 달아남 9 · 그다음 0, 달아남 9
+        Assert.Equal(0, p.Ships[0].Morale);
+        Assert.Equal(50 - 10 - 9, p.Ships[0].Crew);
+    }
 }
