@@ -182,6 +182,7 @@ public sealed class SeaMapWindow : Window
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
         if (b == PubBuilding && pick == 3) { TalkToNavigator(pub: true); return; }
         if (b == InnBuilding && pick == 0) { TalkToNavigator(pub: false); return; }
+        if (b == InnBuilding && pick == 1) { ShowSupport(); return; }
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
@@ -300,6 +301,23 @@ public sealed class SeaMapWindow : Window
             }
             else { Note(" · 결투는 아직 없습니다"); return; }
         }
+    }
+
+    /// <summary>나라 이름 — 나라 표 차례(서울 리스본 · 세빌리아 · 이스탄불 · 런던 · 제노바 · 암스테르담).</summary>
+    private static readonly string[] NationNames = ["포르투갈", "에스파냐", "오스만 투르크", "잉글랜드", "이탈리아", "네덜란드"];
+
+    /// <summary>여관 「항구지지율」 — 이 항구의 나라 몫 여섯(항구 형편 +8). 원본은 서울에서 이 줄을 막는다(0x0041F3FA).</summary>
+    private void ShowSupport()
+    {
+        int port = _host.CurrentPort;
+        if (_host.Economy is not { } eco || port < 0 || port >= eco.States.Count) return;
+        if (_host.StartTables is { } st && st.Capitals.Take(6).Contains(port)) { Note(" · 서울에서는 볼 수 없습니다"); return; }
+        var shares = eco.States[port].Shares;
+        string text = string.Join("
+", shares.Select((v, i) => $"{NationNames[i],-8} {v,3}%"));
+        MessageBox.Show(this, $"{_host.SceneName}의 나라 몫
+
+{text}", "항구지지율");
     }
 
     /// <summary>주점 「선원 고용」 — 올 사람 · 값은 원본 셈(<see cref="Pub"/>), 앞 배부터 빈 자리를 채운다.</summary>
