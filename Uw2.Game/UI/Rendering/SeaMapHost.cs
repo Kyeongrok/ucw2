@@ -371,7 +371,7 @@ public sealed class SeaMapHost : HwndHost
             Scenario = new ScenarioVm(code, ScenarioText.Load(mes));
             string dat0 = Path.Combine(_scenarioDir, "SNR0.DAT"), mes0 = Path.Combine(_scenarioDir, "SNR0.MES");
             Common = File.Exists(dat0) && File.Exists(mes0)
-                ? new ScenarioVm(File.ReadAllBytes(dat0), ScenarioText.Load(mes0), Scenario.Memory) : null;
+                ? new ScenarioVm(File.ReadAllBytes(dat0), ScenarioText.Load(mes0), Scenario.Memory) { EndsAtChapterZero = true } : null;
             Scenario.Cargo = (good, amount) =>
             {
                 int moved = amount == int.MinValue ? Player.SellAll(good, 0) : Player.Stow(good, amount);
@@ -386,6 +386,7 @@ public sealed class SeaMapHost : HwndHost
             for (int i = 0; i < 8 * Uw2.Game.Engine.Town.Shipyard.UsedRecords; i++)
                 Scenario.Memory.Write(new ScenarioMemory.Pointer(Uw2.Game.Engine.Town.Shipyard.UsedTable, i), 0xFF, false);
             if (Ports is { } pt) Scenario.Memory.FillPorts(pt.Ports.Select(p => (p.X, p.Y, p.Name, p.Nation)));
+            if (Economy is { } ge) Scenario.Memory.FillGoodsNames(ge.GoodsNames);
             if (StartTables is { ItemBytes.Length: > 0 } si) Scenario.Memory.Fill(Uw2.Game.Engine.Town.ItemShop.Table, si.ItemBytes);
             if (StartTables is { MiscBytes.Length: > 0 } sm)
             {
@@ -431,11 +432,11 @@ public sealed class SeaMapHost : HwndHost
             g[ScenarioVm.ValueTime] = Fleet.TimeOfDay;
         }
         Scenario.GameValues[ScenarioVm.ValuePort] = CurrentPort < 0 ? 255 : CurrentPort;
-        Scenario.ShipCount = Player.Ships.Count;
+        Scenario.FreeRoom = Player.Free;
         if (Common != null)
         {
             Scenario.GameValues.CopyTo(Common.GameValues, 0);
-            Common.ShipCount = Scenario.ShipCount;
+            Common.FreeRoom = Scenario.FreeRoom;
             Common.Cargo = Scenario.Cargo;
         }
         if (Economy != null) Scenario.Memory.Fill(ScenarioMemory.PortStateTable, Economy.StateBytes);

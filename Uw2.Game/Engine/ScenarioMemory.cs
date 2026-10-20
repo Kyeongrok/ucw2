@@ -35,12 +35,19 @@ public sealed class ScenarioMemory
     /// <summary>가리키개 — 표와 그 안의 바이트 자리.</summary>
     public readonly record struct Pointer(int Table, int Offset);
 
-    private readonly byte[][] _tables = new byte[TableCount][];
+    /// <summary>
+    /// 글 표 — 원본의 실제 글 자리(포인터가 가리키는 곳)를 대신한다. 표 19(<c>0x0046EDE8</c>)처럼 dword 포인터를 담는 표는
+    /// <c>표 번호 &lt;&lt; 24 | 자리</c> 꼴로 이 표를 가리킨다(<see cref="Decode"/>).
+    /// </summary>
+    public const int StringTable = TableCount, Stored = TableCount + 1, GoodsNameTable = 19, NameSize = 16;
+
+    private readonly byte[][] _tables = new byte[Stored][];
 
     public ScenarioMemory()
     {
         for (int t = 0; t < TableCount; t++)
             _tables[t] = new byte[Math.Max(Stride[t], 1) * 256 + 256];
+        _tables[StringTable] = new byte[NameSize * 256];
     }
 
     /// <summary>
@@ -63,12 +70,32 @@ public sealed class ScenarioMemory
         }
     }
 
+    /// <summary>dword 포인터 값 → 가리키개(<c>표 번호 &lt;&lt; 24 | 자리</c>).</summary>
+    public static Pointer Decode(int v) => new((v >> 24) & 0xFF, v & 0xFFFFFF);
+
+    /// <summary>
+    /// 교역품 이름 — 표 19 는 이름 포인터 마흔여섯(4바이트씩)이다. 이름은 글 표에 열여섯 바이트씩 cp949 로 두고
+    /// 표 19 에 그 자리를 가리키는 값을 쓴다. 시나리오는 <c>D0 → 넣기(받을 곳 3, 포인터 따라가기)</c>로 이름을 얻는다.
+    /// </summary>
+    public void FillGoodsNames(IReadOnlyList<string> names)
+    {
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        var cp949 = System.Text.Encoding.GetEncoding(949);
+        for (int i = 0; i < names.Count && i < 256; i++)
+        {
+            var bytes = cp949.GetBytes(names[i]);
+            for (int k = 0; k < NameSize; k++)
+                Write(new Pointer(StringTable, i * NameSize + k), k < bytes.Length && k < NameSize - 1 ? bytes[k] : 0, false);
+            WriteDword(At(GoodsNameTable, i, 0), StringTable << 24 | i * NameSize);
+        }
+    }
+
     /// <summary>표 스물의 사본 — 세이브에 담는다.</summary>
     public byte[][] Export() => [.. _tables.Select(t => (byte[])t.Clone())];
 
     public void Import(byte[][] tables)
     {
-        for (int t = 0; t < TableCount && t < tables.Length; t++) Fill(t, tables[t]);
+        for (int t = 0; t < Stored && t < tables.Length; t++) Fill(t, tables[t]);
     }
 
     public static Pointer At(int table, int record, int field) =>
@@ -112,5 +139,5 @@ public sealed class ScenarioMemory
     }
 
     private bool Ok(Pointer p, bool word) =>
-        p.Table is >= 0 and < TableCount && p.Offset >= 0 && p.Offset + (word ? 1 : 0) < _tables[p.Table].Length;
+        p.Table is >= 0 and < Stored && p.Offset >= 0 && p.Offset + (word ? 1 : 0) < _tables[p.Table].Length;
 }

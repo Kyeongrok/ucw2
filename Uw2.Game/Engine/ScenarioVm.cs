@@ -34,7 +34,7 @@ namespace Uw2.Game.Engine;
 ///   EA v       변수 v = 돈 / 10000 (0x0043DD50)
 ///   EB v hh ll 변수 v = 주사위(hhll) — 씨앗 = 씨앗 x 0x5D588B65 + 1, (씨앗 &gt;&gt; 8 &amp; 0x7FFF) % hhll (0x0043DD80)
 ///   EC v · ED v  씨앗 = 변수 v &lt;&lt; 8 · 변수 v = 씨앗 &gt;&gt; 8 (0x0043DDE0 · 0x0043DE00)
-///   EE v       변수 v = 우리 배 수 (0x0043DE20)
+///   EE v       변수 v = 우리 배들의 빈 짐 자리 합 (0x0043DE20)
 ///   E2 g a     변수 g 의 교역품을 변수 a 만큼 값 없이 싣는다 — 배마다 빈 자리까지, 넘치면 버린다(0x0043D980)
 ///   E3 g a     변수 g 의 교역품을 모든 배에서 내리고 내린 양을 변수 a 에(0x0043DAB0)
 ///   FB p       사람 p 가 동료로 든다 — 빈 동료 칸에, 처지 6, 함대 · 머무는 곳은 주인공 것(0x0043E0D0)
@@ -74,8 +74,11 @@ public sealed class ScenarioVm
     /// </summary>
     public Func<int, int, int>? Cargo { get; set; }
 
-    /// <summary>우리 배 수 — EE 가 읽는다. 부르는 쪽이 채운다.</summary>
-    public int ShipCount { get; set; }
+    /// <summary>장이 바뀌면 다음 장 대신 장 0 으로 — 함께 쓰는 시나리오(SNR0, 조합 일)가 이렇다(<c>0x0043F889</c>).</summary>
+    public bool EndsAtChapterZero { get; init; }
+
+    /// <summary>우리 배의 빈 짐 자리 합 — EE 가 읽는다(배마다 배 기록 +0x14 − 짐). 부르는 쪽이 채운다.</summary>
+    public int FreeRoom { get; set; }
 
     /// <summary>이벤트 주사위 씨앗(<c>0x0045E3AC</c>).</summary>
     private uint _seed;
@@ -248,7 +251,8 @@ public sealed class ScenarioVm
         if (nextSection) Section++;
         if (nextChapter)
         {
-            Chapter++;
+            // 함께 쓰는 시나리오는 장이 바뀌면 장 · 절을 0 으로 돌린다 — 맡은 일이 끝난 것이다(0x0043F889).
+            Chapter = EndsAtChapterZero ? 0 : Chapter + 1;
             Section = 0;
             Array.Clear(_flags, 0, 32);
         }
@@ -278,7 +282,13 @@ public sealed class ScenarioVm
                         if (dest == 0 && a2 is >= 1 and < 8) _vars[a1] = (ushort)GameValues[a2];
                         break;
                     }
-                    if (w == 2 || dest == 3) break;                // 2 는 오류, 받을 곳 3 은 가리키개 옮기기(아직)
+                    if (w == 2) break;                              // 2 는 오류
+                    if (dest == 3)
+                    {
+                        // 가리키개 a = 가리키개 b 자리의 dword 가 가리키는 곳(0x0043EB09) — 이름 포인터 따위를 따라간다.
+                        _ptrs[a1] = ScenarioMemory.Decode(Memory.ReadDword(_ptrs[a2]));
+                        break;
+                    }
                     int v = src == 3 ? (len == 4 ? Word(ip + 2) : a2) : ValueOf(src, a2, w == 0);
                     Store(dest, a1, v, w == 0);
                     break;
@@ -385,7 +395,7 @@ public sealed class ScenarioVm
                         }
                         case 0xEC: _seed = (uint)((short)_vars[a1] << 8); break;
                         case 0xED: _vars[a1] = (ushort)(_seed >> 8); break;
-                        case 0xEE: _vars[a1] = (ushort)ShipCount; break;
+                        case 0xEE: _vars[a1] = (ushort)FreeRoom; break;
                         case 0xE2: Cargo?.Invoke(_vars[a1] & 0xFF, _vars[a2]); break;
                         case 0xE3: _vars[a2] = (ushort)(Cargo?.Invoke(_vars[a1] & 0xFF, int.MinValue) ?? 0); break;
                         case 0xFB:

@@ -348,4 +348,44 @@ public class AssetTests
         string? dump = Environment.GetEnvironmentVariable("UW2_SURVEY");
         if (dump != null) File.WriteAllLines(dump, log);
     }
+
+    [Fact]
+    public void ATransportJobLoadsCargoAtThePickupPort()
+    {
+        var pack = Load();
+        string dir = Path.Combine(AssetDir, "snr");
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, pack.Start!.PeopleBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.NationTable, pack.Start.NationBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.HeroTable, pack.Start.HeroBytes);
+        m.FillPorts(pack.Ports.Select(p => (p.X, p.Y, p.Name, p.Nation)));
+        m.FillGoodsNames(pack.Economy!.GoodsNames);
+        var vm = new Uw2.Game.Engine.ScenarioVm(File.ReadAllBytes(Path.Combine(dir, "SNR0.DAT")),
+                                                ScenarioText.Load(Path.Combine(dir, "SNR0.MES")), m) { EndsAtChapterZero = true };
+        vm.GameValues[2] = 21; vm.GameValues[3] = 4; vm.GameValues[4] = 16; vm.GameValues[7] = 24;
+        var log = new List<string>();
+        var cargo = new List<(int, int)>();
+        int held = 0;
+        vm.Cargo = (g, a) => { cargo.Add((g, a)); if (a == int.MinValue) { int h = held; held = 0; return h; } held += a; return a; };
+        vm.FreeRoom = 100;
+        vm.Choose = (_, o) => 0;
+        vm.Enter(0, 6, 1000, "조안", "페레로");
+        vm.SetVar(8, vm.GetVar(3));
+        vm.Section = 1;
+        vm.Enter(0, 6, 1000, "조안", "페레로");
+        vm.Chapter = vm.GetVar(6);
+        vm.Section = 0;
+        int from = vm.GetVar(16), to = vm.GetVar(17);
+        log.Add($"장 {vm.Chapter} · 실을 곳 {from} · 내릴 곳 {to} · 변수 16~20 {string.Join(",", Enumerable.Range(16, 5).Select(vm.GetVar))}");
+        foreach (int port in (int[])[from, to, from])
+            for (int b = 0; b < 12; b++)
+                if ((vm.GameValues[5] = port) >= 0 && vm.Enter(port, b, 1000, "조안", "페레로") is { Lines.Count: > 0 } run)
+                    log.Add($"{port} {b}: 돈 {run.Gold} · 짐 [{string.Join(" ", cargo)}] · " +
+                            string.Join(" / ", run.Lines.Select(l => l.Body.Replace('\n', ' '))));
+        log.Add($"끝: 장 {vm.Chapter} · 절 {vm.Section}");
+        string? dump = Environment.GetEnvironmentVariable("UW2_SURVEY");
+        if (dump != null) File.WriteAllLines(dump, log);
+        Assert.Equal(0, vm.Chapter);                                   // 다 날라 일이 끝났다
+    }
 }
