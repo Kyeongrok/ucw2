@@ -1040,7 +1040,7 @@ public sealed class SeaMapWindow : Window
         _host.SeaDay += OnSeaDay;
         _host.DiseaseCaught += name =>
         {
-            _seaNote = $" · {name}이 돌기 시작했습니다";
+            _seaNote = name == "쥐 떼" ? M(0x1D9, "쥐 떼가 일었습니다") : M(0x1DA, $"{name}에 걸린 자가 있습니다");
             UpdateStatus();
         };
         _host.FleetReady += f => f.Weather.Said += line =>
@@ -1183,7 +1183,7 @@ public sealed class SeaMapWindow : Window
                     sb.AppendLine($"{s.Name} ({type}) — 선장 {Captain(s)}");
                     sb.AppendLine($"    내구 {s.Hull}/{s.MaxHull} · 선원 {s.Crew}/{s.MaxCrew} · 사기 {s.Morale} · 짐 {s.Load}/{s.Room}");
                 }
-                if (p.Scurvy || p.Fever) sb.AppendLine((p.Scurvy ? "괴혈병 " : "") + (p.Fever ? "열병" : ""));
+                if (p.Rats || p.Scurvy) sb.AppendLine((p.Rats ? "쥐 떼 " : "") + (p.Scurvy ? "괴혈병" : ""));
                 break;
             case 1:
                 if (vm == null) break;
@@ -1306,7 +1306,11 @@ public sealed class SeaMapWindow : Window
                 break;
             }
             case 8 when item == 0x17 && f != null: said = $"지금은 {Fleet.Clock(f.TimeOfDay)}"; break;
-            case 9 when item == 0x29: said = "특별히 아무일도 일어나지 않았다"; usedUp = true; break;   // 쥐 떼는 아직 없다
+            case 9 when item == 0x29:
+                said = p.Rats ? "쥐가 없어졌다……" : "특별히 아무일도 일어나지 않았다";
+                p.Rats = false;
+                usedUp = true;
+                break;
             case 9 when item == 0x2A:
                 said = f?.Weather.Calm() == true
                     ? (f.TimeOfDay is >= 12 and < 60 ? "폭풍이 멈췄다…지금은낮이다" : "폭풍이 멈췄다…지금은밤이다")

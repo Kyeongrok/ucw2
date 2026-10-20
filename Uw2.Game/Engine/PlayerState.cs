@@ -150,28 +150,30 @@ public sealed class PlayerState
         return b > 0 ? b / 5 : b / 10;
     }
 
-    /// <summary>괴혈병 · 열병(<c>0x0049F598</c> 비트 0x10 · 0x20) — 항구에 들면 낫는다(<c>0x0041A588</c>).</summary>
+    /// <summary>쥐 떼 · 괴혈병(<c>0x0049F598</c> 비트 0x10 · 0x20) — 항구에 들면 없어진다(<c>0x0041A588</c>).</summary>
+    public bool Rats { get; set; }
     public bool Scurvy { get; set; }
-    public bool Fever { get; set; }
 
     /// <summary>
     /// 바다의 하루 끝 병 셈(<c>0x00417970</c> · <c>0x00417AD0</c>). <paramref name="days"/> 는 바다에 나온 날 수,
     /// <paramref name="luck"/> · <paramref name="navLevel"/> 은 주인공 운(+0x23) · 항해 레벨(+0x24),
     /// <paramref name="lead2"/> 는 배 차례 → 그 배 선장 능력치 +0x1E. 새로 걸린 병 이름을 돌려준다(없으면 null).
     /// <code>
-    ///   괴혈병  30 일 넘어, 주사위(항해 레벨 / 5 + 2) == 0 이고 주사위(105) &gt; 운이면 걸린다. 걸린 동안 배마다 식량 −10
-    ///   열병    60 일 넘어, 주사위(105) &gt; 운이면 걸린다. 걸린 동안 배마다 선원 −min(선원, (100 − 선장 +0x1E) / 5 + 주사위(2))
+    ///   쥐 떼   30 일 넘어, 고양이가 없고 주사위(항해 레벨 / 5 + 2) == 0 이고 주사위(105) &gt; 운이면 인다(말 0x1D9).
+    ///           있는 동안 배마다 식량 −10. 쥐약(0x29)이 없앤다
+    ///   괴혈병  60 일 넘어, 주사위(105) &gt; 운이면 걸린다(말 0x1DA). 걸린 동안 배마다 선원 −min(선원, (100 − 선장 +0x1E) / 5 + 주사위(2)).
+    ///           라임 주스(0x2B)가 낫게 한다
     /// </code>
-    /// 원본은 괴혈병을 막는 깃발(<c>0x0046EED4</c> &amp; 0x40)도 보는데 무엇이 세우는지 아직 모른다.
+    /// 고양이(아이템 0x19)를 지니고 나가면 <c>0x0046EED4</c> 에 0x40 이 서서(<c>0x00435A5C</c>) 쥐 떼가 일지 않는다.
     /// </summary>
-    public string? DiseaseDay(int days, int luck, int navLevel, Func<int, int> lead2, Func<int, int> rand)
+    public string? DiseaseDay(int days, int luck, int navLevel, Func<int, int> lead2, Func<int, int> rand, bool cat = false)
     {
         string? caught = null;
-        if (!Scurvy && days > 30 && rand(navLevel / 5 + 2) == 0 && rand(105) > luck) { Scurvy = true; caught = "괴혈병"; }
-        if (Scurvy)
+        if (!Rats && !cat && days > 30 && rand(navLevel / 5 + 2) == 0 && rand(105) > luck) { Rats = true; caught = "쥐 떼"; }
+        if (Rats)
             foreach (var ship in Ships) ship.Supplies[Food] -= Math.Min(ship.Supplies[Food], 10);
-        if (!Fever && days > 60 && rand(105) > luck) { Fever = true; caught ??= "열병"; }
-        if (Fever)
+        if (!Scurvy && days > 60 && rand(105) > luck) { Scurvy = true; caught ??= "괴혈병"; }
+        if (Scurvy)
             for (int i = 0; i < Ships.Count; i++)
                 Ships[i].Crew -= Math.Min(Ships[i].Crew, (100 - lead2(i)) / 5 + rand(2));
         return caught;

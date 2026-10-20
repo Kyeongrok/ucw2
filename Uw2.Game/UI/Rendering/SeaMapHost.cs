@@ -249,7 +249,8 @@ public sealed class SeaMapHost : HwndHost
                 Player.ConsumeDay(i => CaptainLead(i));
                 int hero = HeroPersonNumber;
                 int luck = HeroStat(hero, 0x23), nav = HeroStat(hero, 0x24);
-                if (Player.DiseaseDay(Fleet.DaysAtSea, luck, nav, i => CaptainStat(i, 2), Roll) is { } caught)
+                bool cat = Scenario != null && Uw2.Game.Engine.Town.ItemShop.Owned(Scenario.Memory).Contains(Cat);
+                if (Player.DiseaseDay(Fleet.DaysAtSea, luck, nav, i => CaptainStat(i, 2), Roll, cat) is { } caught)
                     DiseaseCaught?.Invoke(caught);
                 SyncLoad();
             };
@@ -680,6 +681,9 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;
 
+    /// <summary>고양이 — 지니고 있으면 쥐 떼가 일지 않는다(<c>0x00435A5C</c>).</summary>
+    public const int Cat = 0x19;
+
     /// <summary>
     /// 바다에서 날이 바뀌었다 — 바다에 나온 날 수를 넘긴다. 원본은 바다 고리마다 「자리 0xA0 · 건물 = 날 수」 이벤트를 본다(<c>0x00418D45</c>).
     /// 그리기 고리 밖에서 부르도록 디스패처에 미룬다.
@@ -892,7 +896,7 @@ public sealed class SeaMapHost : HwndHost
 
         CurrentPort = port;
         // 항구에 들면 병이 낫는다(0x0041A588).
-        Player.Scurvy = Player.Fever = false;
+        Player.Rats = Player.Scurvy = false;
         if (Scenario != null && Economy is { } eco && StartTables is { } st && port < eco.States.Count)
         {
             var ps = eco.States[port];

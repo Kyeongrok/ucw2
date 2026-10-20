@@ -58,8 +58,8 @@ public sealed class SaveGame
         public int Balance { get; set; }
         public int WaterRate { get; set; } = PlayerState.FullRation;
         public int FoodRate { get; set; } = PlayerState.FullRation;
+        public bool Rats { get; set; }
         public bool Scurvy { get; set; }
-        public bool Fever { get; set; }
         public List<ShipData> Ships { get; set; } = [];
 
         /// <summary>도크에 맡긴 배 — <see cref="ShipData.Port"/> 가 맡긴 항구다.</summary>
@@ -88,7 +88,7 @@ public sealed class SaveGame
 
     public static PlayerData From(PlayerState p) => new()
     {
-        Gold = p.Gold, Balance = p.Balance, WaterRate = p.WaterRate, FoodRate = p.FoodRate, Scurvy = p.Scurvy, Fever = p.Fever,
+        Gold = p.Gold, Balance = p.Balance, WaterRate = p.WaterRate, FoodRate = p.FoodRate, Rats = p.Rats, Scurvy = p.Scurvy,
         Ships = [.. p.Ships.Select(s => Of(s, -1))],
         Docked = [.. p.Docked.Select(d => Of(d.Ship, d.Port))],
     };
@@ -116,7 +116,7 @@ public sealed class SaveGame
 
     public static PlayerState ToPlayer(PlayerData d)
     {
-        var p = new PlayerState(d.Gold) { WaterRate = d.WaterRate, FoodRate = d.FoodRate, Scurvy = d.Scurvy, Fever = d.Fever };
+        var p = new PlayerState(d.Gold) { WaterRate = d.WaterRate, FoodRate = d.FoodRate, Rats = d.Rats, Scurvy = d.Scurvy };
         p.Transfer(d.Balance);          // 돈 → 잔고로 옮긴 꼴이라 돈은 다시 매긴다
         p.SetGold(d.Gold);
         foreach (var s in d.Ships) p.Ships.Add(ToShip(s));
