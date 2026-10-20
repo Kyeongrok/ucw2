@@ -82,4 +82,14 @@ public class AssetTests
         Assert.Equal(2, Economy.CategoryOf(11));
         Assert.Equal(9, Economy.CategoryOf(45));
     }
+
+    [Fact]
+    public void BuildingMenusComeFromMenuDat()
+    {
+        var m = Pack.Menus!;
+        Assert.Equal(["출  항", "보  급", "도  크"], m.ForBuilding(3));               // 항 — 목록 9
+        Assert.Equal(4, m.ForBuilding(0).Count);                                       // 교역소 — 구입 · 매각 · 투자 · 시세·물가
+        Assert.Equal("함선 건조", m.ForBuilding(2)[0]);                                // 조선소 — 목록 22
+        Assert.Empty(m.ForBuilding(7));                                                // NPC 는 목록이 없다
+    }
 }

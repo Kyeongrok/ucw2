@@ -32,27 +32,30 @@ public sealed class SeaMapWindow : Window
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
     private const int HarborBuilding = 3, TradeBuilding = 0;
 
-    /// <summary>교역소 — 「구입」을 고르면 이 항구에서 파는 것과 값(<see cref="Economy.ForSale"/>)을 늘어놓는다. 사고팔기는 아직이다.</summary>
-    private void Trade()
+    /// <summary>
+    /// 건물 고르기 — 목록은 <c>MENU.DAT</c> 그대로(<see cref="MenuTable.BuildingList"/>). 된 것은 항구 「출항」 ·
+    /// 교역소 「구입」(값 보기)뿐이고, 나머지는 고르면 「아직」이라고 적는다.
+    /// </summary>
+    private void EnterBuilding(int b)
     {
-        int pick = BuildingMenu.Ask(this, "교역소", BuildingMenu.Trade);
-        if (pick == 1) { _doorNote = " · 팔 짐이 없습니다(짐칸은 아직 없습니다)"; UpdateStatus(); return; }
-        if (pick != 0 || _host.Economy is not { } eco) return;
+        var items = _host.Menus?.ForBuilding(b) ?? [];
+        if (items.Count == 0) return;
+        int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items);
+        if (pick < 0) return;
+        if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
+        if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
+        if (b == TradeBuilding && pick == 1) { _doorNote = " · 팔 짐이 없습니다(짐칸은 아직 없습니다)"; UpdateStatus(); return; }
+        _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
+        UpdateStatus();
+    }
+
+    /// <summary>교역소 「구입」 — 이 항구에서 파는 것과 값(<see cref="Economy.ForSale"/>)을 늘어놓는다. 사고팔기는 아직이다.</summary>
+    private void ShowGoods()
+    {
+        if (_host.Economy is not { } eco) return;
         var goods = eco.ForSale(_host.CurrentPort);
         if (goods.Count == 0) { _doorNote = " · 이 항구 교역소에는 파는 것이 없습니다"; UpdateStatus(); return; }
         BuildingMenu.Ask(this, "구입 — 한 통 값", goods.Select(g => $"{eco.GoodsNames[g.Good],-6}  {g.Price,5}").ToList());
-    }
-
-    /// <summary>항구 고르기 — 출항만 된다. 보급 · 명명은 아직이다.</summary>
-    private void Harbor()
-    {
-        int pick = BuildingMenu.Ask(this, "항", BuildingMenu.Harbor);
-        if (pick == 0) { PutToSea(); return; }
-        if (pick > 0)
-        {
-            _doorNote = $" · 「{BuildingMenu.Harbor[pick].Replace("  ", "")}」은 아직 없습니다";
-            UpdateStatus();
-        }
     }
 
     /// <summary>항해사가 마지막으로 한 말(날씨) — 상태줄에 적는다.</summary>
@@ -114,12 +117,11 @@ public sealed class SeaMapWindow : Window
         _host.BuildingEntered += (b, open) =>
         {
             _doorNote = open
-                ? $" · 「{PortDoors.Names[b]}」에 들어갔습니다" + (b == HarborBuilding ? "" : "(안은 아직 없습니다)")
+                ? $" · 「{PortDoors.Names[b]}」에 들어갔습니다"
                 : $" · 「{PortDoors.Names[b]}」 — {PortDoors.LockedText}";
             UpdateStatus();
-            // 항구는 고르기 창을 띄운다 — 그림을 그리는 틈 안이라 한 박자 뒤에 연다.
-            if (open && b == HarborBuilding) Dispatcher.BeginInvoke(Harbor);
-            if (open && b == TradeBuilding) Dispatcher.BeginInvoke(Trade);
+            // 열려 있으면 그 건물의 MENU.DAT 목록을 띄운다 — 그림을 그리는 틈 안이라 한 박자 뒤에 연다.
+            if (open) Dispatcher.BeginInvoke(() => EnterBuilding(b));
         };
         Loaded += (_, _) => OpenBest();
         KeyDown += OnKey;

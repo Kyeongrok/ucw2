@@ -96,6 +96,7 @@ public sealed class SeaMapHost : HwndHost
         StartTables = pack.Start;
         Routes = pack.Routes;
         Economy = pack.Economy;
+        Menus = pack.Menus;
 
         var cells = Chips.Expand(Map);
         if (!InitRenderer(cells, ChipMap.Width, ChipMap.Height)) return false;
@@ -152,6 +153,7 @@ public sealed class SeaMapHost : HwndHost
         catch { Wind = null; }   // 없어도 지도는 돈다
 
         try { Routes = RouteGraph.FromData1(Path.Combine(gameDir, "DATA1.LZW")); } catch { Routes = null; }
+        try { Menus = MenuTable.Load(Path.Combine(gameDir, "MENU.DAT")); } catch { Menus = null; }
         try { Economy = Economy.Load(Path.Combine(gameDir, "SDATA.DAT"), Path.Combine(gameDir, "KOUKAI2-han8.exe")); }
         catch { Economy = null; }
         try { StartTables = StartData.Load(Path.Combine(gameDir, "SDATA.DAT")); }
@@ -263,6 +265,9 @@ public sealed class SeaMapHost : HwndHost
     /// 아직 움직이지 않는다(뱃길 그래프 DATA1.LZW 4번 청크를 옮기면 간다).
     /// </summary>
     public List<NpcFleet> Others { get; } = [];
+
+    /// <summary>고르기 목록(MENU.DAT). 없으면 건물에 들어도 고를 것이 없다.</summary>
+    public MenuTable? Menus { get; private set; }
 
     /// <summary>교역 표. 없으면 교역소가 비어 있다.</summary>
     public Economy? Economy { get; private set; }

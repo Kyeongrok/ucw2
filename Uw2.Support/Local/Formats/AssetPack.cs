@@ -23,6 +23,7 @@ namespace Uw2.Support.Local.Formats;
 ///     people.json                 사람 백스물 — 이름 · 능력치 · 레벨 (SDATA.DAT)
 ///     fleets.png         133x70   새 게임 함대 일흔(값 = 날바이트, SDATA.DAT 0x247B)
 ///     goods.json                  교역품 이름 마흔여섯 (KOUKAI2-han8.exe)
+///     menus.json                  고르기 목록 예순하나 (MENU.DAT)
 ///     start-ships.json            선종 본보기 스물다섯(이름 · 노 · 대포 · 자리)과 주인공 첫 선종(SNR1~6.DAT)
 ///     markets.png        128x13   시장 열셋(값 = 날바이트, SDATA.DAT 0x605A)
 ///     portstate.png      37x100   항구 형편 백(값 = 날바이트, SDATA.DAT 0x66DA)
@@ -117,6 +118,7 @@ public sealed class AssetPack
 
         BakeWalk(Find("PORTCHIP.LZW"), outDir);
         BakeDoors(Find("ZA_DAT.DAT"), outDir);
+        if (File.Exists(Find("MENU.DAT"))) BakeMenus(Find("MENU.DAT"), outDir);
         if (File.Exists(Find("KAO.LZW"))) BakeKao(Find("KAO.LZW"), outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
@@ -338,6 +340,10 @@ public sealed class AssetPack
         IndexedPng.Write(Path.Combine(outDir, "portstate.png"), e.StateBytes, Economy.StateSize, Economy.StateCount, DataPalette());
     }
 
+    /// <summary><c>MENU.DAT</c> 목록을 굽는다.</summary>
+    public static void BakeMenus(string menuPath, string outDir) =>
+        WriteJson(Path.Combine(outDir, "menus.json"), MenuTable.Load(menuPath).Lists.Select(l => l.ToArray()).ToArray());
+
     /// <summary><c>ZA_DAT.DAT</c> 의 문 자리를 굽는다(<c>port/doors.png</c>, 줄 하나가 항구 하나).</summary>
     public static void BakeDoors(string zaDatPath, string outDir)
     {
@@ -418,6 +424,8 @@ public sealed class AssetPack
                 var r = IndexedPng.Read(routePath);
                 routes = RouteGraph.FromBytes(r.Pixels, r.Height);
             }
+            var menuLists = ReadJson<string[][]>(Path.Combine(dir, "menus.json"));
+            var menus = menuLists != null ? MenuTable.FromLists(menuLists) : null;
             Economy? economy = null;
             var goodsNames = ReadJson<string[]>(Path.Combine(dir, "goods.json"));
             string marketsPath = Path.Combine(dir, "markets.png"), statePath = Path.Combine(dir, "portstate.png");
@@ -436,6 +444,7 @@ public sealed class AssetPack
                 Start = start,
                 Routes = routes,
                 Economy = economy,
+                Menus = menus,
                 Cells = cells.Pixels,
                 WorldAtlas = chips.Pixels,
                 WorldAtlasSize = (chips.Width, chips.Height),
@@ -511,6 +520,9 @@ public sealed class AssetPack
 
     /// <summary>바람·해류 날바이트 1,350.</summary>
     public byte[] Wind { get; private init; } = [];
+
+    /// <summary>고르기 목록. 구워 두지 않았으면 null.</summary>
+    public MenuTable? Menus { get; private init; }
 
     /// <summary>교역 표. 구워 두지 않았으면 null.</summary>
     public Economy? Economy { get; private init; }
