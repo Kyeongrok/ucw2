@@ -278,7 +278,7 @@ public sealed class SeaMapWindow : Window
         string sail = "";
         if (f != null && _host.CurrentPort < 0)
         {
-            sail = $" | 배 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
+            sail = $" | {Fleet.Clock(f.TimeOfDay)} · {f.DaysAtSea}일째 · 배 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
                  + $" · 바람 {Fleet.DirName(f.LastWind.Dir)} {f.LastWind.Speed}"
                  + $" · 해류 {Fleet.DirName(f.LastCurrent.Dir)} {f.LastCurrent.Speed}"
                  + $" · {Sailing.Knots(f.LastSpeed)}노트({f.LastSpeed})"

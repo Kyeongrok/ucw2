@@ -20,9 +20,33 @@ namespace Uw2.Game.Engine.Sea;
 public sealed class Fleet
 {
     /// <summary>
-    /// 한 틱에 흐르는 시간(초). <b>우리가 고른 값</b>이다 — 게임의 틱 빠르기는 아직 안 쟀다.
+    /// 하루의 틱 수 — 바다에서는 한 틱에 함대가 한 번 움직이고 하루 안 시각(<c>0x004703E4</c>)이 1 오른다
+    /// (<c>0x0041A370</c> · <c>0x0041A375</c>). 72 에 닿으면 날을 넘긴다(<c>0x004178C0</c>). 한 시간이 세 틱이다.
     /// </summary>
-    public const double TickSeconds = 0.2;
+    public const int TicksPerDay = 72;
+
+    /// <summary>바람을 새로 흔드는 틈 — 시각이 12 의 배수일 때만 흔든다(<c>0x00418D95</c>). 네 시간마다다.</summary>
+    public const int GustEvery = 12;
+
+    /// <summary>새 날이 시작하는 시각. 날 넘김이 0 으로 돌리되, 깃발이 서 있으면 24(아침 8시)로 돌린다.</summary>
+    public const int MorningTick = 24;
+
+    /// <summary>
+    /// 게임 빠르기(환경 설정 0~10, <c>0x0045A1D8</c>). 새 게임은 <c>SDATA.DAT</c> 머리의 5 다.
+    /// </summary>
+    public int SpeedSetting { get; set; } = 5;
+
+    /// <summary>
+    /// 한 틱의 길이(초) — 게임은 틱마다 <c>(빠르기 + 1) x 20</c> 밀리초를 기다린다(<c>0x0043AB60</c>).
+    /// 기본 빠르기 5 면 0.12 초, 하루가 8.6 초다.
+    /// </summary>
+    public double TickSeconds => (SpeedSetting + 1) * 0.020;
+
+    /// <summary>하루 안 시각(0~71). 새 게임은 24(아침 8시)에서 시작한다(<c>SDATA.DAT</c> 머리 +7).</summary>
+    public int TimeOfDay { get; private set; } = MorningTick;
+
+    /// <summary>바다에서 보낸 날 수.</summary>
+    public int DaysAtSea { get; private set; }
 
     /// <summary>방위 가짓수.</summary>
     public const int DirCount = Sailing.DirCount;
@@ -117,19 +141,36 @@ public sealed class Fleet
         Blocked = false;
         if (!UnderSail) { LastSpeed = 0; return; }
 
-        var table = _wind?.Wind(Month, _cellX, _cellY) ?? (0, 0);
-        LastWind = Sailing.Gust(table, _rng);
+        // 바람은 네 시간마다 그 자리의 표에서 새로 흔들고, 그 사이에는 그대로 둔다. 해류는 늘 그 자리 것이다.
+        if (TimeOfDay % GustEvery == 0 || !_windSet)
+        {
+            var table = _wind?.Wind(Month, _cellX, _cellY) ?? (0, 0);
+            LastWind = Sailing.Gust(table, _rng);
+            _windSet = true;
+        }
         LastCurrent = _wind?.Current(_cellX, _cellY) ?? (0, 0);
 
         int speed = Sailing.FleetSpeed(Ships, Heading, LastWind.Dir, LastWind.Speed);
         LastSpeed = speed;
 
         // 뱃머리대로 못 가면 한 칸씩 비껴 본다 — 게임도 +1 다음 -1 이다(0x00448836 · 0x00448857).
-        if (TryMove(Heading, speed)) return;
-        Blocked = true;
-        if (TryMove(Heading + 1, speed)) return;
-        TryMove(Heading - 1, speed);
+        if (!TryMove(Heading, speed))
+        {
+            Blocked = true;
+            if (!TryMove(Heading + 1, speed)) TryMove(Heading - 1, speed);
+        }
+
+        if (++TimeOfDay >= TicksPerDay)
+        {
+            TimeOfDay = 0;
+            DaysAtSea++;
+        }
     }
+
+    private bool _windSet;
+
+    /// <summary>시각을 사람이 읽게 — 「8시 20분」.</summary>
+    public static string Clock(int tick) => $"{tick / 3}시 {tick % 3 * 20:00}분";
 
     /// <summary>
     /// 그 방위로 한 틱 — <c>0x00448BC0</c>. 막혀서 못 갔으면 false.
