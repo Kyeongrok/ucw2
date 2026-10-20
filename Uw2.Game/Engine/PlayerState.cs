@@ -255,4 +255,31 @@ public sealed class PlayerState
             }
         return bought;
     }
+
+    /// <summary>
+    /// 뭍 「응급수리」(<c>0x0041B670</c>) — 자재 하나가 5 를 고친다. <paramref name="part"/> 는 0 내구 · 1 역풍 · 2 돛,
+    /// 쓸 수 있는 자재는 min(함대 자재, (상한 − 지금 + 4) / 5). 쓴 자재는 앞 배부터 덜어 낸다(<c>0x0041B810</c>).
+    /// </summary>
+    public const int PatchPerMaterial = 5, Material = 2;
+
+    public static int PatchNeed(int now, int max) => Math.Max(0, (max - now + PatchPerMaterial - 1) / PatchPerMaterial);
+
+    public int Materials => Ships.Sum(s => s.Supplies[Material]);
+
+    public void Patch(Ship ship, int part, int materials, int maxUpwind, int maxSail)
+    {
+        int add = materials * PatchPerMaterial;
+        switch (part)
+        {
+            case 0: ship.Hull = Math.Min(ship.MaxHull, ship.Hull + add); break;
+            case 1: ship.Upwind = Math.Min(maxUpwind, ship.Upwind + add); break;
+            default: ship.Sail = Math.Min(maxSail, ship.Sail + add); break;
+        }
+        foreach (var s in Ships)
+        {
+            int k = Math.Min(materials, s.Supplies[Material]);
+            s.Supplies[Material] -= k;
+            materials -= k;
+        }
+    }
 }

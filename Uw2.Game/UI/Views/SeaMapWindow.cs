@@ -963,16 +963,52 @@ public sealed class SeaMapWindow : Window
         }
     }
 
-    /// <summary>뭍 — 목록 36(출항 · 응급수리 · 탐색 · 대기, <c>0x0041B090</c>). 응급수리는 아직이다.</summary>
+    /// <summary>뭍 — 목록 36(출항 · 응급수리 · 탐색 · 대기, <c>0x0041B090</c>).</summary>
     private void OnShore()
     {
-        string[] items = ["출  항", "탐  색"];
+        string[] items = ["출  항", "응급수리", "탐  색"];
         while (true)
         {
             int pick = BuildingMenu.Ask(this, "상륙", items);
-            if (pick != 1) { Note(" · 배로 돌아왔습니다"); return; }
-            SearchWater();
+            if (pick == 1) PatchShip();
+            else if (pick == 2) SearchWater();
+            else { Note(" · 배로 돌아왔습니다"); return; }
         }
+    }
+
+    /// <summary>
+    /// 「응급수리」(<c>0x0041B240</c>) — 배를 고르고 내구 · 역풍 · 돛 가운데 하나를 자재로 고친다. 상한은 선종 값이다.
+    /// 다 멀쩡하면 0x1A2, 자재가 없으면 0x1A3, 그 곳이 멀쩡하면 0x1A4.
+    /// </summary>
+    private void PatchShip()
+    {
+        var p = _host.Player;
+        var types = _host.StartTables?.ShipTypes;
+        (int Upwind, int Sail) Max(PlayerState.Ship s) =>
+            types != null && s.Type < types.Count ? (types[s.Type].Upwind, types[s.Type].Sail) : (s.Upwind, s.Sail);
+        int pick = BuildingMenu.Ask(this, "응급수리 — 배를 고르세요",
+            p.Ships.Select(s => $"{s.Name}  내구 {s.Hull}/{s.MaxHull} · 역풍 {s.Upwind}/{Max(s).Upwind} · 돛 {s.Sail}/{Max(s).Sail}").ToList());
+        if (pick < 0) return;
+        var ship = p.Ships[pick];
+        var (mu, ms) = Max(ship);
+        if (ship.Hull >= ship.MaxHull && ship.Upwind >= mu && ship.Sail >= ms) { Say(0x1A2, "이 배는 부서지지 않았습니다만."); return; }
+        if (p.Materials == 0) { Say(0x1A3, "자재가 없습니다."); return; }
+        int part = BuildingMenu.Ask(this, $"응급수리 — 자재 {p.Materials}", ["내구", "역풍", "돛"]);
+        if (part < 0) return;
+        int need = part switch
+        {
+            0 => PlayerState.PatchNeed(ship.Hull, ship.MaxHull),
+            1 => PlayerState.PatchNeed(ship.Upwind, mu),
+            _ => PlayerState.PatchNeed(ship.Sail, ms),
+        };
+        if (need == 0) { Say(0x1A4, "수리할 필요가 없습니다."); return; }
+        int most = Math.Min(need, p.Materials);
+        string ask = _host.Messages is { } m && m[0x1A5].Length > 0 ? m.Format(0x1A5, most) : $"자재를 얼마나 사용하겠습니까？(0-{most})";
+        int used = AmountDialog.Ask(this, ask, most);
+        if (used <= 0) return;
+        p.Patch(ship, part, used, mu, ms);
+        _host.SyncLoad();
+        Note($" · 자재 {used}로 고쳤습니다 — 내구 {ship.Hull}/{ship.MaxHull} · 역풍 {ship.Upwind} · 돛 {ship.Sail}");
     }
 
     private int HeroField(int field) =>

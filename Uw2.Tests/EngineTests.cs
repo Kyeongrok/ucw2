@@ -390,4 +390,22 @@ public class EngineTests
         // 식량 15 − 10, 선원 30 − ((100 − 60) / 5 + 1)
         Assert.Equal((5, 21), (p.Ships[0].Supplies[PlayerState.Food], p.Ships[0].Crew));
     }
+
+    [Fact]
+    public void EmergencyRepairMendsFivePerMaterialFromTheFrontShip()
+    {
+        var p = new PlayerState(0);
+        var a = new PlayerState.Ship { Type = 5, Name = "가", Room = 80, Hull = 10, MaxHull = 33, Upwind = 40, Sail = 60 };
+        var b = new PlayerState.Ship { Type = 5, Name = "나", Room = 80 };
+        a.Supplies[PlayerState.Material] = 2;
+        b.Supplies[PlayerState.Material] = 10;
+        p.Ships.Add(a); p.Ships.Add(b);
+        Assert.Equal(5, PlayerState.PatchNeed(10, 33));             // (23 + 4) / 5
+        Assert.Equal(12, p.Materials);
+        p.Patch(a, 0, 5, 50, 70);
+        Assert.Equal(33, a.Hull);                                  // 10 + 25 → 33 에서 멈춘다
+        Assert.Equal((0, 7), (a.Supplies[PlayerState.Material], b.Supplies[PlayerState.Material]));
+        p.Patch(a, 2, 1, 50, 70);
+        Assert.Equal(65, a.Sail);
+    }
 }
