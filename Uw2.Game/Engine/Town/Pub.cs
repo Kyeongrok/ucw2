@@ -21,11 +21,28 @@ public static class Pub
 
     public static int Price(int economy) => economy / 20 + 5;
 
-    public static int Available(int economy, int charm, int rank)
-    {
-        int s = charm / 3;
-        return Math.Max(0, Math.Min(economy * s / 500, (rank + 1) * s));
-    }
+    public static int Available(int economy, int charm, int rank) => AvailableAt(economy, Mood(charm), rank);
+
+    /// <summary>주점 분위기 S(<c>0x0049A1B0</c>) — 들어올 때 매력 / 3(<c>0x00426CBF</c>), 한턱내면 오른다.</summary>
+    public static int Mood(int charm) => charm / 3;
+
+    public static int AvailableAt(int economy, int mood, int rank) => Math.Max(0, Math.Min(economy * mood / 500, (rank + 1) * mood));
+
+    /// <summary>분위기가 이보다 낮으면 고용 앞에 술을 더 내라고 한다(0x1F · 0x20).</summary>
+    public const int LowMood = 30;
+
+    /// <summary>
+    /// 「한턱내기」(<c>0x00424880</c>) — 술 n 병을 내면 분위기 += 매력 x (n x 1000 / 경제) / 10, 100 까지.
+    /// 한 병 값은 항구 형편 +0x24 갈래의 술값, 병은 50 까지(가진 돈 mod 10000 에 1만 넘으면 1만을 더한 것 / 값).
+    /// </summary>
+    public static int Treat(int mood, int bottles, int economy, int charm) =>
+        Math.Min(100, mood + charm * (bottles * 1000 / Math.Max(1, economy)) / 10);
+
+    public static int MostBottles(int gold, int price) =>
+        price <= 0 ? 0 : Math.Min(50, (gold % 10000 + (gold >= 10000 ? 10000 : 0)) / price);
+
+    /// <summary>술 이름 — 갈래마다(<c>0x00457148</c>, 11바이트씩).</summary>
+    public static readonly string[] Drinks = ["럼주", "와인", "위스키", "브랜디", "진", "맥주", "보드카", "테킬라", "야자주", "유주"];
 
     /// <summary>쓸 수 있는 수 — 올 사람 · 돈 · 빈 자리 가운데 작은 것.</summary>
     public static int MostHirable(int available, int gold, int price, int vacancy) =>

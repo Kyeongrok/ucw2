@@ -189,6 +189,7 @@ public sealed class SeaMapWindow : Window
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
         if (b == ChurchBuilding) _worshipped = false;
+        if (b == PubBuilding) _pubMood = Pub.Mood(HeroField(Navigators.Stats + 6));
         // 교역소는 교역 명성이 1000 이상이면 이름으로 맞는다(0x0042174E — 말 1, 아니면 0).
         if (b == TradeBuilding && _host.Scenario is { } tvm)
         {
@@ -211,6 +212,7 @@ public sealed class SeaMapWindow : Window
         if (b == ShipyardBuilding && pick == 3) { SellShip(); return; }
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
         if (b == PubBuilding && pick == 1) { FireCrew(); return; }
+        if (b == PubBuilding && pick == 2) { TreatBar(); return; }
         if (b == PubBuilding && pick == 3) { TalkToNavigator(pub: true); return; }
         if (b == PubBuilding && pick == 4) { TalkToBarmaid(); return; }
         if (b == InnBuilding && pick == 0) { TalkToNavigator(pub: false); return; }
@@ -1065,7 +1067,12 @@ public sealed class SeaMapWindow : Window
         int port = _host.CurrentPort;
         if (_host.Economy is not { } eco || port < 0 || port >= eco.States.Count || _host.HeroRecord is not { } hero) return;
         int economy = eco.States[port].Economy, price = Pub.Price(economy);
-        int available = Pub.Available(economy, hero.Stats.Length > 6 ? hero.Stats[6] : 0, _host.HeroRank);
+        if (_pubMood < Pub.LowMood)
+        {
+            Say(0x1F, "선원을 고용하기 위해선 술을 더 내는 것이 좋겠군요.");
+            if (MessageBox.Show(this, MsgOr(0x20, "선원을 모으겠습니까？"), "선원 고용", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        }
+        int available = Pub.AvailableAt(economy, _pubMood, _host.HeroRank);
         if (available == 0) { Note(M(0x7B, "지금은 일하려는 사람이 없습니다")); return; }
         int most = Pub.MostHirable(available, p.Gold, price, p.Vacancy);
         int n = AmountDialog.Ask(this, $"선원 고용 — {available}명이 일하겠답니다 · 한 사람 {price} · 빈 자리 {p.Vacancy}", most);
@@ -1220,6 +1227,26 @@ public sealed class SeaMapWindow : Window
         };
         if (port < ports.Ports.Count) lines.Add(new("", MsgOr(0x59, $"상선대는 {ports.Ports[port].Name}(를) 향하고 있는 모양인데요.", ports.Ports[port].Name)));
         ScenarioDialog.Play(this, _host.Faces, lines);
+    }
+
+    /// <summary>주점 분위기 S(<c>0x0049A1B0</c>) — 주점에 들 때 매력 / 3 으로 정한다.</summary>
+    private int _pubMood;
+
+    /// <summary>주점 「한턱내기」(<c>0x00424880</c>) — 술을 내 분위기를 올린다(<see cref="Pub.Treat"/>). 소문 이야기(<c>0x00424990</c>)는 아직이다.</summary>
+    private void TreatBar()
+    {
+        if (_host.Economy is not { } eco || _host.CurrentPort < 0 || _host.CurrentPort >= eco.States.Count) return;
+        var p = _host.Player;
+        int kind = eco.StateBytes[_host.CurrentPort * Economy.StateSize + 0x24];
+        int price = kind < Navigators.TreatPrice.Length ? Navigators.TreatPrice[kind] : 3;
+        string drink = kind < Pub.Drinks.Length ? Pub.Drinks[kind] : "술";
+        int most = Pub.MostBottles(p.Gold, price);
+        if (most <= 0) { Say(0x1E, "금화가 부족해요."); return; }
+        int n = AmountDialog.Ask(this, MsgOr(0x13, $"우리집 {drink}(는) 최고요. 한병에 금화 {price}닢인데 몇병 사겠소？", drink, price), most);
+        if (n <= 0) return;
+        p.SetGold(p.Gold - n * price);
+        _pubMood = Pub.Treat(_pubMood, n, eco.States[_host.CurrentPort].Economy, HeroField(Navigators.Stats + 6));
+        Note($" · {drink} {n}병 · 분위기 {_pubMood}");
     }
 
     /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>

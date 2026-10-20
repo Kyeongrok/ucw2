@@ -491,4 +491,16 @@ public class EngineTests
         Assert.Equal(50 + 5, Uw2.Game.Engine.Sea.Weather.StormDamage(50, 10, sturdy: false, _ => 1));   // (10 + 1) x 5
         Assert.Equal(3, Uw2.Game.Engine.Sea.Weather.StormDamage(90, 25, sturdy: true, _ => 1));     // 10 / 8 + 1 + 1
     }
+
+    [Fact]
+    public void TreatingTheBarRaisesTheMoodThatBringsSailors()
+    {
+        int mood = Uw2.Game.Engine.Town.Pub.Mood(60);
+        Assert.Equal(20, mood);
+        Assert.Equal(100, Uw2.Game.Engine.Town.Pub.Treat(mood, 10, 500, 60));                     // 20 + 60 x 20 / 10 → 100 에서 멈춘다
+        Assert.Equal(26, Uw2.Game.Engine.Town.Pub.Treat(mood, 1, 1000, 60));
+        Assert.Equal(50, Uw2.Game.Engine.Town.Pub.MostBottles(12345, 3));
+        Assert.Equal(15, Uw2.Game.Engine.Town.Pub.MostBottles(45, 3));
+        Assert.True(Uw2.Game.Engine.Town.Pub.AvailableAt(800, 100, 0) > Uw2.Game.Engine.Town.Pub.AvailableAt(800, 20, 0));
+    }
 }
