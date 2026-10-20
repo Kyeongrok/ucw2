@@ -36,6 +36,28 @@ public static class Palace
     /// <summary>그 항구를 다스리는 나라 — 항구 표 나라 바이트(0x0043AED0 +0x15)의 아래 세 비트.</summary>
     public static int NationOf(PortTable.Port port) => port.Nation & 7;
 
+    /// <summary>사략허가서 — 아이템 0x1D + 나라(29 ~ 34, <c>0x004274EE</c>).</summary>
+    public const int LetterFirst = 0x1D, MinPirateFame = 1000;
+
+    public static int LetterOf(int nation) => LetterFirst + nation;
+
+    /// <summary>주인공 표 명성 셋 — +0 교역 · +2 해적 · +4 모험(<c>0x00427563</c>).</summary>
+    public static (int Trade, int Pirate, int Adventure) Fames(ScenarioMemory m, int hero) =>
+        (m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 0), true),
+         m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 2), true),
+         m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 4), true));
+
+    /// <summary>
+    /// 사략허가서를 받을 만한지 — 해적 명성 1000 이상(아니면 말 0x363)이고 교역 · 모험 명성보다 낮지 않아야(아니면 0x364).
+    /// 0 이면 된다.
+    /// </summary>
+    public static int LetterRefusal(ScenarioMemory m, int hero)
+    {
+        var (trade, pirate, adventure) = Fames(m, hero);
+        if (pirate < MinPirateFame) return 0x363;
+        return trade > pirate || adventure > pirate ? 0x364 : 0;
+    }
+
     /// <summary>면세증 — 아이템 0x23 + 나라(35 ~ 40). 지니면 그 나라 항구에서 사는 값의 12/10 이 붙지 않는다(<c>0x00420430</c>).</summary>
     public const int PermitFirst = 0x23;
 

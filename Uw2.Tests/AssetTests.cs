@@ -746,4 +746,18 @@ public class AssetTests
         Assert.Empty(Uw2.Game.Engine.Sea.Sighting.Look(m, unknown.X + 5, unknown.Y, 100, 8, _ => 0, _ => 4).Where(x => x.Port && x.Index == unknown.Index));
         Assert.Equal(80, Uw2.Game.Engine.Sea.Sighting.AddFame(m, 0, 80));
     }
+
+    [Fact]
+    public void PrivateerLetterNeedsPirateFameAboveTheOtherTwo()
+    {
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        var at = (int f) => Uw2.Game.Engine.ScenarioMemory.At(Uw2.Game.Engine.ScenarioMemory.HeroTable, 3, f);
+        Assert.Equal(0x363, Uw2.Game.Engine.Town.Palace.LetterRefusal(m, 3));
+        m.Write(at(2), 1200, true);
+        m.Write(at(4), 1500, true);
+        Assert.Equal(0x364, Uw2.Game.Engine.Town.Palace.LetterRefusal(m, 3));         // 모험 명성이 더 높다
+        m.Write(at(2), 1600, true);
+        Assert.Equal(0, Uw2.Game.Engine.Town.Palace.LetterRefusal(m, 3));
+        Assert.Equal(0x1D + 3, Uw2.Game.Engine.Town.Palace.LetterOf(3));
+    }
 }

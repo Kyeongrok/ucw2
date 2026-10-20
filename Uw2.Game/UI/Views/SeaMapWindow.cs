@@ -759,8 +759,32 @@ public sealed class SeaMapWindow : Window
             if (pick < 0) return;
             if (pick == 0) ShowInfluence();
             else if (pick == 2) BuyPermit(ours);
-            else if (ours) Note($" · 「{items[pick]}」은 아직 없습니다");
+            else if (ours) GetLetter();
         }
+    }
+
+    /// <summary>
+    /// 「사략허가서」(<c>0x004274C0</c>) — 제 나라 왕궁에서만. 이미 가졌으면 0x360, 칸이 차면 0x361. 0x362 뒤 해적 명성을 본다
+    /// (<see cref="Palace.LetterRefusal"/>). 되면 0x365 · 0x366(%s공) · 0x367 과 함께 값 없이 준다.
+    /// </summary>
+    private void GetLetter()
+    {
+        if (_host.Scenario is not { } vm || _host.Ports is not { } ports) return;
+        var m = vm.Memory;
+        int item = Palace.LetterOf(Palace.NationOf(ports.Ports[_host.CurrentPort]));
+        var owned = ItemShop.Owned(m);
+        if (owned.Contains(item)) { Say(0x360, "제독님, 사략허가서는 이미 가지고 있는데요."); return; }
+        if (owned.Count >= ItemShop.OwnedSlots) { Say(0x361, "제독님, 아이템이 너무 많습니다. 처분한 다음에 합시다."); return; }
+        Say(0x362, "사략허가서를 교부받고 싶습니까？");
+        if (Palace.LetterRefusal(m, _host.Hero) is var no && no != 0)
+        {
+            Say(no, "당신은 해적으로서의 지명도가 부족한 모양이군요.");
+            return;
+        }
+        var (_, family) = _host.HeroName;
+        Say(0x365, "그럼 폐하께 모셔다 드리지요.");
+        Say(0x366, $"{family}공, 어서 오시오！", family);
+        if (ItemShop.Give(m, item)) Say(0x367, "그러면 교부하도록 하지. 자, 받으시오.");
     }
 
     /// <summary>
@@ -1296,8 +1320,9 @@ public sealed class SeaMapWindow : Window
                 int hero = _host.HeroPersonNumber;
                 var stats = Enumerable.Range(0, 7).Select(k => Get(hero, Navigators.Stats + k));
                 string nation = _host.HeroNation < NationNames.Length ? NationNames[_host.HeroNation] : "없음";
-                int fame = vm != null ? vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, _host.Hero, Patrons.FameField), true) : 0;
-                sb.AppendLine($"{_host.PersonName(hero)} — {nation} · 작위 {_host.HeroRank} · 모험가 명성 {fame}");
+                var (trade, pirate, adventure) = vm != null ? Palace.Fames(vm.Memory, _host.Hero) : (0, 0, 0);
+                sb.AppendLine($"{_host.PersonName(hero)} — {nation} · 작위 {_host.HeroRank}");
+                sb.AppendLine($"명성 교역 {trade} · 해적 {pirate} · 모험 {adventure}");
                 sb.AppendLine($"능력치 {string.Join(" · ", stats)}");
                 sb.AppendLine($"항해 레벨 {Get(hero, Navigators.NavLevel)} · 전투 레벨 {Get(hero, Navigators.BattleLevel)} · 운 {Get(hero, Church.Luck)}");
                 sb.AppendLine($"돈 {p.Gold}{BalanceText()}");
