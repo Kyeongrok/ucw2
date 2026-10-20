@@ -245,4 +245,24 @@ public class EngineTests
         Assert.Equal(192, Uw2.Game.Engine.Town.Shipyard.BuildPrice(240, 0));   // 4 x 240 / 5
         Assert.Equal(240, Uw2.Game.Engine.Town.Shipyard.BuildPrice(240, 2));
     }
+
+    [Fact]
+    public void MatesArePaidMonthlyAndLikingFollowsWageAndLeadership()
+    {
+        var m = new ScenarioMemory();
+        for (int i = 0; i < Uw2.Game.Engine.Town.Navigators.MateSlots; i++)
+            m.Write(new ScenarioMemory.Pointer(6, 3 + i), 0xFF, false);
+        Uw2.Game.Engine.Town.Navigators.Set(m, 0, 0x1C, 60);              // 주인공 능력치 +0x1C
+        Uw2.Game.Engine.Town.Navigators.Set(m, 90, 0x1C, 70);             // 동료의 가장 큰 능력치 70
+        Uw2.Game.Engine.Town.Navigators.Set(m, 90, 0x2B, 40);
+        Assert.True(Uw2.Game.Engine.Town.Navigators.Join(m, 90, 0, 50));
+        int gold = 100;
+        Assert.Equal(50, Uw2.Game.Engine.Town.Navigators.PayWages(m, 0, ref gold));
+        Assert.Equal(50, gold);
+        // 호감 40 + 10(들 때) + 60 + 5 x 2 − 70 = 50
+        Assert.Equal(50, Uw2.Game.Engine.Town.Navigators.Get(m, 90, 0x2B));
+        gold = 10;
+        Assert.Equal(-50, Uw2.Game.Engine.Town.Navigators.PayWages(m, 0, ref gold));
+        Assert.Equal(0x80, Uw2.Game.Engine.Town.Navigators.Get(m, 90, 0x31) & 0x80);
+    }
 }

@@ -69,6 +69,30 @@ public static class Navigators
         }
     }
 
+    /// <summary>
+    /// 달마다 급여(<c>0x0042C4E0</c>) — 동료 급여를 다 더해 돈에서 낸다. 모자라면 내지 않고 모든 동료의 +0x31 에 0x80 을 세운다.
+    /// 그다음 호감이 100 이 아닌 동료마다 <c>호감 += 주인공 능력치 +0x1C + 급여 / 10 x 2 − 그 이의 +0x1C ~ +0x23 가운데 가장 큰 것</c>
+    /// (0~100). 낸 급여 합(못 냈으면 음수)을 돌려준다.
+    /// </summary>
+    public static int PayWages(ScenarioMemory m, int hero, ref int gold)
+    {
+        var mates = Mates(m).ToList();
+        int total = mates.Sum(x => x.Wage);
+        bool paid = total == 0 || gold >= total;
+        if (paid) gold -= total;
+        else
+            foreach (var x in mates) Set(m, x.Person, Kind, Get(m, x.Person, Kind) | 0x80);
+        int lead = Get(m, hero, Stats);
+        foreach (var x in mates)
+        {
+            int liking = Get(m, x.Person, Liking);
+            if (liking == 100) continue;
+            int best = Enumerable.Range(0, 8).Max(k => Get(m, x.Person, Stats + k));
+            Set(m, x.Person, Liking, Math.Clamp(liking + lead + x.Wage / 10 * 2 - best, 0, 100));
+        }
+        return paid ? total : -total;
+    }
+
     /// <summary>동료 칸 — (칸, 사람, 급여).</summary>
     public static IEnumerable<(int Slot, int Person, int Wage)> Mates(ScenarioMemory m)
     {

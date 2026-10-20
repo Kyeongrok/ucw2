@@ -253,7 +253,13 @@ public sealed class SeaMapHost : HwndHost
             {
                 Player.NewMonth();
                 Economy?.NewMonth(_npcRng.Next);
-                if (Scenario != null) Uw2.Game.Engine.Town.Navigators.Wander(Scenario.Memory, Roll);
+                if (Scenario != null)
+                {
+                    int gold = Player.Gold;
+                    Uw2.Game.Engine.Town.Navigators.PayWages(Scenario.Memory, HeroPersonNumber, ref gold);
+                    Player.SetGold(gold);
+                    Uw2.Game.Engine.Town.Navigators.Wander(Scenario.Memory, Roll);
+                }
             };
             Crew(Fleet);
             FleetReady?.Invoke(Fleet);
