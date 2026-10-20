@@ -32,7 +32,10 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10;
+
+    /// <summary>이번에 교회에 든 뒤 예배를 드렸는지(<c>0x0049A188</c>).</summary>
+    private bool _worshipped;
 
     /// <summary>항구 「보급」 — 넷 가운데 하나를 단(열 통)으로 싣는다(<see cref="Economy.SupplyPrice"/>).</summary>
     private void ShowSupplies()
@@ -168,6 +171,7 @@ public sealed class SeaMapWindow : Window
         }
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
+        if (b == ChurchBuilding) _worshipped = false;
         int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items);
         if (pick < 0) return;
         if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
@@ -184,9 +188,30 @@ public sealed class SeaMapWindow : Window
         if (b == InnBuilding && pick == 0) { TalkToNavigator(pub: false); return; }
         if (b == InnBuilding && pick == 1) { ShowSupport(); return; }
         if (b == BankBuilding) { UseBank(pick); return; }
+        if (b == ChurchBuilding) { AtChurch(pick); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>교회 「예배 · 기부」 — 주인공의 운(사람 +0x23)을 올린다(<see cref="Church"/>).</summary>
+    private void AtChurch(int pick)
+    {
+        if (_host.Scenario is not { } vm) return;
+        int hero = _host.HeroPersonNumber;
+        var p = _host.Player;
+        if (pick == 0)
+        {
+            int gain = _worshipped ? 0 : Church.Worship(vm.Memory, hero, _host.Roll);
+            _worshipped = true;
+            Note(gain > 0 ? " · 예배를 드렸습니다 · 마음이 맑아졌습니다" : " · 예배를 드렸습니다");
+            return;
+        }
+        int n = AmountDialog.Ask(this, $"기부 — 돈 {p.Gold}", p.Gold);
+        if (n <= 0) return;
+        int luck = Church.Donate(vm.Memory, hero, p.Gold, n, _host.Roll);
+        p.SetGold(p.Gold - n);
+        Note(luck < 0 ? $" · {n}을 기부했습니다" : $" · {n}을 기부했습니다 · 신의 가호가 있기를{(luck > 0 ? $"(운 +{luck})" : "")}");
     }
 
     /// <summary>은행 — 예금 · 출금 · 대출 · 상환(<see cref="Bank"/>). 대출 한도는 작위로 오른다.</summary>

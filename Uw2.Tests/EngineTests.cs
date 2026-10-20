@@ -320,4 +320,16 @@ public class EngineTests
         vm2.Import(back.Scenario!);
         Assert.Equal((2, 3, 777), (vm2.Chapter, vm2.Section, vm2.Memory.Gold));
     }
+
+    [Fact]
+    public void DonatingAtLeastATenthRaisesLuck()
+    {
+        var m = new ScenarioMemory();
+        Uw2.Game.Engine.Town.Navigators.Set(m, 0, Uw2.Game.Engine.Town.Church.Luck, 50);
+        Assert.Equal(-1, Uw2.Game.Engine.Town.Church.Donate(m, 0, 10000, 900, _ => 0));   // 몫 11 — 너무 적다
+        Assert.Equal(0, Uw2.Game.Engine.Town.Church.Donate(m, 0, 1000, 100, _ => 4));     // 몫 10, 그러나 500 아래
+        Assert.Equal(9, Uw2.Game.Engine.Town.Church.Donate(m, 0, 2000, 1000, _ => 0));    // 몫 2 → 11 − 2
+        Assert.Equal(59, Uw2.Game.Engine.Town.Navigators.Get(m, 0, Uw2.Game.Engine.Town.Church.Luck));
+        Assert.Equal(1, Uw2.Game.Engine.Town.Church.Worship(m, 0, _ => 1));
+    }
 }
