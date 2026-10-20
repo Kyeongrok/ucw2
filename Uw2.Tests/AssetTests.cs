@@ -779,4 +779,22 @@ public class AssetTests
         Assert.Equal(favOther - Math.Min(5, favOther), m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 0, 7), false));
         Assert.Equal(0, Uw2.Game.Engine.Town.Palace.Realign(m, 0, 0, 0, 1, 300));          // 잃으면 명성은 없다
     }
+
+    [Fact]
+    public void ShipTemplatesSplitCapacityIntoCrewGunsAndCargo()
+    {
+        var start = Load().Start!;
+        foreach (var t in start.Templates.Where(t => t.Name != null))
+        {
+            var type = start.ShipTypes[t.Type];
+            var (lo, hi, gmax) = Uw2.Game.Engine.Town.Shipyard.RatioRange(type);
+            Assert.Equal(type.Capacity, t.CrewRoom + t.Cannons + t.CargoRoom);
+            Assert.True(t.CrewRoom >= lo);                                               // 새 배 본보기는 고치기 창의 위끝(+4 x 10)을 넘기도 한다
+            Assert.InRange(t.Cannons, 0, gmax);
+        }
+        var ship = new Uw2.Game.Engine.PlayerState.Ship { Type = 5, Name = "가", Room = 0 };
+        var latina = start.ShipTypes[5];
+        Assert.True(Uw2.Game.Engine.Town.Shipyard.Rerate(ship, latina, latina.RequiredCrew, 0));
+        Assert.Equal(latina.Capacity - latina.RequiredCrew, ship.Room);
+    }
 }

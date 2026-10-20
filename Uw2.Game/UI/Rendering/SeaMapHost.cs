@@ -646,6 +646,7 @@ public sealed class SeaMapHost : HwndHost
             Name = t.Name ?? "",
             Room = t.Name != null ? t.CargoRoom : st.Capacity,
             MaxCrew = Math.Max(t.Name != null ? t.CrewRoom : st.MaxCrew, crew),
+            Guns = t.Name != null ? t.Cannons : 0,
             Crew = crew,
             Hull = hull, MaxHull = hull, Upwind = st.Upwind, Sail = st.Sail,
             Grade = t.Flags & 7,

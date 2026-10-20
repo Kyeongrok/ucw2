@@ -22,7 +22,7 @@ public sealed class PlayerState
         public required string Name { get; set; }
 
         /// <summary>짐 자리 — 배 기록 +0x14.</summary>
-        public required int Room { get; init; }
+        public required int Room { get; set; }
 
         /// <summary>보급 넷(통) — 물 · 식량 · 자재 · 탄약.</summary>
         public int[] Supplies { get; } = new int[SupplyKinds];
@@ -37,7 +37,10 @@ public sealed class PlayerState
         public int Crew { get; set; }
 
         /// <summary>최대 선원 — 배 기록 +0x12(선원 자리).</summary>
-        public int MaxCrew { get; init; }
+        public int MaxCrew { get; set; }
+
+        /// <summary>실은 대포(배 기록 +0x11). 짐칸 = 선종 짐칸 − 선원 자리 − 대포다.</summary>
+        public int Guns { get; set; }
 
         /// <summary>내구 · 최대 내구 — 함대 칸 +2 · +3.</summary>
         public int Hull { get; set; }

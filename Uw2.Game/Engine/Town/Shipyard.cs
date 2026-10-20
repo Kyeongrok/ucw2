@@ -19,6 +19,25 @@ namespace Uw2.Game.Engine.Town;
 /// </remarks>
 public static class Shipyard
 {
+    /// <summary>
+    /// 「적재비율변경」(<c>0x00429430</c>) — 선원 자리는 선종 +5(드는 선원) ~ 선종 +4 x 10, 대포는 0 ~ 선종 +8,
+    /// 짐칸 = 선종 짐칸(+6) − 선원 자리 − 대포. 지금 짐이 새 짐칸보다 많으면 안 된다(말 0x14). 값은 선종 값(+0x0A)이다(0x112).
+    /// </summary>
+    public static (int CrewMin, int CrewMax, int GunsMax) RatioRange(StartData.ShipType t) => (t.RequiredCrew, t.Field4 * 10, t.MaxCrew);
+
+    public static bool Rerate(PlayerState.Ship ship, StartData.ShipType t, int crewRoom, int guns)
+    {
+        var (lo, hi, gmax) = RatioRange(t);
+        crewRoom = Math.Clamp(crewRoom, lo, Math.Max(lo, hi));
+        guns = Math.Clamp(guns, 0, gmax);
+        int cargo = t.Capacity - crewRoom - guns;
+        if (cargo < 0 || ship.Load > cargo || ship.Crew > crewRoom) return false;
+        ship.Room = cargo;
+        ship.MaxCrew = crewRoom;
+        ship.Guns = guns;
+        return true;
+    }
+
     public static int NewHull(StartData.ShipType type) => type.Durability * 9 / 10;
 
     /// <summary>중고선 칸 — 시나리오 기억 표 15(<c>0x00460608</c>), 8바이트 x 3: 선종 다섯(0xFF 빈 칸) · 항구 · 둘.</summary>

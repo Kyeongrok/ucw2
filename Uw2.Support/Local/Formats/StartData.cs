@@ -101,11 +101,11 @@ public sealed class StartData
     /// <param name="Sail">+3 돛 성능. 칸 +5 로 옮겨 늘 빠르기에 곱한다.</param>
     /// <param name="RequiredCrew">+5 항해에 드는 선원 수. 이만큼 돛에 붙어야 제 빠르기가 난다.</param>
     /// <param name="Capacity">+6 짐칸(낱말). 짐이 찰수록 느려진다.</param>
-    /// <param name="MaxCrew">+8 태울 수 있는 선원 수(로 보인다).</param>
+    /// <param name="MaxCrew">+8 실을 수 있는 대포의 위끝 — 「적재비율변경」 이 0 ~ 이것으로 묻는다(<c>0x004294DB</c>). 이름은 예전 짐작 그대로다.</param>
     /// <param name="SailKind">+9 돛 갈래 0~7. 돛 효율 표의 칸을 고른다.</param>
     /// <param name="Price">+10 값(낱말).</param>
     /// <param name="Field0">+0 드는 공업 / 10 — 조선소가 짓는 데 항구 공업이 이것 x 10 이상이어야 한다(0x00428958).</param>
-    /// <param name="Field4">+4 뜻 미확정(대포 수로 보인다).</param>
+    /// <param name="Field4">+4 선원 자리 위끝 / 10 — 「적재비율변경」 이 +5 ~ 이것 x 10 으로 묻는다(<c>0x0042949F</c>). 새 배 본보기는 넘기도 한다.</param>
     public readonly record struct ShipType(int Index, int Field0, int Durability, int Upwind, int Sail, int Field4,
                                            int RequiredCrew, int Capacity, int MaxCrew, int SailKind, int Price);
 

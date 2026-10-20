@@ -1150,8 +1150,9 @@ public sealed class SeaMapWindow : Window
     /// <summary>조선소 「개조」 — 목록 23(선수상 · 무장 · 적재비율변경 · 이름변경, 손표 <c>0x00458CA0</c>) 가운데 된 것.</summary>
     private void Refit()
     {
-        int pick = BuildingMenu.Ask(this, "개조", ["이름변경"]);
-        if (pick != 0) return;
+        int pick = BuildingMenu.Ask(this, "개조", ["적재비율변경", "이름변경"]);
+        if (pick == 0) { Rerate(); return; }
+        if (pick != 1) return;
         // 이름변경(<c>0x0042A470</c>) — 배를 고르고(0x111) 0x113 뒤 일곱 자까지 받는다. 값은 받지 않는다.
         var p = _host.Player;
         int which = BuildingMenu.Ask(this, MsgOr(0x111, "어느 부대요？"), p.Ships.Select(sh => sh.Name).ToList());
@@ -1162,6 +1163,33 @@ public sealed class SeaMapWindow : Window
         ship.Name = name;
         if (which == 0) _host.ShipName = name;
         Note($" · 배 이름을 「{name}」{(KoreanBatchim(name) ? "으로" : "로")} 바꿨습니다");
+    }
+
+    /// <summary>조선소 「적재비율변경」(<c>0x0042A370</c>) — 값(선종 값)을 내고 선원 자리 · 대포 · 짐칸을 다시 나눈다(<see cref="Shipyard.Rerate"/>).</summary>
+    private void Rerate()
+    {
+        if (_host.StartTables is not { } st) return;
+        var p = _host.Player;
+        int which = BuildingMenu.Ask(this, MsgOr(0x111, "어느 부대요？"), p.Ships.Select(sh => $"{sh.Name}  선원 자리 {sh.MaxCrew} · 대포 {sh.Guns} · 짐칸 {sh.Room}").ToList());
+        if (which < 0) return;
+        var ship = p.Ships[which];
+        var t = st.ShipTypes[ship.Type];
+        int price = t.Price;
+        if (MessageBox.Show(this, MsgOr(0x112, $"이 놈의 적재비율을 바꾸려면 금화 {price}닢이 필요하지. 좋겠소？", price), "적재비율변경",
+                            MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (price > p.Gold) { Say(0xCF, "금화가 부족합니다."); return; }
+        var (lo, hi, gmax) = Shipyard.RatioRange(t);
+        int crew = AmountDialog.Ask(this, MsgOr(0x102, "선원은 몇명 탈 수 있게 하겠소？") + $" ({lo} 이상)", Math.Max(lo, hi));
+        if (crew < 0) return;
+        int guns = gmax > 0 ? AmountDialog.Ask(this, MsgOr(0x103, "무기는 얼마나 실을 수 있게 하겠소？"), gmax) : 0;
+        if (guns < 0) return;
+        int cargo = t.Capacity - Math.Clamp(crew, lo, Math.Max(lo, hi)) - guns;
+        if (MessageBox.Show(this, MsgOr(0x104, "이걸로 좋겠소？") + $"\n선원 자리 {Math.Clamp(crew, lo, Math.Max(lo, hi))} · 대포 {guns} · 짐칸 {cargo}",
+                            "적재비율변경", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (!Shipyard.Rerate(ship, t, crew, guns)) { Say(0x14, "그러면 적하가 넘쳐 버리지. 정리한 다음에 다시 와 줘."); return; }
+        p.SetGold(p.Gold - price);
+        _host.SyncLoad();
+        Note($" · {ship.Name} — 선원 자리 {ship.MaxCrew} · 대포 {ship.Guns} · 짐칸 {ship.Room}");
     }
 
     /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>
