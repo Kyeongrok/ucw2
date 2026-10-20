@@ -56,6 +56,20 @@ public sealed class Weather
     /// <summary>날 넘김 — 오늘 들이닥친 표시를 지운다.</summary>
     public void NewDay() => StruckToday = false;
 
+    /// <summary>폭풍이 덮쳤다 — 배마다 부서진다(<c>0x004193D0</c> → <c>0x004194D0</c>, <see cref="StormDamage"/>).</summary>
+    public event Action? StormHit;
+
+    /// <summary>
+    /// 폭풍에 부서지는 정도(<c>0x0041951F</c>) — min(10, (100 − 선장 항해술 +0x1D) / (항해 레벨 / 5 + 3) + 1) + rand(2).
+    /// 배 기록 +0x10 의 0x40 이 없으면(작고 가벼운 배) x 5. 내구가 이만큼, 역풍 · 돛이 반만큼 깎이고 최대 내구는 1 줄어든다
+    /// (선종 내구 / 4 아래로는 안 간다).
+    /// </summary>
+    public static int StormDamage(int seamanship, int navLevel, bool sturdy, Func<int, int> rand)
+    {
+        int d = Math.Min(10, (100 - seamanship) / (navLevel / 5 + 3) + 1) + rand(2);
+        return sturdy ? d : d * 5;
+    }
+
     /// <summary>
     /// 네 시간마다 한 번. <paramref name="windByte"/> 는 그 자리 바람 표 바이트, <paramref name="currentByte"/> 는
     /// 해류 표 바이트, <paramref name="windSpeed"/> 는 지금(흔든 뒤) 풍속이다.
@@ -74,6 +88,7 @@ public sealed class Weather
         {
             Brewing = false;
             StruckToday = true;
+            if (Current == Kind.Storm) StormHit?.Invoke();
             Said?.Invoke(Current switch
             {
                 Kind.Storm => "제독님, 폭풍우입니다!! 키가 전혀 안 듣습니다.",

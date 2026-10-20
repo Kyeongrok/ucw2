@@ -244,6 +244,7 @@ public sealed class SeaMapHost : HwndHost
         if (Map != null && Chips != null)
         {
             Fleet = new Fleet(Map, Chips, Wind);
+            Fleet.Weather.StormHit += OnStormHit;
             Fleet.NewDay += () =>
             {
                 Player.ConsumeDay(i => CaptainLead(i));
@@ -694,6 +695,44 @@ public sealed class SeaMapHost : HwndHost
 
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;
+
+    /// <summary>폭풍에 난파한 배 — (배 이름, 살아남은 선장 이름 또는 null).</summary>
+    public event Action<List<(string Ship, string? Captain)>>? Wrecked;
+
+    /// <summary>
+    /// 폭풍이 덮쳤다(<c>0x004194D0</c>) — 배마다 <see cref="Weather.StormDamage"/> 만큼 부서진다. 내구가 0 이 되면 난파한다:
+    /// 주인공이 탄 배면 게임이 끝나고(끝 깃발 0x18), 동료가 탄 배면 배를 잃고 선장은 구조된다(말 0x166 · 0x329).
+    /// </summary>
+    private void OnStormHit()
+    {
+        if (Fleet == null || StartTables is not { } start) return;
+        var lost = new List<(string, string?)>();
+        for (int i = Player.Ships.Count - 1; i >= 0; i--)
+        {
+            var s = Player.Ships[i];
+            int who = s.Captain >= 0 ? s.Captain : HeroPersonNumber;
+            bool sturdy = start.Templates.Count > s.Type && (start.Templates[s.Type].Flags & 0x40) != 0;
+            int dmg = Weather.StormDamage(HeroStat(who, 0x1D), HeroStat(who, 0x24), sturdy, Roll);
+            s.Hull -= Math.Min(s.Hull, dmg);
+            s.Sail -= Math.Min(s.Sail, dmg / 2);
+            s.Upwind -= Math.Min(s.Upwind, dmg / 2);
+            int floor = s.Type < start.ShipTypes.Count ? start.ShipTypes[s.Type].Durability / 4 : 1;
+            s.MaxHull = Math.Max(floor, s.MaxHull - 1);
+            s.Hull = Math.Min(s.Hull, s.MaxHull);
+            if (s.Hull > 0) continue;
+            if (who == HeroPersonNumber || i == 0)
+            {
+                Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndStorm));
+                return;
+            }
+            lost.Add((s.Name, PersonName(who)));
+            RemoveShip(i);
+        }
+        if (Fleet.Ships.Count > 0)
+            for (int i = 0; i < Fleet.Ships.Count && i < Player.Ships.Count; i++)
+                Fleet.Ships[i] = Fleet.Ships[i] with { Sail = Player.Ships[i].Sail, Upwind = Player.Ships[i].Upwind };
+        if (lost.Count > 0) Dispatcher.BeginInvoke(() => Wrecked?.Invoke(lost));
+    }
 
     /// <summary>
     /// 게임이 끝났다 — 끝 깃발(<c>0x00470294</c>): 0x10 서른 해 · 0x18 폭풍 · 0x19 선원 없음 · 0x1A 해전. <c>0x004042C0</c> 이 묘비 글을 띄운다.

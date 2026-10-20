@@ -483,4 +483,12 @@ public class EngineTests
         Assert.Equal(180, Uw2.Game.Engine.Town.Palace.HaggleAccept(200, floor));
         Assert.Equal(190, Uw2.Game.Engine.Town.Palace.HaggleCounter(200, floor));
     }
+
+    [Fact]
+    public void StormsHitSmallShipsFiveTimesHarder()
+    {
+        Assert.Equal(10, Uw2.Game.Engine.Sea.Weather.StormDamage(50, 10, sturdy: true, _ => 0));     // 50 / 5 + 1 = 11 → 10
+        Assert.Equal(50 + 5, Uw2.Game.Engine.Sea.Weather.StormDamage(50, 10, sturdy: false, _ => 1));   // (10 + 1) x 5
+        Assert.Equal(3, Uw2.Game.Engine.Sea.Weather.StormDamage(90, 25, sturdy: true, _ => 1));     // 10 / 8 + 1 + 1
+    }
 }
