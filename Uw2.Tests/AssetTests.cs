@@ -496,6 +496,7 @@ public class AssetTests
         var colony = ColonyText.Load(Path.Combine(AssetDir, "snr", "COLONY.DAT"));
         Assert.Equal(100, colony.Count);
         Assert.Equal("스톤 헨지", colony.Name(0));
+        Assert.Equal(57, colony.Picture(0));                                        // KAO 발견물 판 57 이 거석
         Assert.StartsWith("중앙에 환상열석", colony.Text(0));
 
         var rng = new Random(1);

@@ -422,6 +422,8 @@ public sealed class AssetPack
             var chipNo = IndexedPng.Read(Path.Combine(dir, "port", "chipno.png"));
             string facesPath = Path.Combine(dir, "kao", "faces.png");
             IndexedPng.Image? faces = File.Exists(facesPath) ? IndexedPng.Read(facesPath) : null;
+            string findsPath = Path.Combine(dir, "kao", "finds.png");
+            IndexedPng.Image? finds = File.Exists(findsPath) ? IndexedPng.Read(findsPath) : null;
             string doorsPath = Path.Combine(dir, "port", "doors.png");
             var doors = File.Exists(doorsPath) ? PortDoors.FromBytes(IndexedPng.Read(doorsPath).Pixels) : null;
             string walkPath = Path.Combine(dir, "port", "walk.png");
@@ -512,6 +514,8 @@ public sealed class AssetPack
                 Doors = doors,
                 Faces = faces?.Pixels ?? [],
                 FacesWidth = faces?.Width ?? 0,
+                Finds = finds?.Pixels ?? [],
+                FindsWidth = finds?.Width ?? 0,
                 Wind = wind.Pixels,
                 Ports = [.. ports.Select(p => new PortTable.Port(p.Index, p.Name, p.X, p.Y, p.Nation))],
                 Ship = ship,
@@ -565,6 +569,10 @@ public sealed class AssetPack
     /// <summary>얼굴 하나가 판의 어디인지.</summary>
     public static (int X, int Y) FaceAt(int face) =>
         (face % KaoCols * KaoImages.FaceW, face / KaoCols * KaoImages.FaceH);
+
+    /// <summary>발견물 그림 판(<c>kao/finds.png</c>) — 48 x 48 을 <see cref="KaoCols"/> 장씩. 없으면 빈 것.</summary>
+    public byte[] Finds { get; private init; } = [];
+    public int FindsWidth { get; private init; }
 
     /// <summary>항구마다 문 자리. 구워 두지 않았으면 null.</summary>
     public PortDoors? Doors { get; private init; }

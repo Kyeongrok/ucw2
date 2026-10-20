@@ -15,20 +15,33 @@ public sealed class FaceSheet
     private readonly uint[] _palette = GamePalette.SeaScreen().Bgra;
     private readonly Dictionary<int, ImageSource> _cache = [];
 
-    public FaceSheet(byte[] pixels, int width) { _pixels = pixels; _width = width; }
+    private readonly byte[] _finds;
+    private readonly int _findsWidth;
 
-    /// <summary>얼굴 하나 — 판 밖이면 null.</summary>
+    public FaceSheet(byte[] pixels, int width, byte[]? finds = null, int findsWidth = 0)
+    {
+        _pixels = pixels; _width = width; _finds = finds ?? []; _findsWidth = findsWidth;
+    }
+
+    /// <summary>발견물 그림은 얼굴 번호 이 뒤로 이어 붙인다(원본 KAO 의 128 ~ 255).</summary>
+    public const int FindFirst = KaoImages.FaceCount;
+
+    /// <summary>얼굴 하나 — 판 밖이면 null. <see cref="FindFirst"/> 부터는 발견물 그림(48 x 48)이다.</summary>
     public ImageSource? Get(int face)
     {
-        if (face < 0 || face >= KaoImages.FaceCount) return null;
+        if (face < 0 || face >= FindFirst + KaoImages.FindCount) return null;
         if (_cache.TryGetValue(face, out var hit)) return hit;
-        var (sx, sy) = AssetPack.FaceAt(face);
-        int w = KaoImages.FaceW, h = KaoImages.FaceH;
-        if (_width <= 0 || (sy + h) * _width > _pixels.Length) return null;
+        bool find = face >= FindFirst;
+        int k = find ? face - FindFirst : face;
+        int w = find ? KaoImages.FindW : KaoImages.FaceW, h = find ? KaoImages.FindH : KaoImages.FaceH;
+        int sx = k % AssetPack.KaoCols * w, sy = k / AssetPack.KaoCols * h;
+        var src = find ? _finds : _pixels;
+        int width = find ? _findsWidth : _width;
+        if (width <= 0 || (sy + h) * width > src.Length) return null;
         var bgra = new uint[w * h];
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
-                bgra[y * w + x] = _palette[_pixels[(sy + y) * _width + sx + x]] | 0xFF000000;
+                bgra[y * w + x] = _palette[src[(sy + y) * width + sx + x]] | 0xFF000000;
         var bmp = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, bgra, w * 4);
         bmp.Freeze();
         return _cache[face] = bmp;

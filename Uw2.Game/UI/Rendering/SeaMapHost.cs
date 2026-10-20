@@ -96,7 +96,7 @@ public sealed class SeaMapHost : HwndHost
         Chips = pack.ToChipMap();
         Wind = pack.Wind.Length > 0 ? WindCurTable.FromBytes(pack.Wind) : null;
         StartTables = pack.Start;
-        if (pack.Faces.Length > 0) Faces = new FaceSheet(pack.Faces, pack.FacesWidth);
+        if (pack.Faces.Length > 0) Faces = new FaceSheet(pack.Faces, pack.FacesWidth, pack.Finds, pack.FindsWidth);
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
         Routes = pack.Routes;

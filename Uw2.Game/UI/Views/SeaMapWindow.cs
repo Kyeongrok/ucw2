@@ -1066,7 +1066,8 @@ public sealed class SeaMapWindow : Window
         ScenarioDialog.Play(this, _host.Faces,
         [
             new ScenarioVm.Line("", head),
-            new ScenarioVm.Line(name, text.Length > 0 ? text : name),
+            new ScenarioVm.Line(name, text.Length > 0 ? text : name,
+                                Face: _host.Colony?.Picture(index) is >= 0 and var pic ? FaceSheet.FindFirst + pic : -1),
         ]);
         Note($" · 「{name}」을(를) 찾았습니다");
     }
