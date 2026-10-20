@@ -82,6 +82,9 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>도시에서 건물 문에 섰을 때 — 건물 번호(<see cref="PortDoors.Names"/>)를 넘긴다.</summary>
     public event Action<int>? BuildingEntered;
 
+    /// <summary>함대를 새로 띄웠을 때 — 날씨 말 따위를 붙이라고 넘긴다.</summary>
+    public event Action<Fleet>? FleetReady;
+
     /// <summary>
     /// 구워 둔 자산으로 연다. <b>게임이 없어도 된다</b> — 3편 <c>asset/</c> 과 같은 얼개다.
     /// </summary>
@@ -227,6 +230,7 @@ public sealed class SeaMapHost : HwndHost
         {
             Fleet = new Fleet(Map, Chips, Wind);
             Crew(Fleet);
+            FleetReady?.Invoke(Fleet);
         }
         if (_shipArt.Length > 0)
             _renderer.SetShipSprite(_shipArt, _shipW, _shipH, GamePalette.SeaScreen(),

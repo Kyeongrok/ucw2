@@ -28,6 +28,9 @@ public sealed class SeaMapWindow : Window
 
     /// <summary>마지막으로 든 건물 — 상태줄에 적는다. 항구를 옮기면 지운다.</summary>
     private string _doorNote = "";
+
+    /// <summary>항해사가 마지막으로 한 말(날씨) — 상태줄에 적는다.</summary>
+    private string _seaNote = "";
     private ComboBox _portPick = null!;
 
     public SeaMapWindow()
@@ -77,6 +80,11 @@ public sealed class SeaMapWindow : Window
         Content = grid;
 
         _host.Painted += UpdateStatus;
+        _host.FleetReady += f => f.Weather.Said += line =>
+        {
+            _seaNote = $" · 「{line}」";
+            UpdateStatus();
+        };
         _host.BuildingEntered += b =>
         {
             _doorNote = $" · 「{PortDoors.Names[b]}」에 들어갔습니다(안은 아직 없습니다)";
@@ -282,7 +290,8 @@ public sealed class SeaMapWindow : Window
                  + $" · 바람 {Fleet.DirName(f.LastWind.Dir)} {f.LastWind.Speed}"
                  + $" · 해류 {Fleet.DirName(f.LastCurrent.Dir)} {f.LastCurrent.Speed}"
                  + $" · {Sailing.Knots(f.LastSpeed)}노트({f.LastSpeed})"
-                 + (f.UnderSail ? "" : " · 돛 접음") + (f.Blocked ? " · 뭍" : "");
+                 + (f.UnderSail ? "" : " · 돛 접음") + (f.Blocked ? " · 뭍" : "")
+                 + (f.Weather.Label.Length > 0 ? $" · {f.Weather.Label}" : "") + _seaNote;
         }
 
         double lon = cx / (double)WorldMap.Width * 360 - 180;

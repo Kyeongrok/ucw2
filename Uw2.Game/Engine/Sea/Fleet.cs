@@ -62,7 +62,11 @@ public sealed class Fleet
     public Fleet(WorldMap map, ChipMap chips, WindCurTable? wind)
     {
         _map = map; _chips = chips; _wind = wind;
+        Weather.Luck = _rng.Next(101);       // 새 게임이 주인공 운을 rand(101) 로 정한다(0x00416A01)
     }
+
+    /// <summary>날씨(폭풍 · 무풍 · 안개).</summary>
+    public Weather Weather { get; } = new();
 
     /// <summary>배들. 가장 느린 배가 함대 빠르기를 정한다.</summary>
     public List<ShipSailing> Ships { get; } = [];
@@ -142,10 +146,15 @@ public sealed class Fleet
         if (!UnderSail) { LastSpeed = 0; return; }
 
         // 바람은 네 시간마다 그 자리의 표에서 새로 흔들고, 그 사이에는 그대로 둔다. 해류는 늘 그 자리 것이다.
+        // 날씨가 서 있으면 흔들지 않고, 날씨가 바람을 누르거나 올린 값이 그대로 간다.
         if (TimeOfDay % GustEvery == 0 || !_windSet)
         {
-            var table = _wind?.Wind(Month, _cellX, _cellY) ?? (0, 0);
-            LastWind = Sailing.Gust(table, _rng);
+            byte windByte = _wind?.At(WindCurTable.WindPageOf(Month), _cellX, _cellY) ?? 0;
+            byte curByte = _wind?.At(WindCurTable.Page.Current, _cellX, _cellY) ?? 0;
+            var table = WindCurTable.Split(windByte);
+            if (Weather.Current == Weather.Kind.Clear || !_windSet) LastWind = Sailing.Gust(table, _rng);
+            Weather.Update(windByte, curByte, LastWind.Speed, table.Speed, _rng);
+            LastWind = (LastWind.Dir, Weather.Apply(LastWind.Speed));
             _windSet = true;
         }
         LastCurrent = _wind?.Current(_cellX, _cellY) ?? (0, 0);
@@ -164,6 +173,7 @@ public sealed class Fleet
         {
             TimeOfDay = 0;
             DaysAtSea++;
+            Weather.NewDay();
         }
     }
 
