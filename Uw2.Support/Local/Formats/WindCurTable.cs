@@ -11,7 +11,7 @@ namespace Uw2.Support.Local.Formats;
 ///   그 밖         ->  자리 0x1C2 (1장)
 /// </code>
 /// 곧 <b>0장·1장이 철 따라 갈리는 바람</b>이고, 2장은 <b>해류</b>다 — 값의 결이 다르다
-/// (해류 장에만 방위 0 이 백 번 나오고 6·7·14·15 가 아예 없다). 3편도 표를 세 장
+/// (해류 장에만 세기 0 이 백열두 번 나오고 6·7 이 아예 없다). 3편도 표를 세 장
 /// (1~6월 바람 · 7~12월 바람 · 해류) 뒀다(<c>[[16.분석-풍향·풍속·해류]]</c>).
 ///
 /// <para>격자는 30 x 15 다</para>
@@ -25,12 +25,15 @@ namespace Uw2.Support.Local.Formats;
 /// = 경위도 12도</b>다. 네모반듯하다.
 ///
 /// <para>바이트 한 칸</para>
+/// 바람을 흔드는 손(<c>0x00418E80</c>)과 바람·해류 그림을 찍는 손(<c>0x004366D0</c> → <c>0x00436740</c>)이
+/// 이렇게 가른다.
 /// <code>
-///   비트 0..3   방위 0~15
-///   비트 4..5   세기 0~3
-///   비트 6·7    깃발 — 아직 뜻을 모른다
+///   비트 0..2   세기 0~7     바람 장에는 0 이 없다(늘 분다). 해류는 0~5
+///   비트 3..5   방위 0~7     0 이 북, 시계 방향. 바람·해류가 <b>밀어가는 쪽</b>이다
+///   비트 6·7    날씨 깃발    폭풍이 이는 바다 따위 — 흔드는 손이 이 두 비트만 표에서 새로 가져온다
 /// </code>
-/// 방위가 "불어오는 쪽"인지 "밀어가는 쪽"인지는 아직 안 굳혔다. 3편은 <b>밀어가는 쪽</b>이었다.
+/// 방위가 밀어가는 쪽인 것은 셈에서 바로 보인다 — 뱃머리와 방위가 같으면 돛 효율 표의 0줄(가장 높다)을
+/// 쓰고, 해류는 그 방위의 (dx, dy) 에 세기를 곱해 그대로 더한다(<c>0x00448BC0</c>).
 /// </remarks>
 public sealed class WindCurTable
 {
@@ -43,8 +46,12 @@ public sealed class WindCurTable
     /// <summary>한 칸이 덮는 칩 수. 함대 좌표를 이것으로 나눠 칸을 고른다.</summary>
     public const int ChipsPerCell = 72;
 
-    /// <summary>방위 가짓수. 3편과 같이 열여섯이다.</summary>
-    public const int DirCount = 16;
+    /// <summary>방위 가짓수. 3편(열여섯)과 달리 <b>여덟</b>이다.</summary>
+    public const int DirCount = 8;
+
+    /// <summary>방위마다 칸 한 걸음 (dx, dy) — <c>0x00456EE0</c>(dx) · <c>0x00456EE8</c>(dy). 0 이 북, 시계 방향.</summary>
+    public static ReadOnlySpan<sbyte> Dx => [0, 1, 1, 1, 0, -1, -1, -1];
+    public static ReadOnlySpan<sbyte> Dy => [-1, -1, 0, 1, 1, 1, 0, -1];
 
     /// <summary>철이 갈리는 달. 3~8월이 <see cref="Page.WindWarm"/>, 나머지가 <see cref="Page.WindCold"/> 다.</summary>
     public const int WarmFirstMonth = 3, WarmLastMonth = 8;
@@ -96,12 +103,11 @@ public sealed class WindCurTable
         return _raw[(int)page * PageBytes + r * Cols + c];
     }
 
-    /// <summary>방위(0~15)와 세기(0~3).</summary>
-    public (int Dir, int Speed) Flow(Page page, int chipX, int chipY)
-    {
-        byte b = At(page, chipX, chipY);
-        return (b & 0x0F, (b >> 4) & 0x03);
-    }
+    /// <summary>방위(0~7)와 세기(0~7).</summary>
+    public (int Dir, int Speed) Flow(Page page, int chipX, int chipY) => Split(At(page, chipX, chipY));
+
+    /// <summary>표 바이트 하나를 방위와 세기로 가른다.</summary>
+    public static (int Dir, int Speed) Split(byte b) => ((b >> 3) & 7, b & 7);
 
     /// <summary>그 달의 바람.</summary>
     public (int Dir, int Speed) Wind(int month, int chipX, int chipY) =>
@@ -111,13 +117,6 @@ public sealed class WindCurTable
     public (int Dir, int Speed) Current(int chipX, int chipY) =>
         Flow(Page.Current, chipX, chipY);
 
-    /// <summary>
-    /// 방위의 (dx, dy). 0 이 북, 시계 반대로 도는 3편 <c>WindTable.Vector</c> 와 같은 얼개다.
-    /// <b>2편의 도는 쪽은 아직 안 굳혔다</b> — 화살표를 지도에 얹어 보고 맞춰야 한다.
-    /// </summary>
-    public static (double X, double Y) Vector(int dir)
-    {
-        double a = -Math.PI / 2 + dir * (2 * Math.PI / DirCount);
-        return (Math.Cos(a), Math.Sin(a));
-    }
+    /// <summary>방위의 (dx, dy). 대각선도 두 축으로 한 칸씩이다 — 게임은 길이를 맞추지 않는다.</summary>
+    public static (int X, int Y) Vector(int dir) => (Dx[dir & 7], Dy[dir & 7]);
 }

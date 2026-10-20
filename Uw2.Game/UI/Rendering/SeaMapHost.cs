@@ -87,6 +87,7 @@ public sealed class SeaMapHost : HwndHost
         Map = WorldMap.FromCells(pack.Cells);
         Chips = pack.ToChipMap();
         Wind = pack.Wind.Length > 0 ? WindCurTable.FromBytes(pack.Wind) : null;
+        StartTables = pack.Start;
 
         var cells = Chips.Expand(Map);
         if (!InitRenderer(cells, ChipMap.Width, ChipMap.Height)) return false;
@@ -139,6 +140,9 @@ public sealed class SeaMapHost : HwndHost
 
         try { Wind = WindCurTable.Load(Path.Combine(gameDir, "WINDCUR.DAT")); }
         catch { Wind = null; }   // 없어도 지도는 돈다
+
+        try { StartTables = StartData.Load(Path.Combine(gameDir, "SDATA.DAT")); }
+        catch { StartTables = null; }  // 없으면 배를 못 띄울 뿐 지도는 돈다
 
         byte[] chipCells;
         int cw, chh;
@@ -210,7 +214,11 @@ public sealed class SeaMapHost : HwndHost
 
     private bool Finish()
     {
-        if (Map != null && Chips != null) Fleet = new Fleet(Map, Chips, Wind);
+        if (Map != null && Chips != null)
+        {
+            Fleet = new Fleet(Map, Chips, Wind);
+            Crew(Fleet);
+        }
         if (_shipArt.Length > 0)
             _renderer.SetShipSprite(_shipArt, _shipW, _shipH, GamePalette.SeaScreen(),
                                     AssetPack.Transparent);
@@ -222,6 +230,39 @@ public sealed class SeaMapHost : HwndHost
         _dirty = true;
         CompositionTarget.Rendering += OnFrame;
         return true;
+    }
+
+    /// <summary>선종 · 사람 표(<c>SDATA.DAT</c>). 없으면 배를 띄우지 못한다.</summary>
+    public StartData? StartTables { get; private set; }
+
+    /// <summary>
+    /// 고른 주인공 — 첫 창의 차례(0 조안 · 1 카탈리나 · 2 피에트로 · 3 알리 · 4 에른스트 · 5 오토)다.
+    /// 사람 표의 차례는 다르다(<see cref="HeroPerson"/>).
+    /// </summary>
+    public int Hero { get; private set; }
+
+    /// <summary>첫 창의 주인공 차례 → 사람 표 번호. 표는 조안 · 카탈리나 · 옷토 · 에르네스트 · 피에트로 · 알 순이다.</summary>
+    private static readonly int[] HeroPerson = [0, 1, 4, 5, 3, 2];
+
+    /// <summary>
+    /// 첫 배의 선종. <b>임시 값이다</b> — 주인공마다 주는 첫 배를 게임이 코드로 정하는데(<c>SDATA.DAT</c> 의
+    /// 주인공 함대는 비어 있다) 그 자리를 아직 못 찾았다. 가장 작은 0번을 띄워 둔다.
+    /// </summary>
+    public const int StandInShipType = 0;
+
+    /// <summary>주인공을 정하고 그 사람을 선장으로 배를 다시 태운다.</summary>
+    public void SetHero(int hero)
+    {
+        Hero = Math.Clamp(hero, 0, HeroPerson.Length - 1);
+        if (Fleet != null) Crew(Fleet);
+    }
+
+    private void Crew(Fleet fleet)
+    {
+        fleet.Ships.Clear();
+        if (StartTables is not { } start) return;
+        var captain = start.People[HeroPerson[Hero]];
+        fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[StandInShipType], captain));
     }
 
     /// <summary>어디서 읽었는지 — 게임 폴더 아니면 「구운 자산」.</summary>

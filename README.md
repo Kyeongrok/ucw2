@@ -23,7 +23,7 @@ KOEI 『대항해시대II』(1993) 의 자산을 읽어 **세계지도와 항구
 
 ## 자산
 
-`asset/` 에 구워 둔 것이 들어 있어 **게임이 없어도 돈다**(284 KB, 열아홉 개).
+`asset/` 에 구워 둔 것이 들어 있어 **게임이 없어도 돈다**(284 KB, 스물한 개).
 거의 다 **색인 PNG** 라 값이 그대로 남으면서 여기서 그림으로도 보인다.
 
 ```
@@ -34,6 +34,8 @@ asset/
   ship.png           64x80    배 그림
   ports.json                  항구 130곳 이름·자리
   monsters.json               괴물 자리 서른 곳
+  ships.json                  선종 스물다섯 (SDATA.DAT)
+  people.json                 사람 백스물 — 능력치 · 레벨 (SDATA.DAT)
   wind.png           30x45    바람·해류 표 셋
   world/cells.png    1080x540 칸 값
   world/chips.png    256x128  칩 128장

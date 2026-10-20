@@ -160,6 +160,7 @@ public sealed class SeaMapWindow : Window
     {
         string[] homes = ["리스본", "세빌리아", "제노바", "이스탄불", "함부르크", "런던"];
         string want = hero >= 0 && hero < homes.Length ? homes[hero] : homes[0];
+        _host.SetHero(hero);
 
         int index = _host.Ports?.ByName(want)?.Index ?? PortTable.Lisbon;
         if (_host.ShowPort(index)) { _portPick.SelectedIndex = index; Retitle(); }
@@ -204,7 +205,7 @@ public sealed class SeaMapWindow : Window
                 case Key.Left: _host.Steer(-1); e.Handled = true; return;
                 case Key.Right: _host.Steer(+1); e.Handled = true; return;
                 case Key.Up: _host.SteerTo(0); e.Handled = true; return;      // 북
-                case Key.Down: _host.SteerTo(8); e.Handled = true; return;    // 남
+                case Key.Down: _host.SteerTo(4); e.Handled = true; return;    // 남
                 case Key.Space: _host.ToggleSail(); e.Handled = true; return;
             }
         }
@@ -266,7 +267,8 @@ public sealed class SeaMapWindow : Window
         {
             sail = $" | 배 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
                  + $" · 바람 {Fleet.DirName(f.LastWind.Dir)} {f.LastWind.Speed}"
-                 + $" · 빠르기 {f.LastSpeed:F1}"
+                 + $" · 해류 {Fleet.DirName(f.LastCurrent.Dir)} {f.LastCurrent.Speed}"
+                 + $" · {Sailing.Knots(f.LastSpeed)}노트({f.LastSpeed})"
                  + (f.UnderSail ? "" : " · 돛 접음") + (f.Blocked ? " · 뭍" : "");
         }
 

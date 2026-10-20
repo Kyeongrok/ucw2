@@ -31,6 +31,7 @@ public static class Program
                 case "chips": return ChipsBmp(Need(args, 1), Arg(args, 2) ?? "chips.bmp");
                 case "bake": return Bake(Need(args, 1), Arg(args, 2) ?? "baked");
                 case "assets": return Assets(Need(args, 1), Arg(args, 2) ?? "asset", Arg(args, 3));
+                case "start": return Start(Need(args, 1), Arg(args, 2) ?? "asset");
                 case "ports": return Ports(Arg(args, 1) ?? GameFolder.Find() ?? ".");
                 case "port": return PortBmp(Arg(args, 1) ?? GameFolder.Find() ?? ".", int.Parse(Arg(args, 2) ?? "0"), Arg(args, 3) ?? "port.bmp");
                 default: Usage(); return 1;
@@ -55,7 +56,21 @@ public static class Program
         uw2 ports  <폴더>
         uw2 port   <폴더> <번호> <낼 곳.bmp>
         uw2 assets <폴더> <낼 곳> [덧폴더]
+        uw2 start  <폴더> <낼 곳>              선종 · 사람 표만 굽는다(SDATA.DAT)
         """);
+
+    /// <summary>선종 · 사람 표만 굽고 선종 표를 늘어놓는다.</summary>
+    private static int Start(string dir, string outDir)
+    {
+        AssetPack.BakeStart(Path.Combine(dir, "SDATA.DAT"), outDir);
+        var start = StartData.Load(Path.Combine(dir, "SDATA.DAT"));
+        foreach (var t in start.ShipTypes)
+            Console.WriteLine($"{t.Index,2}  내구 {t.Durability,3} 역풍 {t.Upwind,3} 돛 {t.Sail,3} 드는선원 {t.RequiredCrew,3}"
+                              + $" 최대 {t.MaxCrew,3} 짐칸 {t.Capacity,4} 돛갈래 {t.SailKind} 값 {t.Price,5}");
+        foreach (var p in start.People.Take(6))
+            Console.WriteLine($"{p.Index}  {p.Name} {p.Family}  항해술 {p.Seamanship} 항해레벨 {p.NavLevel} 전투레벨 {p.BattleLevel}");
+        return 0;
+    }
 
     /// <summary>게임 폴더에서 자산을 뽑아 굽는다. 이것만 있으면 게임 없이도 돈다.</summary>
     private static int Assets(string dir, string outDir, string? alsoLookIn)

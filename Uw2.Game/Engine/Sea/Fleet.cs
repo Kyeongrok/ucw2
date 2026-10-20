@@ -3,40 +3,51 @@ using Uw2.Support.Local.Formats;
 namespace Uw2.Game.Engine.Sea;
 
 /// <summary>
-/// 바다 위의 함대 하나. 자리·뱃머리·빠르기를 들고 틱마다 나아간다.
+/// 바다 위의 함대 하나. 자리·뱃머리·배들을 들고 틱마다 나아간다 — <c>KOUKAI2.EXE 0x004487B0</c>.
 /// </summary>
 /// <remarks>
 /// 자리는 <b>칩 눈금</b>이다(0~2159 / 0~1079) — 괴물표도 항구표도 바람표도 다 이 눈금이라
-/// 셈이 한 자로 맞는다.
+/// 셈이 한 자로 맞는다. 게임처럼 <b>칸 하나와 칸 안 걸음(0~59)</b>으로 들고 다닌다(함대 기록 +0 · +2 · +0x18 · +0x19).
 ///
-/// <b>빠르기 셈은 아직 게임 것이 아니다.</b> <see cref="Sailing"/> 이 3편 식을 임시로
-/// 꽂아 둔 자리라, 눈금이 달라 게임과 견주면 안 된다. 얼개(바람으로 빠르기를 내고, 해류가
-/// 옆으로 밀고, 뭍에 막히면 미끄러진다)는 게임과 같다.
+/// 한 틱은 이렇다.
+/// <code>
+///   빠르기 = Sailing.FleetSpeed(배들, 뱃머리, 바람)          0x00448520
+///   걸음   = 방위[뱃머리] x 빠르기 + 방위[해류] x 해류세기   0x00448BC0
+///   막히면 뱃머리+1, 뱃머리-1 쪽으로 다시 해 보고, 다 막히면 선다
+/// </code>
+/// 경도 보정은 없다 — 게임은 칸 눈금 그대로 간다.
 /// </remarks>
 public sealed class Fleet
 {
     /// <summary>
-    /// 한 틱에 흐르는 시간(초). 게임은 하루가 마흔여덟 틱이니 이 값이면 하루가 열 초 남짓이다.
+    /// 한 틱에 흐르는 시간(초). <b>우리가 고른 값</b>이다 — 게임의 틱 빠르기는 아직 안 쟀다.
     /// </summary>
     public const double TickSeconds = 0.2;
 
     /// <summary>방위 가짓수.</summary>
-    public const int DirCount = WindCurTable.DirCount;
+    public const int DirCount = Sailing.DirCount;
 
     private readonly ChipMap _chips;
     private readonly WorldMap _map;
     private readonly WindCurTable? _wind;
+    private readonly Random _rng = new();
+
+    private int _cellX, _cellY;
+    private int _subX, _subY;       // 0 ~ CellUnits-1
 
     public Fleet(WorldMap map, ChipMap chips, WindCurTable? wind)
     {
         _map = map; _chips = chips; _wind = wind;
     }
 
-    /// <summary>지금 자리(칩 눈금).</summary>
-    public double X { get; private set; }
-    public double Y { get; private set; }
+    /// <summary>배들. 가장 느린 배가 함대 빠르기를 정한다.</summary>
+    public List<ShipSailing> Ships { get; } = [];
 
-    /// <summary>뱃머리. 0 이 북이고 열여섯 방위다.</summary>
+    /// <summary>지금 자리(칩 눈금). 칸 안 걸음까지 얹은 값이라 그릴 때 매끄럽다.</summary>
+    public double X => _cellX + _subX / (double)Sailing.CellUnits;
+    public double Y => _cellY + _subY / (double)Sailing.CellUnits;
+
+    /// <summary>뱃머리. 0 이 북이고 시계 방향으로 여덟 방위다.</summary>
     public int Heading { get; set; }
 
     /// <summary>돛을 폈는지. 접으면 그 자리에 선다.</summary>
@@ -48,15 +59,17 @@ public sealed class Fleet
     /// <summary>지난 틱에 잰 것들 — 상태줄에 적으려고 남긴다.</summary>
     public (int Dir, int Speed) LastWind { get; private set; }
     public (int Dir, int Speed) LastCurrent { get; private set; }
-    public double LastSpeed { get; private set; }
+    public int LastSpeed { get; private set; }
 
-    /// <summary>뭍에 막혀 못 간 틱이면 참.</summary>
+    /// <summary>뭍에 막혀 뱃머리대로 못 간 틱이면 참.</summary>
     public bool Blocked { get; private set; }
 
-    /// <summary>자리를 옮겨 놓는다. 항구에서 나올 때 쓴다.</summary>
+    /// <summary>자리를 옮겨 놓는다. 칸 가운데에 세운다.</summary>
     public void PlaceAt(double x, double y)
     {
-        X = x; Y = y;
+        _cellX = Wrap((int)Math.Floor(x));
+        _cellY = Math.Clamp((int)Math.Floor(y), 0, ChipMap.Height - 1);
+        _subX = _subY = Sailing.CellUnits / 2;
         Blocked = false;
     }
 
@@ -91,50 +104,68 @@ public sealed class Fleet
 
     private static int Wrap(int x) => ((x % ChipMap.Width) + ChipMap.Width) % ChipMap.Width;
 
-    /// <summary>
-    /// 한 틱 나아간다. 뭍에 막히면 <b>가로·세로 하나만 살려 미끄러진다</b> — 해안을 따라
-    /// 붙어 갈 수 있게 하는 것이고, 게임도 이렇게 군다.
-    /// </summary>
+    /// <summary>한 틱 나아간다.</summary>
     public void Step()
     {
         Blocked = false;
         if (!UnderSail) { LastSpeed = 0; return; }
 
-        int wx = Wrap((int)X), wy = Math.Clamp((int)Y, 0, ChipMap.Height - 1);
-        LastWind = _wind?.Wind(Month, wx, wy) ?? (0, 0);
-        LastCurrent = _wind?.Current(wx, wy) ?? (0, 0);
+        var table = _wind?.Wind(Month, _cellX, _cellY) ?? (0, 0);
+        LastWind = Sailing.Gust(table, _rng);
+        LastCurrent = _wind?.Current(_cellX, _cellY) ?? (0, 0);
 
-        double speed = Sailing.SpeedOf(LastWind.Dir, LastWind.Speed, Heading);
+        int speed = Sailing.FleetSpeed(Ships, Heading, LastWind.Dir, LastWind.Speed);
         LastSpeed = speed;
 
-        // 칸 눈금으로 낸 값을 칩 눈금으로 바꾼다(칸 하나가 칩 둘).
-        double step = Sailing.CellsPerTick(speed) * ChipMap.PerCell;
-        var (hx, hy) = WindCurTable.Vector(Heading);
+        // 뱃머리대로 못 가면 한 칸씩 비껴 본다 — 게임도 +1 다음 -1 이다(0x00448836 · 0x00448857).
+        if (TryMove(Heading, speed)) return;
+        Blocked = true;
+        if (TryMove(Heading + 1, speed)) return;
+        TryMove(Heading - 1, speed);
+    }
 
-        var (cx2, cy2) = WindCurTable.Vector(LastCurrent.Dir);
-        double drift = LastCurrent.Speed / 8.0 / Sailing.StepsPerCell * ChipMap.PerCell;
+    /// <summary>
+    /// 그 방위로 한 틱 — <c>0x00448BC0</c>. 막혀서 못 갔으면 false.
+    /// </summary>
+    /// <remarks>
+    /// 칸 안 걸음이 60 을 넘거나 0 아래로 내려가면 그 축으로 한 칸 간다(빠르기가 40 아래라 한 틱에 한 칸까지다).
+    /// 새 칸이 뭍이면 <b>두 축으로 한 칸씩 간 대각선 칸</b>을 다시 본다 — 그것도 뭍이면 못 간 것이고,
+    /// 열려 있으면 자리는 그대로 두고 넘친 축의 걸음만 칸 끝(0 이나 59)에 붙여 둔다.
+    /// </remarks>
+    private bool TryMove(int dir, int speed)
+    {
+        var (hx, hy) = WindCurTable.Vector(dir);
+        var (cx, cy) = WindCurTable.Vector(LastCurrent.Dir);
+        int vx = hx * speed + cx * LastCurrent.Speed;
+        int vy = hy * speed + cy * LastCurrent.Speed;
 
-        double dx = hx * step + cx2 * drift;
-        double dy = hy * step + cy2 * drift;
+        int sx = _subX + vx, sy = _subY + vy;
+        int nx = _cellX, ny = _cellY;
+        bool crossX = false, crossY = false;
+        if (sx >= Sailing.CellUnits) { nx++; sx -= Sailing.CellUnits; crossX = true; }
+        else if (sx < 0) { nx--; sx += Sailing.CellUnits; crossX = true; }
+        if (sy >= Sailing.CellUnits) { ny++; sy -= Sailing.CellUnits; crossY = true; }
+        else if (sy < 0) { ny--; sy += Sailing.CellUnits; crossY = true; }
 
-        // 위도가 높을수록 경도 한 칸이 짧다 — 3편과 같은 보정이다.
-        dx *= Sailing.LonScale(90 - Y / ChipMap.Height * 180);
+        if (ny < 0 || ny >= ChipMap.Height) return false;
 
-        if (CanSail(X + dx, Y + dy)) { X = X + dx; Y = Y + dy; }
-        else if (CanSail(X + dx, Y)) { X += dx; Blocked = true; }
-        else if (CanSail(X, Y + dy)) { Y += dy; Blocked = true; }
-        else Blocked = true;
+        if ((crossX || crossY) && !CanSail(nx, ny))
+        {
+            if (!CanSail(_cellX + Math.Sign(vx), _cellY + Math.Sign(vy))) return false;
+            _subX = crossX ? (vx > 0 ? Sailing.CellUnits - 1 : 0) : sx;
+            _subY = crossY ? (vy > 0 ? Sailing.CellUnits - 1 : 0) : sy;
+            return true;
+        }
 
-        X = ((X % ChipMap.Width) + ChipMap.Width) % ChipMap.Width;
-        Y = Math.Clamp(Y, 0, ChipMap.Height - 1);
+        _cellX = Wrap(nx); _cellY = ny;
+        _subX = sx; _subY = sy;
+        return true;
     }
 
     /// <summary>뱃머리를 한 칸 돌린다.</summary>
     public void Turn(int by) => Heading = ((Heading + by) % DirCount + DirCount) % DirCount;
 
-    /// <summary>방위 이름. 열여섯을 여덟으로 깎아 적는다.</summary>
+    /// <summary>방위 이름.</summary>
     public static string DirName(int dir) =>
-        new[] { "북", "북북동", "북동", "동북동", "동", "동남동", "남동", "남남동",
-                "남", "남남서", "남서", "서남서", "서", "서북서", "북서", "북북서" }
-        [((dir % DirCount) + DirCount) % DirCount];
+        new[] { "북", "북동", "동", "남동", "남", "남서", "서", "북서" }[((dir % DirCount) + DirCount) % DirCount];
 }

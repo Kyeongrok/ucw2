@@ -19,6 +19,8 @@ namespace Uw2.Support.Local.Formats;
 ///     char.png           128x128  도시에서 걷는 사람 16x32 서른두 장(15 는 비침)
 ///     ports.json                  항구 이름·자리·칩 벌
 ///     monsters.json               괴물 자리 서른 곳
+///     ships.json                  선종 스물다섯 (SDATA.DAT)
+///     people.json                 사람 백스물 — 이름 · 능력치 · 레벨 (SDATA.DAT)
 ///     wind.png           30x45    표 셋을 세로로 쌓음(값 = 날바이트)
 ///     world/
 ///       cells.png        1080x540 값 = 칸 값
@@ -118,6 +120,10 @@ public sealed class AssetPack
         var monsters = MonsterTable.Load(Find("MONSTER.DAT"));
         WriteJson(Path.Combine(outDir, "monsters.json"),
                   monsters.Spots.Select(s => new MonsterJson(s.X, s.Y, s.Kind)).ToArray());
+
+        // 새 게임 자료 — 항해 셈에 드는 선종 · 사람 표.
+        string sdata = Find("SDATA.DAT");
+        if (File.Exists(sdata)) BakeStart(sdata, outDir);
 
         // 배 그림 — 리스본 부두에 매인 배를 오려 낸다.
         BakeShip(maps, sets, Path.Combine(outDir, "ship.png"));
@@ -268,6 +274,15 @@ public sealed class AssetPack
         return p;
     }
 
+    /// <summary><c>SDATA.DAT</c> 의 선종 · 사람 표만 굽는다(<c>ships.json</c> · <c>people.json</c>).</summary>
+    public static void BakeStart(string sdataPath, string outDir)
+    {
+        PortTable.RegisterEncodings();
+        var start = StartData.Load(sdataPath);
+        WriteJson(Path.Combine(outDir, "ships.json"), start.ShipTypes.Select(ShipTypeJson.Of).ToArray());
+        WriteJson(Path.Combine(outDir, "people.json"), start.People.Select(PersonJson.Of).ToArray());
+    }
+
     // ------------------------------------------------------------------ 읽기
 
     /// <summary>구워 둔 자산을 읽는다. 한 조각이라도 없으면 null.</summary>
@@ -309,8 +324,15 @@ public sealed class AssetPack
                 font = GameFont.FromSheet(f.Pixels, f.Width);
             }
 
+            var shipTypes = ReadJson<ShipTypeJson[]>(Path.Combine(dir, "ships.json"));
+            var people = ReadJson<PersonJson[]>(Path.Combine(dir, "people.json"));
+            var start = shipTypes != null && people != null
+                ? StartData.FromTables([.. shipTypes.Select(t => t.To())], [.. people.Select(p => p.To())])
+                : null;
+
             return new AssetPack
             {
+                Start = start,
                 Cells = cells.Pixels,
                 WorldAtlas = chips.Pixels,
                 WorldAtlasSize = (chips.Width, chips.Height),
@@ -368,6 +390,9 @@ public sealed class AssetPack
 
     /// <summary>바람·해류 날바이트 1,350.</summary>
     public byte[] Wind { get; private init; } = [];
+
+    /// <summary>선종 · 사람 표. 구워 두지 않았으면 null.</summary>
+    public StartData? Start { get; private init; }
 
     /// <summary>항구 이름·자리.</summary>
     public IReadOnlyList<PortTable.Port> Ports { get; private init; } = [];
@@ -493,4 +518,41 @@ public sealed class AssetPack
         [property: JsonPropertyName("x")] int X,
         [property: JsonPropertyName("y")] int Y,
         [property: JsonPropertyName("종류")] int Kind);
+
+    private record ShipTypeJson(
+        [property: JsonPropertyName("번호")] int Index,
+        [property: JsonPropertyName("+0")] int Field0,
+        [property: JsonPropertyName("내구")] int Durability,
+        [property: JsonPropertyName("역풍")] int Upwind,
+        [property: JsonPropertyName("돛")] int Sail,
+        [property: JsonPropertyName("+4")] int Field4,
+        [property: JsonPropertyName("드는선원")] int RequiredCrew,
+        [property: JsonPropertyName("짐칸")] int Capacity,
+        [property: JsonPropertyName("최대선원")] int MaxCrew,
+        [property: JsonPropertyName("돛갈래")] int SailKind,
+        [property: JsonPropertyName("값")] int Price)
+    {
+        public static ShipTypeJson Of(StartData.ShipType t) =>
+            new(t.Index, t.Field0, t.Durability, t.Upwind, t.Sail, t.Field4, t.RequiredCrew, t.Capacity,
+                t.MaxCrew, t.SailKind, t.Price);
+
+        public StartData.ShipType To() =>
+            new(Index, Field0, Durability, Upwind, Sail, Field4, RequiredCrew, Capacity, MaxCrew, SailKind, Price);
+    }
+
+    private record PersonJson(
+        [property: JsonPropertyName("번호")] int Index,
+        [property: JsonPropertyName("이름")] string Name,
+        [property: JsonPropertyName("성")] string Family,
+        [property: JsonPropertyName("능력")] int[] Stats,
+        [property: JsonPropertyName("항해레벨")] int NavLevel,
+        [property: JsonPropertyName("전투레벨")] int BattleLevel)
+    {
+        public static PersonJson Of(StartData.Person p) =>
+            new(p.Index, p.Name, p.Family, p.Stats, p.NavLevel, p.BattleLevel);
+
+        /// <summary>항해술은 능력치 둘째(+0x1D)다.</summary>
+        public StartData.Person To() =>
+            new(Index, Name, Family, Stats, Stats.Length > 1 ? Stats[1] : 0, NavLevel, BattleLevel);
+    }
 }

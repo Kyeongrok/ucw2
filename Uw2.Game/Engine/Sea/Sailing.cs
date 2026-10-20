@@ -1,86 +1,142 @@
+using Uw2.Support.Local.Formats;
+
 namespace Uw2.Game.Engine.Sea;
 
 /// <summary>
-/// 함대가 얼마나 빨리 가는가. <b>아직 2편 것을 못 캤다</b> — 3편 셈을 임시로 꽂아 둔 자리다.
+/// 함대가 얼마나 빨리 가는가 — <c>KOUKAI2.EXE 0x00448520</c>(제 함대) 를 그대로 옮겼다.
 /// </summary>
 /// <remarks>
-/// 3편은 이랬다(<c>CDS_95.EXE 0x0048BCF0</c>, 볼트 <c>30.분석-항해 속도(돛·바람·해류)</c>).
+/// 배마다 빠르기를 내고 <b>가장 느린 배</b>가 함대 빠르기다. 정수 셈이고 나눗셈마다 버린다.
 /// <code>
-///   배속도  = 추진력 x (풍속+1) x 돛효율 / 100
-///   함대속도 = (기함속도 + 평균) / 2
-///   누산기가 0x40 마다 한 걸음, 한 칸이 열여섯 걸음
+///   각    = |풍향 - 뱃머리|                          0~7, 8방위라 이것으로 둘레가 맞는다
+///   v     = 돛효율표[각][돛 갈래] x 돛성능 x 풍속 / 150
+///   v     = v x min(100, 선원 x 돛에 붙은 몫% / 드는 선원) / 100
+///   v     = v x min(150, 180 - 짐%) / 100           빈 배 150% · 꽉 찬 배 80%
+///   v     = min(30, v + v x 항해 레벨 / 10)           (그 배 선장의)
+///   v     = min(40, v x 항해술 / 75)
+///   맞바람(각 3~5)이면  v = v x 역풍성능 / 100
+///   함대  = max(2, 가장 느린 배)                       바람이 0 이고 노 젓는 배가 없으면 0
 /// </code>
-/// 2편 것은 <c>KOUKAI2.EXE</c> 에서 다시 캐야 한다. 캐기 전까지는 <b>바람 세기만 보는
-/// 임시 셈</b>으로 화면을 돌린다 — 눈금이 다르므로 <b>이 값으로 게임과 견주면 안 된다</b>.
+/// 노 젓는 배(배 기록 +0x10 에 비트 0x10 이 없는 배)는 바람이 약해도 세기 3 으로 친다.
 ///
-/// 캘 때 볼 곳은 볼트 <c>Project/uw2/분석/6.분석-KOUKAI2.EXE 뜯는 자리</c>.
+/// 빠르기는 <b>한 틱에 쌓는 걸음 수</b>다 — 함대는 칸 안 자리를 0~59 로 들고 다니다 60 을 넘으면 한 칸 간다
+/// (<see cref="CellUnits"/>, <c>0x00448BC0</c>). 화면에는 <c>(빠르기+1)/2</c> 를 노트로 적는다(<c>0x0043410F</c>).
+///
+/// 남의 함대(<c>0x00418020</c>)는 셈이 조금 다르다 — 선원·짐을 안 보고 제독 하나의 능력만 쓰며,
+/// 해류를 빠르기에 더하고 뺀다. 그쪽은 아직 옮기지 않았다.
 /// </remarks>
 public static class Sailing
 {
-    /// <summary>누산기가 한 걸음을 넘기는 값. 3편 값이다.</summary>
-    public const int CellUnits = 64;
-
-    /// <summary>한 칸에 든 걸음 수. 3편 값이다 — <b>2편은 다시 재야 한다</b>.</summary>
-    public const int StepsPerCell = 16;
-
-    /// <summary>바람이 없을 때의 바닥 속도.</summary>
-    public const int CalmSpeed = 1;
-
-    /// <summary>
-    /// 돛 효율의 아래위(백분). 정면 역풍에서도 삼각돛이 조금은 나아간다.
-    /// </summary>
-    public const int MinEfficiency = 25, MaxEfficiency = 100;
-
-    /// <summary>어림 추진력. 배 표를 읽기 전까지 쓰는 값이다.</summary>
-    public const int DefaultThrust = 40;
-
-    /// <summary>
-    /// 눈금 맞춤. <b>우리가 고른 값</b>이다 — 게임 셈을 캐면 없어질 자리다.
-    /// </summary>
-    /// <remarks>
-    /// 3편 식은 칸 눈금이 2편과 달라 그대로 쓰면 배가 화면 밖으로 튄다. 순풍에 한 틱에
-    /// 한 칸 남짓 나아가도록 이 값으로 눌러 두었다 — 세계지도를 가로지르는 데 서너 분이다.
-    /// </remarks>
-    public const double PaceScale = 10;
-
-    /// <summary>
-    /// 임시 셈. 뱃머리와 바람이 이루는 각으로 돛 효율을 어림한다.
-    /// </summary>
-    /// <param name="windDir">풍향(16방위).</param>
-    /// <param name="windSpeed">풍속.</param>
-    /// <param name="heading">뱃머리(16방위).</param>
-    /// <param name="thrust">추진력. 배 표를 읽기 전까지의 어림값이다.</param>
-    public static double SpeedOf(int windDir, int windSpeed, int heading, int thrust = DefaultThrust)
-    {
-        // 뒤에서 불면 100, 옆이면 60 남짓, 정면 역풍이면 25 다(백분).
-        int rel = (windDir - heading) & 0xF;
-        double cos = Math.Cos(rel * (2 * Math.PI / DirCount));
-        double eff = MinEfficiency + (MaxEfficiency - MinEfficiency) * (cos + 1) / 2;
-
-        double v = thrust * (windSpeed + 1) * eff / 100.0;
-        return Math.Max(CalmSpeed, v);
-    }
-
     /// <summary>방위 가짓수.</summary>
-    public const int DirCount = 16;
+    public const int DirCount = WindCurTable.DirCount;
 
-    /// <summary>속도를 한 틱에 나아갈 칸 수로.</summary>
-    public static double CellsPerTick(double speed) => speed / StepsPerCell / PaceScale;
+    /// <summary>칸 하나가 이만큼의 걸음이다.</summary>
+    public const int CellUnits = 60;
+
+    /// <summary>함대 빠르기의 바닥.</summary>
+    public const int MinSpeed = 2;
+
+    /// <summary>항해 레벨을 얹은 뒤 자르는 값과 항해술을 얹은 뒤 자르는 값.</summary>
+    public const int LevelCap = 30, MaxSpeed = 40;
+
+    /// <summary>노 젓는 배가 바람이 약할 때 치는 세기.</summary>
+    public const int OarWind = 3;
 
     /// <summary>
-    /// 경도 보정 — 위도가 높을수록 경도 한 칸이 짧다. 3편 것을 그대로 옮겼다.
+    /// 돛 효율 표 — <c>0x00456EA0</c>, 8 x 8. 줄이 <see cref="AngleOf">각</see>, 칸이 돛 갈래다.
+    /// 남의 함대가 쓰는 <c>0x00458150</c> 도 값이 같다.
     /// </summary>
-    /// <remarks>
-    /// 3편은 <c>65536*cos</c> 표를 63도에서 자르고 보간해 쓴다. 여기서는 <c>1 / cos</c> 을
-    /// 그냥 쓴다 — 어긋남이 0.5% 라 굳이 옮기지 않았다.
-    /// <b>2편도 이렇게 하는지는 아직 안 굳혔다.</b>
-    /// </remarks>
-    public static double LonScale(double latitudeDegrees)
+    private static readonly byte[,] Efficiency =
     {
-        double capped = Math.Min(Math.Abs(latitudeDegrees), MaxLatForScale);
-        return 1.0 / Math.Max(0.25, Math.Cos(capped * Math.PI / 180.0));
+        { 10, 8, 10, 9, 9, 8, 10, 10 },
+        { 10, 9, 10, 10, 10, 10, 10, 10 },
+        { 8, 9, 10, 10, 10, 10, 10, 10 },
+        { 6, 7, 8, 9, 9, 10, 9, 10 },
+        { 4, 6, 6, 7, 7, 8, 9, 10 },
+        { 6, 7, 8, 9, 9, 10, 9, 10 },
+        { 8, 9, 10, 10, 10, 10, 10, 10 },
+        { 10, 9, 10, 10, 10, 10, 10, 10 },
+    };
+
+    /// <summary>바람과 뱃머리가 이루는 각. 0 이 순풍(바람이 뱃머리 쪽으로 민다), 4 가 정면 역풍이다.</summary>
+    public static int AngleOf(int windDir, int heading) => Math.Abs((windDir & 7) - (heading & 7));
+
+    /// <summary>각 3~5 — 역풍 성능을 곱하는 맞바람.</summary>
+    public static bool IsHeadwind(int angle) => angle is >= 3 and <= 5;
+
+    /// <summary>배 한 척의 빠르기.</summary>
+    public static int ShipSpeed(in ShipSailing ship, int angle, int windSpeed)
+    {
+        int wind = ship.Oars ? Math.Max(OarWind, windSpeed) : windSpeed;
+        int v = Efficiency[angle, ship.SailKind & 7] * ship.Sail * wind / 150;
+
+        int crew = ship.RequiredCrew > 0 ? Math.Min(100, ship.Crew * ship.SailingShare / ship.RequiredCrew) : 100;
+        v = v * crew / 100;
+
+        int load = ship.Capacity > 0 ? Math.Min(150, 180 - ship.Load * 100 / ship.Capacity) : 150;
+        v = v * load / 100;
+
+        v = Math.Min(LevelCap, v + v * ship.NavLevel / 10);
+        v = Math.Min(MaxSpeed, v * ship.Seamanship / 75);
+
+        if (IsHeadwind(angle)) v = v * ship.Upwind / 100;
+        return v;
     }
 
-    /// <summary>경도 보정을 자르는 위도.</summary>
-    public const double MaxLatForScale = 63;
+    /// <summary>함대 빠르기 — 가장 느린 배. 바람이 자고 노 젓는 배가 없으면 0 이다.</summary>
+    public static int FleetSpeed(IReadOnlyList<ShipSailing> ships, int heading, int windDir, int windSpeed)
+    {
+        if (ships.Count == 0) return 0;
+        int angle = AngleOf(windDir, heading);
+        int slowest = 0xFF;
+        bool oars = false;
+        foreach (var ship in ships)
+        {
+            oars |= ship.Oars;
+            slowest = Math.Min(slowest, ShipSpeed(ship, angle, windSpeed));
+        }
+        slowest = Math.Max(MinSpeed, slowest);
+        return windSpeed == 0 && !oars ? 0 : slowest;
+    }
+
+    /// <summary>화면에 적는 노트.</summary>
+    public static int Knots(int speed) => (speed + 1) / 2;
+
+    /// <summary>
+    /// 표 바람을 흔든다 — <c>0x00418E80</c>. 세기는 0~1 을 더해 7 에서 자르고, 방위는 열다섯에 한 번꼴로
+    /// 한 칸 돈다(<c>rand(5)/4 x (rand(3)-1)</c>).
+    /// </summary>
+    /// <remarks>
+    /// 폭풍 · 무풍 같은 날씨가 걸려 있으면 게임은 흔들지 않고 지난 바람을 그대로 둔다. 날씨는 아직 없다.
+    /// </remarks>
+    public static (int Dir, int Speed) Gust((int Dir, int Speed) table, Random rng)
+    {
+        int speed = Math.Min(7, table.Speed + rng.Next(2));
+        int turn = rng.Next(5) / 4 * (rng.Next(3) - 1);
+        return ((table.Dir + turn) & 7, speed);
+    }
+}
+
+/// <summary>
+/// 배 한 척의 빠르기 셈에 드는 값. 게임에서는 세 군데에 흩어져 있다.
+/// </summary>
+/// <remarks>
+/// <code>
+///   함대 칸(9바이트, 함대+0x2B)   +0 선원(낱말) · +4 역풍성능 · +5 돛성능 · +7 배 번호
+///   배 기록(22바이트, 0x00461560)  +0x0F 선종 · +0x10 비트 0x10 이면 돛만 쓰는 배
+///   제 함대 칸 곁(30바이트, 0x004610B0)  +9 돛에 붙은 선원 몫% · +0x0A 짐(낱말) · +0x1B 선장
+/// </code>
+/// 돛에 붙은 몫은 2편의 선원 나누기(항해 · 전투 · 포술)다 — 싸움 셈은 <c>100 - (+9) - (+8)</c> 을 쓴다(<c>0x00410475</c>).
+/// </remarks>
+public readonly record struct ShipSailing(
+    int SailKind, int Sail, int Upwind, bool Oars,
+    int Crew, int SailingShare, int RequiredCrew,
+    int Load, int Capacity,
+    int NavLevel, int Seamanship)
+{
+    /// <summary>선종 표 한 줄과 선장으로 새 배를 띄운다 — 선원을 다 채우고 짐은 비운다.</summary>
+    public static ShipSailing Fresh(StartData.ShipType type, StartData.Person captain, bool oars = false) =>
+        new(type.SailKind, type.Sail, type.Upwind, oars,
+            Crew: Math.Max(type.RequiredCrew, type.MaxCrew), SailingShare: 100, type.RequiredCrew,
+            Load: 0, type.Capacity, captain.NavLevel, captain.Seamanship);
 }
