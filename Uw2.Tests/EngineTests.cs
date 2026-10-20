@@ -235,4 +235,14 @@ public class EngineTests
         p.Ships[0].Supplies[PlayerState.Water] = 0;
         Assert.Equal(2, p.ConsumeDay());                     // 두 배 다 물이 없다
     }
+
+    [Fact]
+    public void BuildGradesGrowWithIndustry()
+    {
+        Assert.Equal(3, Uw2.Game.Engine.Town.Shipyard.GradeChoices(5, 400));
+        Assert.Equal(4, Uw2.Game.Engine.Town.Shipyard.GradeChoices(5, 700));
+        Assert.Equal(6, Uw2.Game.Engine.Town.Shipyard.GradeChoices(0x18, 0));
+        Assert.Equal(192, Uw2.Game.Engine.Town.Shipyard.BuildPrice(240, 0));   // 4 x 240 / 5
+        Assert.Equal(240, Uw2.Game.Engine.Town.Shipyard.BuildPrice(240, 2));
+    }
 }

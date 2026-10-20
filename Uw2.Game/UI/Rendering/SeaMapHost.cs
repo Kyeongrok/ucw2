@@ -437,14 +437,19 @@ public sealed class SeaMapHost : HwndHost
     public const int MaxShips = StartData.SlotCount;
 
     /// <summary>그 선종의 새 배를 함대 끝에 넣는다. 칸이 다 찼거나 선종이 없으면 false.</summary>
-    public bool AddShip(int type)
+    public bool AddShip(int type, int grade = -1)
     {
         if (StartTables is not { } start || Fleet == null) return false;
         if (type < 0 || type >= start.ShipTypes.Count || Player.Ships.Count >= MaxShips) return false;
         var t = start.Templates.Count > type ? start.Templates[type] : default;
         // 새 배는 선원 없이 온다(0x0043DF6A) — 주점에서 고용한다.
         Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], start.People[HeroPerson[Hero]], t.Oars) with { Crew = 0 });
-        Player.Ships.Add(NewShip(start, type, crew: 0));
+        var ship = NewShip(start, type, crew: 0);
+        Player.Ships.Add(grade < 0 ? ship : new PlayerState.Ship
+        {
+            Type = ship.Type, Name = ship.Name, Room = ship.Room, MaxCrew = ship.MaxCrew, Crew = 0,
+            Hull = ship.Hull, MaxHull = ship.MaxHull, Upwind = ship.Upwind, Sail = ship.Sail, Grade = grade,
+        });
         SyncLoad();
         return true;
     }

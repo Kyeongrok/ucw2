@@ -63,10 +63,16 @@ public sealed class SeaMapWindow : Window
         int pick = BuildingMenu.Ask(this, $"함선 건조 — 돈 {p.Gold} · 배 {p.Ships.Count}/{SeaMapHost.MaxShips}",
             types.Select(t => $"{NameOf(t),-10} {start.ShipTypes[t].Price,6}").ToList());
         if (pick < 0) return;
-        int type = types[pick], price = start.ShipTypes[type].Price;
+        int type = types[pick], basePrice = start.ShipTypes[type].Price;
         if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
+        int industry = _host.CurrentPort >= 0 && _host.CurrentPort < eco.States.Count ? eco.States[_host.CurrentPort].Industry : 0;
+        int grades = Shipyard.GradeChoices(type, industry);
+        int grade = BuildingMenu.Ask(this, $"{NameOf(type)} — 등급",
+            Enumerable.Range(0, grades).Select(g => $"등급 {g}  {Shipyard.BuildPrice(basePrice, g),6}").ToList());
+        if (grade < 0) return;
+        int price = Shipyard.BuildPrice(basePrice, grade);
         if (p.Gold < price) { Note($" · 돈이 모자랍니다({NameOf(type)} {price})"); return; }
-        if (!_host.AddShip(type)) return;
+        if (!_host.AddShip(type, grade)) return;
         p.SetGold(p.Gold - price);
         Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 지었습니다");
     }
