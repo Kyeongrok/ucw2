@@ -1386,6 +1386,8 @@ public sealed class SeaMapWindow : Window
         _host.Painted += UpdateStatus;
         _host.SeaDay += OnSeaDay;
         _host.GameOver += OnGameOver;
+        _host.MonsterMet += kind => ScenarioDialog.Play(this, _host.Faces,
+            [new ScenarioVm.Line("", MsgOr(0x1FE + kind * 2, "")), new ScenarioVm.Line("", MsgOr(0x1FF + kind * 2, ""))]);
         _host.Wrecked += lost => ScenarioDialog.Play(this, _host.Faces, [.. lost.Select(l => new ScenarioVm.Line("",
             MsgOr(0x166, $"제독님, {l.Ship}호가 난파했습니다.", l.Ship)
             + (l.Captain != null ? MsgOr(0x329, $" {Josa(l.Captain, "은", "는")} 기적적으로 구조되었습니다.", l.Captain) : "")))]);

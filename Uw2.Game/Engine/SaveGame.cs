@@ -31,6 +31,10 @@ public sealed class SaveGame
     /// <summary>지리 조사 판(<see cref="Sea.Survey"/>). 옛 세이브는 없다 — 그때는 새 게임 판이다.</summary>
     public SurveyState? Survey { get; set; }
 
+    /// <summary>떠 있는 바다 괴물 열과 다음 차례(<see cref="Sea.Monsters"/>).</summary>
+    public int[]? MonsterSlots { get; set; }
+    public int MonsterNext { get; set; }
+
     public sealed class SurveyState
     {
         public string Cells { get; set; } = "";

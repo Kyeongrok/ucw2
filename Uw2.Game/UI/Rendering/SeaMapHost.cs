@@ -523,6 +523,8 @@ public sealed class SeaMapHost : HwndHost
             Fleet = Fleet?.Export() ?? new(), Player = SaveGame.From(Player), Scenario = Scenario?.Export(), Common = Common?.Export(),
             PortStates = Economy is { } eco ? (byte[])eco.StateBytes.Clone() : [],
             Survey = Survey.Export(),
+            MonsterSlots = Monsters != null ? [.. Monsters.Slots] : null,
+            MonsterNext = Monsters?.Next ?? 0,
         };
         string where = CurrentPort >= 0 ? SceneName : "바다";
         save.Summary = $"{HeroName.Name} {HeroName.Family} · {Fleet?.Date} · {where} · 돈 {Player.Gold}";
@@ -539,6 +541,8 @@ public sealed class SeaMapHost : HwndHost
         if (Fleet == null || StartTables is not { } start) return;
         Player = SaveGame.ToPlayer(save.Player);
         Survey = Survey.Import(save.Survey);
+        Monsters = LoadMonsters();
+        Monsters?.Restore(save.MonsterSlots, save.MonsterNext);
         Fleet.Ships.Clear();
         foreach (var s in Player.Ships)
         {
@@ -668,6 +672,53 @@ public sealed class SeaMapHost : HwndHost
         ShipName = Player.Ships[0].Name;
         SyncLoad();
         return true;
+    }
+
+    /// <summary>바다 괴물(<c>asset/monsters.json</c>). 없으면 null.</summary>
+    public Monsters? Monsters { get; private set; }
+
+    private static Monsters? LoadMonsters()
+    {
+        if (AssetPack.FindFolder() is not { } dir) return null;
+        string path = Path.Combine(dir, "monsters.json");
+        if (!File.Exists(path)) return null;
+        using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+        return new Monsters(doc.RootElement.EnumerateArray()
+            .Select(e => (e.GetProperty("x").GetInt32(), e.GetProperty("y").GetInt32(), e.GetProperty("종류").GetInt32())));
+    }
+
+    /// <summary>바다 괴물을 만났다 — 갈래를 넘긴다. 일은 이미 벌였다(<see cref="OnMonster"/>).</summary>
+    public event Action<int>? MonsterMet;
+
+    /// <summary>괴물마다의 일(<c>0x00461FD0</c>) — <see cref="Monsters"/> 의 표 그대로.</summary>
+    private void OnMonster(int kind)
+    {
+        var ships = Player.Ships;
+        int Last() => Enumerable.Range(1, Math.Max(0, ships.Count - 1)).Reverse().FirstOrDefault(i => ships[i].Captain != HeroPersonNumber, -1);
+        switch (kind)
+        {
+            case 0: foreach (var s in ships) s.Crew -= s.Crew * 25 / 100; break;
+            case 1:
+                if (Scenario != null)
+                    foreach (var (_, person, _) in Navigators.Mates(Scenario.Memory))
+                        Navigators.Set(Scenario.Memory, person, 0x20, Navigators.Get(Scenario.Memory, person, 0x20) - Math.Min(10, Navigators.Get(Scenario.Memory, person, 0x20)));
+                break;
+            case 2: if (Last() is >= 1 and var gone) RemoveShip(gone); break;
+            case 4: foreach (var s in ships) s.Morale += Math.Min(10, 100 - s.Morale); break;
+            case 5: if (Last() is >= 1 and var a) ships[a].Sail /= 2; break;
+            case 6: foreach (var s in ships) for (int k = 0; k < s.Cargo.Length; k++) s.Cargo[k] = (-1, 0); break;
+            case 7: foreach (var s in ships) s.Morale -= Math.Min(10, s.Morale); break;
+            case 8: if (Last() is >= 1 and var w) ships[w].Hull = Math.Max(1, ships[w].Hull / 2); break;
+            case 9:
+                if (Scenario != null)
+                    Navigators.Set(Scenario.Memory, HeroPersonNumber, Church.Luck,
+                        Navigators.Get(Scenario.Memory, HeroPersonNumber, Church.Luck) - Math.Min(30, Navigators.Get(Scenario.Memory, HeroPersonNumber, Church.Luck)));
+                break;
+        }
+        SyncLoad();
+        for (int i = 0; i < Fleet?.Ships.Count && i < ships.Count; i++)
+            Fleet!.Ships[i] = Fleet.Ships[i] with { Sail = ships[i].Sail };
+        Dispatcher.BeginInvoke(() => MonsterMet?.Invoke(kind));
     }
 
     /// <summary>지리 조사 판 — 바다에서 새 칸에 들 때마다 칠한다.</summary>
@@ -876,6 +927,7 @@ public sealed class SeaMapHost : HwndHost
         int gold = person < start.HeroGold.Count ? start.HeroGold[person] : 0;
         Player = new PlayerState(gold);
         Survey = Survey.NewGame();
+        Monsters = LoadMonsters();
         Player.Ships.Add(NewShip(start, type, first.Crew));
         if (start.MiscBytes.Length > 2)
         {
@@ -1172,6 +1224,7 @@ public sealed class SeaMapHost : HwndHost
             int day = Fleet.DaysAtSea;
             Fleet.Step();
             Survey.Visit(Fleet.X, Fleet.Y);
+            if (Monsters?.Meet((int)Fleet.X, (int)Fleet.Y) is >= 0 and var monster) OnMonster(monster);
             LookAround();
             // 틱마다 남 함대도 다 한 걸음 간다(0x0041A362). 바람 · 해류는 제 함대 자리의 것을 같이 쓴다.
             foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);

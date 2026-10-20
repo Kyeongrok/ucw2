@@ -503,4 +503,19 @@ public class EngineTests
         Assert.Equal(15, Uw2.Game.Engine.Town.Pub.MostBottles(45, 3));
         Assert.True(Uw2.Game.Engine.Town.Pub.AvailableAt(800, 100, 0) > Uw2.Game.Engine.Town.Pub.AvailableAt(800, 20, 0));
     }
+
+    [Fact]
+    public void SteppingOntoAFloatingMonsterTriggersItAndRefillsTheSlot()
+    {
+        var spots = Enumerable.Range(0, 12).Select(i => (100 + i, 200, i % 10)).ToList();
+        var mon = new Uw2.Game.Engine.Sea.Monsters(spots);
+        Assert.Equal(-1, mon.Meet(111, 200));                                // 열한째는 아직 바다에 없다
+        Assert.Equal(3, mon.Meet(103, 200));
+        Assert.Equal(10, mon.Slots[3]);                                      // 그 칸에 다음 자리
+        Assert.Equal(-1, mon.Meet(103, 200));
+        Assert.Equal(0, mon.Meet(110, 200));                                 // 갈래 10 % 10
+        var back = new Uw2.Game.Engine.Sea.Monsters(spots);
+        back.Restore(mon.Slots, mon.Next);
+        Assert.Equal(mon.Slots, back.Slots);
+    }
 }
