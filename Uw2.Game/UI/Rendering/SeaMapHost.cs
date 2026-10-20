@@ -812,7 +812,7 @@ public sealed class SeaMapHost : HwndHost
         int eye = Navigators.Mates(m).Select(t => Navigators.Get(m, t.Person, Navigators.Stats + 3))
             .Append(Navigators.Get(m, HeroPersonNumber, Navigators.Stats + 3)).Max();
         int sight = Fleet.Weather.Current == Weather.Kind.Fog ? 0
-            : Sighting.Reach(Player.Ships.Select(s => (s.GunShare, s.Crew)), ItemShop.Owned(m).Contains(Sighting.Telescope));
+            : Sighting.Reach(Player.Ships.Select(s => (s.WatchShare, s.Crew)), ItemShop.Owned(m).Contains(Sighting.Telescope));
         var raw = Economy?.StateBytes;
         var seen = Sighting.Look(m, (int)Fleet.X, (int)Fleet.Y, eye, sight, Roll,
                                  p => raw != null && p * Economy.StateSize + 0x1C < raw.Length ? raw[p * Economy.StateSize + 0x1C] : 2);

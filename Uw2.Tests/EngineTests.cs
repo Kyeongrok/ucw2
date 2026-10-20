@@ -617,11 +617,11 @@ public class EngineTests
     public void CrewSharesStartAtFiftyAndTwentyFiveAndNeverPassAHundred()
     {
         var ship = new PlayerState.Ship { Type = 0, Name = "a", Room = 10 };
-        Assert.Equal((50, 25), (ship.SailShare, ship.GunShare));
+        Assert.Equal((50, 25), (ship.SailShare, ship.WatchShare));
         ship.SetShares(80, 40);
-        Assert.Equal((80, 20), (ship.SailShare, ship.GunShare));
+        Assert.Equal((80, 20), (ship.SailShare, ship.WatchShare));
         ship.SetShares(120, 5);
-        Assert.Equal((100, 0), (ship.SailShare, ship.GunShare));
+        Assert.Equal((100, 0), (ship.SailShare, ship.WatchShare));
     }
 
     [Fact]
