@@ -1712,6 +1712,9 @@ public sealed class SeaMapWindow : Window
                     string type = st != null && s.Type < st.Templates.Count ? st.Templates[s.Type].Name ?? "" : "";
                     sb.AppendLine($"{s.Name} ({type}) — 선장 {Captain(s)}");
                     sb.AppendLine($"    내구 {s.Hull}/{s.MaxHull} · 선원 {s.Crew}/{s.MaxCrew} · 사기 {s.Morale} · 짐 {s.Load}/{s.Room}");
+                    if (s.Mounted > 0 || s.Figurehead > 0)
+                        sb.AppendLine($"    대포 {(s.Mounted > 0 ? $"{Shipyard.GunNames[Math.Clamp(s.GunKind, 0, 7)]} {s.Mounted}/{s.Guns}" : "없음")}"
+                                      + (s.Figurehead > 0 ? $" · 선수상 {Shipyard.Figureheads[s.Figurehead]}" : ""));
                 }
                 if (p.Rats || p.Scurvy) sb.AppendLine((p.Rats ? "쥐 떼 " : "") + (p.Scurvy ? "괴혈병" : ""));
                 break;
