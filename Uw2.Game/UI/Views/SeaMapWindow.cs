@@ -202,6 +202,7 @@ public sealed class SeaMapWindow : Window
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
         if (b == TradeBuilding && pick == 1) { SellGoods(); return; }
         if (b == TradeBuilding && pick == 2) { Invest(industry: false); return; }
+        if (b == TradeBuilding && pick == 3) { ShowPriceIndex(); return; }
         if (b == ShipyardBuilding && pick == 5) { Invest(industry: true); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
         if (b == ShipyardBuilding && pick == 1) { BuyUsedShip(); return; }
@@ -1121,6 +1122,26 @@ public sealed class SeaMapWindow : Window
             Say(0x353, $"그건 아니겠지. 금화 {floor}닢이라면 꽤 괜찮은 벌이가 아니오？", floor);
             Say(0x354, $"손님에겐 못 당하겠네요. 좋아요, 금화 {floor}닢으로 타협합시다.", floor);
             return floor;
+        }
+    }
+
+    /// <summary>
+    /// 교역소 「시세 · 물가」(<c>0x00421500</c>) — 갈래를 고르면 그 물가(값 지수 + 50, 말 0x97)와 그 갈래 교역품을 이 항구에서 파는 값으로 늘어놓는다.
+    /// </summary>
+    private void ShowPriceIndex()
+    {
+        if (_host.Economy is not { } eco || _host.CurrentPort < 0 || _host.CurrentPort >= eco.States.Count) return;
+        int port = _host.CurrentPort;
+        while (true)
+        {
+            int cat = BuildingMenu.Ask(this, "시세 · 물가", Economy.CategoryNames);
+            if (cat < 0) return;
+            int index = eco.States[port].PriceIndex[cat] + 50;
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(MsgOr(0x97, $"{Economy.CategoryNames[cat]}의 물가는 {index}％입니다.", Economy.CategoryNames[cat], index));
+            for (int g = 0; g < eco.GoodsNames.Count; g++)
+                if (Economy.CategoryOf(g) == cat) sb.AppendLine($"{eco.GoodsNames[g],-8} {eco.SellPrice(port, g),6}");
+            MessageBox.Show(this, sb.ToString(), "시세 · 물가");
         }
     }
 
