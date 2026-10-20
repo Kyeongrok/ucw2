@@ -35,6 +35,8 @@ namespace Uw2.Game.Engine;
 ///   EB v hh ll 변수 v = 주사위(hhll) — 씨앗 = 씨앗 x 0x5D588B65 + 1, (씨앗 &gt;&gt; 8 &amp; 0x7FFF) % hhll (0x0043DD80)
 ///   EC v · ED v  씨앗 = 변수 v &lt;&lt; 8 · 변수 v = 씨앗 &gt;&gt; 8 (0x0043DDE0 · 0x0043DE00)
 ///   EE v       변수 v = 우리 배 수 (0x0043DE20)
+///   E2 g a     변수 g 의 교역품을 변수 a 만큼 값 없이 싣는다 — 배마다 빈 자리까지, 넘치면 버린다(0x0043D980)
+///   E3 g a     변수 g 의 교역품을 모든 배에서 내리고 내린 양을 변수 a 에(0x0043DAB0)
 ///   FB p       사람 p 가 동료로 든다 — 빈 동료 칸에, 처지 6, 함대 · 머무는 곳은 주인공 것(0x0043E0D0)
 ///   씨앗은 이벤트를 열 때 ((주인공 +0x26 낱말 + 항해 레벨) x 해 x 달 + 날 + 시각) &lt;&lt; 8 (0x0043F9F0)
 /// </code>
@@ -62,6 +64,12 @@ public sealed class ScenarioVm
     /// 0 은 받을 곳이 가리키개일 때 입력 글을 그 자리에 옮기는 것이라 여기서는 쓰지 않는다.
     /// </summary>
     public int[] GameValues { get; } = new int[8];
+
+    /// <summary>
+    /// 짐 넣고 빼기 — (교역품, 양) → 실제로 옮긴 양. 양이 <see cref="int.MinValue"/> 면 그 교역품을 다 내리고 내린 양을 돌려준다.
+    /// E2(싣기) · E3(내리기)가 부른다. 부르는 쪽이 배 곁 기억(표 9)도 맞춰 둔다.
+    /// </summary>
+    public Func<int, int, int>? Cargo { get; set; }
 
     /// <summary>우리 배 수 — EE 가 읽는다. 부르는 쪽이 채운다.</summary>
     public int ShipCount { get; set; }
@@ -335,6 +343,8 @@ public sealed class ScenarioVm
                         case 0xEC: _seed = (uint)((short)_vars[a1] << 8); break;
                         case 0xED: _vars[a1] = (ushort)(_seed >> 8); break;
                         case 0xEE: _vars[a1] = (ushort)ShipCount; break;
+                        case 0xE2: Cargo?.Invoke(_vars[a1] & 0xFF, _vars[a2]); break;
+                        case 0xE3: _vars[a2] = (ushort)(Cargo?.Invoke(_vars[a1] & 0xFF, int.MinValue) ?? 0); break;
                         case 0xFB:
                         {
                             int heroP = Memory.Read(new ScenarioMemory.Pointer(ScenarioMemory.GoldTable, ScenarioMemory.HeroField), false);

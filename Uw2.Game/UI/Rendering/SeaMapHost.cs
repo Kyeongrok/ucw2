@@ -362,6 +362,12 @@ public sealed class SeaMapHost : HwndHost
             var code = File.ReadAllBytes(dat);
             if (Uw2.Support.Local.Formats.Scenario.OwnerOf(code) != person) continue;
             Scenario = new ScenarioVm(code, ScenarioText.Load(mes));
+            Scenario.Cargo = (good, amount) =>
+            {
+                int moved = amount == int.MinValue ? Player.SellAll(good, 0) : Player.Stow(good, amount);
+                WriteShipSide();
+                return moved;
+            };
             if (StartTables is { FleetBytes.Length: > 0 } st) Scenario.Memory.Fill(ScenarioMemory.FleetTable, st.FleetBytes);
             if (StartTables is { PeopleBytes.Length: > 0 } sp) Scenario.Memory.Fill(ScenarioMemory.PeopleTable, sp.PeopleBytes);
             if (StartTables is { NationBytes.Length: > 0 } sn) Scenario.Memory.Fill(ScenarioMemory.NationTable, sn.NationBytes);

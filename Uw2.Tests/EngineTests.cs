@@ -365,4 +365,15 @@ public class EngineTests
         Assert.Equal(0, p.Ships[0].Morale);
         Assert.Equal(50 - 10 - 9, p.Ships[0].Crew);
     }
+
+    [Fact]
+    public void StowLoadsForFreeAndDropsWhatDoesNotFit()
+    {
+        var p = new PlayerState(7);
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "배", Room = 30 });
+        Assert.Equal(30, p.Stow(4, 50));
+        Assert.Equal(7, p.Gold);
+        Assert.Equal(30, p.SellAll(4, 0));
+        Assert.Equal(7, p.Gold);
+    }
 }

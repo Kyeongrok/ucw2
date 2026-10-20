@@ -185,6 +185,16 @@ public sealed class PlayerState
         return bought;
     }
 
+    /// <summary>값 없이 싣는다 — 시나리오 E2(<c>0x0043D980</c>). 빈 자리를 넘는 것은 버린다. 실은 양을 돌려준다.</summary>
+    public int Stow(int good, int amount)
+    {
+        int gold = Gold;
+        Gold = int.MaxValue / 2;
+        int got = Buy(good, amount, 1);
+        Gold = gold;
+        return got;
+    }
+
     /// <summary>그 교역품을 다 판다. 판 양을 돌려준다.</summary>
     public int SellAll(int good, int price)
     {
