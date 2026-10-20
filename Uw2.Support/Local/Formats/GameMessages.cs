@@ -46,9 +46,9 @@ public sealed class GameMessages
         {
             if (f[i] == '%' && i + 1 < f.Length)
             {
-                // %5d 처럼 폭이 붙은 것도 받는다.
+                // %5d · %ld · %1d 처럼 폭 · 길이가 붙은 것도 받는다.
                 int j = i + 1;
-                while (j < f.Length && (char.IsDigit(f[j]) || f[j] == '-')) j++;
+                while (j < f.Length && (char.IsDigit(f[j]) || f[j] is '-' or 'l')) j++;
                 if (j < f.Length && f[j] is 's' or 'd' or 'u' or 'c')
                 {
                     sb.Append(k < args.Length ? args[k++]?.ToString() : "");
@@ -58,6 +58,42 @@ public sealed class GameMessages
                 if (f[i + 1] == '%') { sb.Append('%'); i++; continue; }
             }
             sb.Append(f[i]);
+        }
+        return Particles(sb.ToString());
+    }
+
+    /// <summary>
+    /// 「(가)」 「(는)」 「(을)」 「(를)」 「(은)」 「(이)」 「(와)」 「(과)」 를 앞 글자 받침에 맞춘다. 숫자는 우리말로 읽은 끝소리로 본다
+    /// (0 영 · 1 일 · 3 삼 · 6 육 · 7 칠 · 8 팔 · 10 십 은 받침이 있다).
+    /// </summary>
+    public static string Particles(string s)
+    {
+        if (!s.Contains('(')) return s;
+        var sb = new StringBuilder();
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (s[i] == '(' && i + 2 < s.Length && s[i + 2] == ')' && sb.Length > 0
+                && s[i + 1] is '가' or '이' or '는' or '은' or '을' or '를' or '와' or '과')
+            {
+                char before = sb[^1];
+                bool batchim = before switch
+                {
+                    >= '가' and <= '힣' => (before - '가') % 28 != 0,
+                    >= '0' and <= '9' => "0136789".Contains(before),
+                    _ => false,
+                };
+                char p = s[i + 1];
+                sb.Append(p switch
+                {
+                    '가' or '이' => batchim ? '이' : '가',
+                    '는' or '은' => batchim ? '은' : '는',
+                    '을' or '를' => batchim ? '을' : '를',
+                    _ => batchim ? '과' : '와',
+                });
+                i += 2;
+                continue;
+            }
+            sb.Append(s[i]);
         }
         return sb.ToString();
     }

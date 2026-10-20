@@ -66,7 +66,7 @@ public sealed class SeaMapWindow : Window
         if (types.Count == 0) { _doorNote = " · 이 조선소는 배를 지을 수 없습니다"; UpdateStatus(); return; }
         // 새 배를 맡을 동료가 있어야 한다(0x00429180, 말 0xA6).
         int mate = _host.FreeMate;
-        if (_host.HasMates && mate < 0) { Note(" · 새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요"); return; }
+        if (_host.HasMates && mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
         string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
         var p = _host.Player;
         int pick = BuildingMenu.Ask(this, $"함선 건조 — 돈 {p.Gold} · 배 {p.Ships.Count}/{SeaMapHost.MaxShips}",
@@ -95,7 +95,7 @@ public sealed class SeaMapWindow : Window
         if (used.Count == 0) { Note(" · 지금은 중고선이 없습니다"); return; }
         if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
         int mate = _host.FreeMate;
-        if (mate < 0) { Note(" · 새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요"); return; }
+        if (mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
         string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
         int pick = BuildingMenu.Ask(this, $"중고선 구입 — 돈 {p.Gold}",
             used.Select(u => $"{NameOf(u.Type),-10} {start.ShipTypes[u.Type].Price,6}").ToList());
@@ -115,12 +115,12 @@ public sealed class SeaMapWindow : Window
         if (_host.StartTables is not { } start) return;
         var p = _host.Player;
         var costs = p.Ships.Select(s => Shipyard.RepairCost(start.ShipTypes[s.Type], s)).ToList();
-        if (costs.All(c => c == 0)) { Note(" · 고칠 곳이 없습니다"); return; }
+        if (costs.All(c => c == 0)) { Note(M(0xCC, "고칠 곳이 없습니다")); return; }
         int pick = BuildingMenu.Ask(this, $"수리 — 돈 {p.Gold}",
             p.Ships.Select((s, i) => $"{s.Name,-10} 내구 {s.Hull,3}/{s.MaxHull,-3} {(costs[i] > 0 ? costs[i].ToString() : "-"),6}").ToList());
         if (pick < 0) return;
-        if (costs[pick] == 0) { Note(" · 고칠 곳이 없습니다"); return; }
-        if (p.Gold < costs[pick]) { Note($" · 돈이 모자랍니다(수리 {costs[pick]})"); return; }
+        if (costs[pick] == 0) { Note(M(0xCC, "고칠 곳이 없습니다")); return; }
+        if (p.Gold < costs[pick]) { Note(M(0xCF, $"돈이 모자랍니다(수리 {costs[pick]})")); return; }
         p.SetGold(p.Gold - costs[pick]);
         Shipyard.Repair(start.ShipTypes[p.Ships[pick].Type], p.Ships[pick]);
         Note($" · {p.Ships[pick].Name} 수리 {costs[pick]}");
@@ -131,7 +131,7 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.StartTables is not { } start || _host.Economy is not { } eco) return;
         var p = _host.Player;
-        if (p.Ships.Count <= 1) { Note(" · 마지막 배는 팔 수 없습니다"); return; }
+        if (p.Ships.Count <= 1) { Note(M(0xD0, "마지막 배는 팔 수 없습니다")); return; }
         int port = _host.CurrentPort;
         int avg = port >= 0 && port < eco.States.Count ? Shipyard.PriceIndexAverage(eco.States[port].PriceIndex) : 50;
         var prices = p.Ships.Select(s => Shipyard.SellPrice(start.ShipTypes[s.Type].Price, s.Grade, avg)).ToList();
@@ -324,7 +324,7 @@ public sealed class SeaMapWindow : Window
         if (pick == 3)
         {
             int type = Palace.ShipAid(vm.Memory, nation);
-            if (type < 0 || _host.StartTables is not { } st || type >= st.ShipTypes.Count) { Note(" · 지금 내어 줄 배는 없다고 합니다"); return; }
+            if (type < 0 || _host.StartTables is not { } st || type >= st.ShipTypes.Count) { Note(M(0x1CD, "지금 내어 줄 배는 없다고 합니다")); return; }
             if (_host.Player.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
             int mate = _host.FreeMate;
             if (mate < 0) { Note(" · 배를 맡을 항해사가 없습니다"); return; }
@@ -340,7 +340,7 @@ public sealed class SeaMapWindow : Window
         _host.Player.SetGold(gold);
         Note(got switch
         {
-            0 => " · 지금 내어 줄 자금은 없다고 합니다",
+            0 => M(0x1CD, "지금 내어 줄 자금은 없다고 합니다"),
             < 0 => " · 더는 가질 수 없습니다",
             _ => $" · 자금 {got}을 받았습니다",
         });
@@ -362,8 +362,8 @@ public sealed class SeaMapWindow : Window
         Note(result switch
         {
             ItemShop.Result.Bought => $" · {Josa(items[pick].Name, "을", "를")} {items[pick].Price}에 샀습니다",
-            ItemShop.Result.Owned => " · 이미 가지고 있습니다",
-            ItemShop.Result.Poor => " · 돈이 모자랍니다",
+            ItemShop.Result.Owned => M(0x14C, "이미 가지고 있습니다"),
+            ItemShop.Result.Poor => M(0xEF, "돈이 모자랍니다"),
             _ => " · 더 가질 수 없습니다",
         });
     }
@@ -373,12 +373,12 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Scenario is not { } vm) return;
         var owned = ItemShop.Owned(vm.Memory).Select(i => ItemShop.Get(vm.Memory, i)).ToList();
-        if (owned.Count == 0) { Note(" · 팔 것이 없습니다"); return; }
+        if (owned.Count == 0) { Note(M(0xF3, "팔 것이 없습니다")); return; }
         int pick = BuildingMenu.Ask(this, "매각", owned.Select(it => it.Name).ToList());
         if (pick < 0) return;
         var item = owned[pick];
-        if ((item.Kind & 0x10) != 0) { Note(" · 그것은 팔 수 없습니다"); return; }
-        if (item.Power == 0) { Note(" · 그런 것은 받지 않습니다"); return; }
+        if ((item.Kind & 0x10) != 0) { Note(M(0x14D, "그것은 팔 수 없습니다")); return; }
+        if (item.Power == 0) { Note(M(0x3A1, "그런 것은 받지 않습니다")); return; }
         int hero = _host.HeroPersonNumber, offer = ItemShop.Offer(item);
         while (true)
         {
@@ -434,13 +434,13 @@ public sealed class SeaMapWindow : Window
         {
             Note(pick switch
             {
-                0 when p.Balance < 0 => " · 빚이 있으면 예금할 수 없습니다",
-                0 when p.Gold <= Bank.DepositFloorGold => " · 1000 넘게 가져와야 예금할 수 있습니다",
-                0 => " · 더는 맡길 수 없습니다",
-                1 => " · 맡긴 돈이 없습니다",
-                2 when p.Balance > 0 => " · 예금이 있으면 빌릴 수 없습니다",
-                2 => " · 더는 빌려 드릴 수 없습니다",
-                _ => " · 갚을 빚이 없습니다",
+                0 when p.Balance < 0 => M(0x66, "빚이 있으면 예금할 수 없습니다"),
+                0 when p.Gold <= Bank.DepositFloorGold => M(0x64, "1000 넘게 가져와야 예금할 수 있습니다"),
+                0 => M(0x65, "더는 맡길 수 없습니다"),
+                1 => M(0x68, "맡긴 돈이 없습니다"),
+                2 when p.Balance > 0 => M(0x6F, "예금이 있으면 빌릴 수 없습니다"),
+                2 => M(0x71, "더는 빌려 드릴 수 없습니다"),
+                _ => M(0x76, "갚을 빚이 없습니다"),
             });
             return;
         }
@@ -448,7 +448,13 @@ public sealed class SeaMapWindow : Window
         int n = AmountDialog.Ask(this, $"{names[pick]} — 돈 {p.Gold} · {balance}", most);
         if (n <= 0) return;
         p.Transfer(pick is 0 or 3 ? n : -n);
-        Note($" · {names[pick]} {n}");
+        Note(pick switch
+        {
+            0 => M(0x6A, $"예금 {n}", n),
+            1 => M(0x6E, $"출금 {n}", n),
+            2 => M(0x74, $"대출 {n}", n) + M(0x75, ""),
+            _ => M(0x78, $"상환 {n}"),
+        });
     }
 
     /// <summary>교역소 「투자」 · 조선소 「공업투자」 — 이달 투자에 더하고 주인공 나라의 몫을 올린다(<see cref="Economy.Invest"/>).</summary>
@@ -517,14 +523,14 @@ public sealed class SeaMapWindow : Window
                 var answer = Navigators.Ask(m, nav, hero, _host.HeroRank, _host.Roll, out int wage, needLiking: pub);
                 switch (answer)
                 {
-                    case Navigators.Answer.AlreadyBound: Note($" · {Josa(name, "은", "는")} 이미 매인 몸입니다"); return;
-                    case Navigators.Answer.NoRoom: Note(" · 동료 칸이 다 찼습니다"); return;
-                    case Navigators.Answer.NotFriendly: Note($" · {Josa(name, "은", "는")} 아직 마음을 열지 않았습니다"); continue;
-                    case Navigators.Answer.Refused: Note($" · {Josa(name, "이", "가")} 거절했습니다"); return;
+                    case Navigators.Answer.AlreadyBound: Note(M(0x31, $"{Josa(name, "은", "는")} 이미 매인 몸입니다")); return;
+                    case Navigators.Answer.NoRoom: Note(M(0x8C, "동료 칸이 다 찼습니다")); return;
+                    case Navigators.Answer.NotFriendly: Note(M(0x8D, $"{Josa(name, "은", "는")} 아직 마음을 열지 않았습니다")); continue;
+                    case Navigators.Answer.Refused: Note(M(0x91, $"{Josa(name, "이", "가")} 거절했습니다")); return;
                 }
-                if (MessageBox.Show(this, $"{name}: 한 달에 {wage}씩 주신다면 따르겠습니다.", "고용", MessageBoxButton.YesNo)
-                    != MessageBoxResult.Yes) { Note(" · 고용하지 않았습니다"); return; }
-                if (Navigators.Join(m, nav, hero, wage)) Note($" · {Josa(name, "이", "가")} 동료가 되었습니다(급여 {wage})");
+                if (MessageBox.Show(this, $"{name}: " + M(0x8E, $"한 달에 {wage}씩 주신다면 따르겠습니다.", wage)[3..], "고용", MessageBoxButton.YesNo)
+                    != MessageBoxResult.Yes) { Note(M(0x8F, "고용하지 않았습니다")); return; }
+                if (Navigators.Join(m, nav, hero, wage)) Note($" · {Josa(name, "이", "가")} 동료가 되었습니다(급여 {wage})" + M(0x90, ""));
                 return;
             }
             else { Note(" · 결투는 아직 없습니다"); return; }
@@ -549,19 +555,19 @@ public sealed class SeaMapWindow : Window
     private void HireCrew()
     {
         var p = _host.Player;
-        if (p.Vacancy == 0) { Note(" · 더 태울 자리가 없습니다"); return; }
-        if (p.Gold < Pub.MinGold) { Note(" · 돈이 모자랍니다"); return; }
+        if (p.Vacancy == 0) { Note(M(0x1D, "더 태울 자리가 없습니다")); return; }
+        if (p.Gold < Pub.MinGold) { Note(M(0x1E, "돈이 모자랍니다")); return; }
         int port = _host.CurrentPort;
         if (_host.Economy is not { } eco || port < 0 || port >= eco.States.Count || _host.HeroRecord is not { } hero) return;
         int economy = eco.States[port].Economy, price = Pub.Price(economy);
         int available = Pub.Available(economy, hero.Stats.Length > 6 ? hero.Stats[6] : 0, _host.HeroRank);
-        if (available == 0) { Note(" · 지금은 일하려는 사람이 없습니다"); return; }
+        if (available == 0) { Note(M(0x7B, "지금은 일하려는 사람이 없습니다")); return; }
         int most = Pub.MostHirable(available, p.Gold, price, p.Vacancy);
         int n = AmountDialog.Ask(this, $"선원 고용 — {available}명이 일하겠답니다 · 한 사람 {price} · 빈 자리 {p.Vacancy}", most);
         if (n <= 0) return;
         int hired = p.Hire(n, price);
         _host.SyncLoad();
-        Note($" · 선원 {hired}명을 {hired * price}에 고용했습니다");
+        Note(M(0x79, $"선원 {hired}명을 {hired * price}에 고용했습니다", hired) + $" · 금화 {hired * price}");
     }
 
     /// <summary>교역소 「구입」 — 고른 교역품을 수만큼 산다(<see cref="Economy.ForSale"/> 값, <see cref="PlayerState.Buy"/>).</summary>
@@ -597,6 +603,10 @@ public sealed class SeaMapWindow : Window
         _host.SyncLoad();
         Note($" · {eco.GoodsNames[good]} {sold}통을 {sold * price}에 팔았습니다");
     }
+
+    /// <summary>게임 말 하나를 상태줄 글로 — 줄 바꿈은 띄어 쓰고, 말이 없으면 <paramref name="fallback"/>.</summary>
+    private string M(int id, string fallback, params object[] args) =>
+        " · " + (_host.Messages is { } m && m[id].Length > 0 ? m.Format(id, args).Replace('\n', ' ') : fallback);
 
     private void Note(string text)
     {
