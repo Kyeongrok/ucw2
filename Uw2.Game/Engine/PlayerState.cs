@@ -77,6 +77,34 @@ public sealed class PlayerState
     /// <summary>모든 배의 빈 자리.</summary>
     public int Free => Ships.Sum(s => s.Free);
 
+    public const int Water = 0, Food = 1;
+
+    /// <summary>물 · 식량 비율 0~100(<c>0x0045BDA9</c> · <c>0x0045BDAA</c>) — 새 게임은 0, 「식량할당」 따위가 올리고 내린다(<c>0x00441800</c>).</summary>
+    public int WaterRate { get; set; }
+    public int FoodRate { get; set; }
+
+    /// <summary>
+    /// 바다의 하루 — 배마다 식량 다음 물을 먹는다(<c>0x00417480</c> · <c>0x004176F0</c>).
+    /// 먹는 양은 <c>선원 x 비율 / 100 + 1</c>(<see cref="DailyUse"/>)이고 제 배에 없으면 그것이 있는 앞 배에서 꺼낸다.
+    /// 아무 배에도 없던 것의 수를 돌려준다(원본은 그때 사기를 깎는다 — 0x004176B0).
+    /// </summary>
+    public int ConsumeDay()
+    {
+        int lacking = 0;
+        foreach (var ship in Ships)
+            foreach (int kind in (int[])[Food, Water])
+            {
+                int need = DailyUse(ship.Crew, kind == Food ? FoodRate : WaterRate);
+                var from = ship.Supplies[kind] > 0 ? ship : Ships.FirstOrDefault(s => s.Supplies[kind] > 0);
+                if (from == null) { lacking++; continue; }
+                from.Supplies[kind] -= Math.Min(need, from.Supplies[kind]);
+            }
+        return lacking;
+    }
+
+    /// <summary>하루에 먹는 양 — <c>선원 x 비율 / 100 + 1</c>(<c>0x004175C3</c>). 원본은 깃발 0x0045A1A8 &amp; 0x1800 이면 / 200 이다.</summary>
+    public static int DailyUse(int crew, int rate) => crew * rate / 100 + 1;
+
     /// <summary>모든 배의 선원 빈 자리.</summary>
     public int Vacancy => Ships.Sum(s => s.Vacancy);
 

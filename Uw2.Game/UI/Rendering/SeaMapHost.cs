@@ -244,6 +244,11 @@ public sealed class SeaMapHost : HwndHost
         if (Map != null && Chips != null)
         {
             Fleet = new Fleet(Map, Chips, Wind);
+            Fleet.NewDay += () =>
+            {
+                Player.ConsumeDay();
+                SyncLoad();
+            };
             Fleet.NewMonth += () =>
             {
                 Player.NewMonth();

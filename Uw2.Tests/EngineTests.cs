@@ -219,4 +219,20 @@ public class EngineTests
         Assert.Equal([60, 25, 15, 0, 0, 0], eco.States[0].Shares);
         Assert.Equal(49000, eco.MaxInvest(0, false, 90000));
     }
+
+    [Fact]
+    public void ShipsEatFromTheirOwnHoldThenFromTheFirstThatHasIt()
+    {
+        var p = new PlayerState(0) { FoodRate = 50, WaterRate = 0 };
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "앞", Room = 200, Crew = 20 });
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "뒤", Room = 200, Crew = 10 });
+        p.Ships[0].Supplies[PlayerState.Food] = 30;
+        p.Ships[0].Supplies[PlayerState.Water] = 5;
+        Assert.Equal(0, p.ConsumeDay());
+        // 앞 배: 식량 20 x 50 / 100 + 1 = 11, 물 1. 뒤 배는 제 것이 없어 앞 배에서 식량 6 · 물 1
+        Assert.Equal(30 - 11 - 6, p.Ships[0].Supplies[PlayerState.Food]);
+        Assert.Equal(5 - 2, p.Ships[0].Supplies[PlayerState.Water]);
+        p.Ships[0].Supplies[PlayerState.Water] = 0;
+        Assert.Equal(2, p.ConsumeDay());                     // 두 배 다 물이 없다
+    }
 }

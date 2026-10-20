@@ -178,12 +178,16 @@ public sealed class Fleet
             DaysAtSea++;
             Date.NextDay();
             Weather.NewDay();
+            NewDay?.Invoke();
             if (Date.Day == 0) NewMonth?.Invoke();
         }
     }
 
     /// <summary>달이 바뀌었을 때(<c>0x0043AA52</c> — 은행 이자 따위).</summary>
     public event Action? NewMonth;
+
+    /// <summary>바다에서 하루가 지났을 때(<c>0x00417930</c> — 물 · 식량 따위).</summary>
+    public event Action? NewDay;
 
     private bool _windSet;
 
