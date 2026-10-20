@@ -23,6 +23,33 @@ public static class Barmaids
 
     public static int Get(ScenarioMemory m, int i, int field) => m.Read(At(i, field), false);
 
+    /// <summary>함대 조사(일 3) — +0x10 나라(아래 넷) | 함대 갈래 &lt;&lt; 4(0xFF 없음), +0x11 남은 날(<c>0x00426040</c>).</summary>
+    public const int Probe = 0x10, ProbeDays = 0x11, NoProbe = 0xFF;
+
+    /// <summary>나라마다 함대 칸 0 ~ 9 가운데 갈래 k 가 쓰는 것 — [표[k], 표[k + 1])(<c>0x00458A9C</c>).</summary>
+    public static ReadOnlySpan<byte> ProbeFleets => [1, 5, 7, 10];
+
+    /// <summary>
+    /// 조사를 맡긴다 — 날 = rand(3) + (110 − 호감) / ((첩보 + 1) x 5). 첩보는 주인공 +0x31 &amp; 0x10 이 서 있느냐(0x0042610A). 날을 돌려준다.
+    /// </summary>
+    public static int Commission(ScenarioMemory m, int i, int nation, int kind, bool spy, Func<int, int> rand)
+    {
+        int days = rand(3) + (110 - Get(m, i, Liking)) / ((spy ? 2 : 1) * 5);
+        m.Write(At(i, Probe), (nation & 0xF) | (kind & 0xF) << 4, false);
+        m.Write(At(i, ProbeDays), Math.Clamp(days, 0, 0xFE), false);
+        return days;
+    }
+
+    /// <summary>하루가 지났다 — 맡긴 조사의 남은 날을 하나씩 줄인다.</summary>
+    public static void NewDay(ScenarioMemory m)
+    {
+        for (int i = 0; i < Count; i++)
+            if (Get(m, i, Probe) != NoProbe && Get(m, i, ProbeDays) is > 0 and var d) m.Write(At(i, ProbeDays), d - 1, false);
+    }
+
+    /// <summary>보고를 마쳤다 — 조사 칸을 비운다(<c>0x004263CE</c>).</summary>
+    public static void EndProbe(ScenarioMemory m, int i) => m.Write(At(i, Probe), NoProbe, false);
+
     public static int InPort(ScenarioMemory m, int port)
     {
         for (int i = 0; i < Count; i++)

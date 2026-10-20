@@ -1231,6 +1231,7 @@ public sealed class SeaMapHost : HwndHost
             if (Fleet.DaysAtSea != day)
             {
                 foreach (var npc in Others) npc.NewDay();
+                if (Scenario != null) Uw2.Game.Engine.Town.Barmaids.NewDay(Scenario.Memory);
                 int today = Fleet.DaysAtSea;
                 Dispatcher.BeginInvoke(() => SeaDay?.Invoke(today));
             }

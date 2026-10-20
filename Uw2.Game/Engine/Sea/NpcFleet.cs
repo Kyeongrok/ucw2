@@ -45,6 +45,7 @@ public sealed class NpcFleet
         Index = record.Index;
         _cellX = record.X; _cellY = record.Y;
         Heading = record.Heading & 7;
+        Admiral = record.Admiral;
         var admiral = start.People[Math.Clamp(record.Admiral, 0, start.People.Count - 1)];
         _navLevel = admiral.NavLevel; _seamanship = admiral.Seamanship;
         _ships = [.. record.Slots.Where(s => s.Present).Select(s =>
@@ -57,6 +58,9 @@ public sealed class NpcFleet
     }
 
     public int Index { get; }
+
+    /// <summary>제독 사람 번호 — 함대 +0x2A.</summary>
+    public int Admiral { get; }
     public int Heading { get; private set; }
     public double X => _cellX + _subX / (double)Sailing.CellUnits;
     public double Y => _cellY + _subY / (double)Sailing.CellUnits;

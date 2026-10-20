@@ -623,4 +623,19 @@ public class EngineTests
         ship.SetShares(120, 5);
         Assert.Equal((100, 0), (ship.SailShare, ship.GunShare));
     }
+
+    [Fact]
+    public void BarmaidFleetProbeTakesDaysByLikingAndCountsDown()
+    {
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Town.Barmaids.Table, Enumerable.Repeat((byte)0xFF, 19 * 30).ToArray());
+        m.Write(Uw2.Game.Engine.ScenarioMemory.At(5, 2, Uw2.Game.Engine.Town.Barmaids.Liking), 60, false);
+        int days = Uw2.Game.Engine.Town.Barmaids.Commission(m, 2, 3, 1, spy: false, _ => 2);
+        Assert.Equal(2 + 50 / 5, days);
+        Assert.Equal(3 | 1 << 4, Uw2.Game.Engine.Town.Barmaids.Get(m, 2, Uw2.Game.Engine.Town.Barmaids.Probe));
+        Uw2.Game.Engine.Town.Barmaids.NewDay(m);
+        Assert.Equal(days - 1, Uw2.Game.Engine.Town.Barmaids.Get(m, 2, Uw2.Game.Engine.Town.Barmaids.ProbeDays));
+        Assert.Equal(255, Uw2.Game.Engine.Town.Barmaids.Get(m, 3, Uw2.Game.Engine.Town.Barmaids.ProbeDays));   // 맡기지 않은 이는 그대로
+        Assert.Equal(2 + 50 / 10, Uw2.Game.Engine.Town.Barmaids.Commission(m, 2, 3, 1, spy: true, _ => 2));
+    }
 }

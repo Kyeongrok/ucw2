@@ -285,7 +285,53 @@ public sealed class SeaMapWindow : Window
     /// </code>
     /// 원본은 주인공 +0x31 의 0x10 이면 늘 알려 준다. 3 은 아직이다. 7 · 8(왕궁 · 총독부 편지)은 나라와 항구 자리를 일러 준다.
     /// </summary>
-    private void JobInfo(int maid)
+    private void JobInfo(int maid) => JobInfoFor(maid);
+
+    /// <summary>
+    /// 여급 함대 조사(일 3, <c>0x00425FC0</c>) — 맡긴 것이 없으면 나라(0x216) · 함대 갈래(0x217)를 받아 맡기고 걸릴 날을 말한다(0x218).
+    /// 날이 남았으면 0x219, 다 지났으면 그 나라 · 갈래의 함대마다 제독과 자리를 알린다(0x21A ~ 0x22A, <c>0x00426160</c>).
+    /// 바다에 없는 함대는 「전멸」(0x22C). 함대가 무엇을 하는지(움직임 갈래 +0x1B) 와 짐 줄은 남 함대 셈이 그 칸을 안 가져 아직 뺐다.
+    /// 날은 바다에서 하루가 갈 때마다 준다.
+    /// </summary>
+    private void ProbeFleet(int maid)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        int probe = Barmaids.Get(m, maid, Barmaids.Probe);
+        string[] nations = [.. NationNames, "해적"];
+        string[] Kinds(int nation) => nation == 6 ? ["카리브해적", "코르세르", "사략선대"] : ["상선대", "경비함대", "외양함대"];
+        if (probe == Barmaids.NoProbe)
+        {
+            int nation = BuildingMenu.Ask(this, MsgOr(0x216, "어느 나라의 함대를 조사하면 되죠？"), [.. nations]);
+            if (nation < 0) return;
+            int kind = BuildingMenu.Ask(this, MsgOr(0x217, "어떤 함대인가요？"), [.. Kinds(nation)]);
+            if (kind < 0) return;
+            int days = Barmaids.Commission(m, maid, nation, kind, (HeroField(0x31) & 0x10) != 0, Random.Shared.Next);
+            Say(0x218, $"알았어요. 조사해 두겠어요.\n그렇지만 {days}일 정도 걸릴걸요.", days);
+            return;
+        }
+        if (Barmaids.Get(m, maid, Barmaids.ProbeDays) > 0) { Say(0x219, "죄송해요. 아직 조사가 끝나지 않았어요."); return; }
+        int n = probe & 0xF, k = Math.Min(2, probe >> 4);
+        string kindName = Kinds(n)[k];
+        Say(0x21A, "그렇지, 요전에 의뢰한 조사는 끝났어요.");
+        SayText((n == 6 ? "" : MsgOr(0x21B, $"{nations[Math.Min(n, 6)]}의 ", nations[Math.Min(n, 6)])) + MsgOr(0x21C, $"{kindName}에 관한 정보였었죠？", kindName));
+        for (int j = Barmaids.ProbeFleets[k]; j < Barmaids.ProbeFleets[k + 1]; j++)
+        {
+            var fleet = _host.Others.FirstOrDefault(f => f.Index == n * 10 + j);
+            int number = j - Barmaids.ProbeFleets[k] + 1;
+            if (fleet == null) { Say(0x22C, $"제{number}함대는 전멸했습니다.", number); continue; }
+            string admiral = _host.PersonName(fleet.Admiral);
+            var (north, lat, east, lon) = Pub.Degrees((int)fleet.X, (int)fleet.Y);
+            SayText(MsgOr(0x21D, $"{admiral}제독의 함대는 ", admiral) + (fleet.Docked ? "항구에 머물고 있어요." : "") + "\n"
+                    + MsgOr(0x229, "숙련된 항해사의 말대로라면, 현재 위치는 ")
+                    + MsgOr(north ? 0x7E : 0x7F, $"{(north ? "북위" : "남위")} {lat}도, ", lat)
+                    + MsgOr(east ? 0x80 : 0x81, $"{(east ? "동경" : "서경")} {lon}도", lon)
+                    + MsgOr(0x22A, "근처가 아닐까？"));
+        }
+        Barmaids.EndProbe(m, maid);
+    }
+
+    private void JobInfoFor(int maid)
     {
         if (_host.Common is not { } job || _host.Scenario is not { } vm || _host.Economy is not { } eco || _host.Ports is not { } ports)
         {
@@ -298,6 +344,7 @@ public sealed class SeaMapWindow : Window
         string Region(int market) => MsgOr(0x181 + market, "");
         switch (kind)
         {
+            case 3: ProbeFleet(maid); return;
             case 5: Say(0x24D, "주점 손님 중에 아는 사람이 있을지도 모르죠."); return;
             case 9: Say(0x24A, "그 항구의 교역소나 조선소에 투자하는 것이 좋겠지요."); return;
             case 10: Say(0x24B, "부락 주민들의 힘을 빌리면 발견할 수 있을 지도 모르겠네요."); return;
