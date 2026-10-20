@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Uw2.Game.Engine;
 using Uw2.Game.Engine.Sea;
+using Uw2.Game.Engine.Town;
 using Uw2.Game.UI.Rendering;
 using Uw2.Support.Local.Formats;
 using Uw2.Support.Local.Helpers;
@@ -31,7 +32,7 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1;
 
     /// <summary>항구 「보급」 — 넷 가운데 하나를 단(열 통)으로 싣는다(<see cref="Economy.SupplyPrice"/>).</summary>
     private void ShowSupplies()
@@ -99,9 +100,29 @@ public sealed class SeaMapWindow : Window
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
         if (b == TradeBuilding && pick == 1) { SellGoods(); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
+        if (b == PubBuilding && pick == 0) { HireCrew(); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>주점 「선원 고용」 — 올 사람 · 값은 원본 셈(<see cref="Pub"/>), 앞 배부터 빈 자리를 채운다.</summary>
+    private void HireCrew()
+    {
+        var p = _host.Player;
+        if (p.Vacancy == 0) { Note(" · 더 태울 자리가 없습니다"); return; }
+        if (p.Gold < Pub.MinGold) { Note(" · 돈이 모자랍니다"); return; }
+        int port = _host.CurrentPort;
+        if (_host.Economy is not { } eco || port < 0 || port >= eco.States.Count || _host.HeroRecord is not { } hero) return;
+        int economy = eco.States[port].Economy, price = Pub.Price(economy);
+        int available = Pub.Available(economy, hero.Stats.Length > 6 ? hero.Stats[6] : 0, rank: 0);
+        if (available == 0) { Note(" · 지금은 일하려는 사람이 없습니다"); return; }
+        int most = Pub.MostHirable(available, p.Gold, price, p.Vacancy);
+        int n = AmountDialog.Ask(this, $"선원 고용 — {available}명이 일하겠답니다 · 한 사람 {price} · 빈 자리 {p.Vacancy}", most);
+        if (n <= 0) return;
+        int hired = p.Hire(n, price);
+        _host.SyncLoad();
+        Note($" · 선원 {hired}명을 {hired * price}에 고용했습니다");
     }
 
     /// <summary>교역소 「구입」 — 고른 교역품을 수만큼 산다(<see cref="Economy.ForSale"/> 값, <see cref="PlayerState.Buy"/>).</summary>

@@ -419,8 +419,12 @@ public sealed class SeaMapHost : HwndHost
         if (StartTables is not { } start || Fleet == null) return false;
         if (type < 0 || type >= start.ShipTypes.Count || Player.Ships.Count >= MaxShips) return false;
         var t = start.Templates.Count > type ? start.Templates[type] : default;
-        Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], start.People[HeroPerson[Hero]], t.Oars));
-        Player.Ships.Add(new PlayerState.Ship { Type = type, Name = t.Name ?? "", Room = t.CargoRoom });
+        // 새 배는 선원 없이 온다(0x0043DF6A) — 주점에서 고용한다.
+        Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], start.People[HeroPerson[Hero]], t.Oars) with { Crew = 0 });
+        Player.Ships.Add(new PlayerState.Ship
+        {
+            Type = type, Name = t.Name ?? "", Room = t.CargoRoom, MaxCrew = start.ShipTypes[type].MaxCrew,
+        });
         SyncLoad();
         return true;
     }
@@ -428,13 +432,17 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>돈과 짐. 주인공을 정하면 새로 만든다.</summary>
     public PlayerState Player { get; private set; } = new(0);
 
-    /// <summary>짐이 바뀌면 부른다 — 배의 빠르기 셈에 짐 몫(180 - 짐%)을 넣는다.</summary>
+    /// <summary>짐 · 선원이 바뀌면 부른다 — 배의 빠르기 셈에 짐 몫(180 - 짐%)과 선원 몫을 넣는다.</summary>
     public void SyncLoad()
     {
         if (Fleet == null) return;
         for (int i = 0; i < Fleet.Ships.Count && i < Player.Ships.Count; i++)
-            Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load };
+            Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load, Crew = Player.Ships[i].Crew };
     }
+
+    /// <summary>주인공 사람 기록 — 주점 셈(매력)이 쓴다.</summary>
+    public StartData.Person? HeroRecord =>
+        StartTables is { } start && HeroPerson[Hero] < start.People.Count ? start.People[HeroPerson[Hero]] : null;
 
     /// <summary>주인공을 정하고 그 사람을 선장으로 배를 다시 태운다.</summary>
     public void SetHero(int hero)
@@ -464,7 +472,8 @@ public sealed class SeaMapHost : HwndHost
         int type = person < start.HeroShips.Count && start.HeroShips[person] is >= 0 and var t ? t : StandInShipType;
         bool oars = type < start.Templates.Count && start.Templates[type].Oars;
         ShipName = type < start.Templates.Count ? start.Templates[type].Name : "";
-        fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], captain, oars));
+        var first = ShipSailing.Fresh(start.ShipTypes[type], captain, oars);
+        fleet.Ships.Add(first);
         int gold = person < start.HeroGold.Count ? start.HeroGold[person] : 0;
         Player = new PlayerState(gold);
         Player.Ships.Add(new PlayerState.Ship
@@ -472,6 +481,8 @@ public sealed class SeaMapHost : HwndHost
             Type = type,
             Name = ShipName,
             Room = type < start.Templates.Count ? start.Templates[type].CargoRoom : start.ShipTypes[type].Capacity,
+            Crew = first.Crew,
+            MaxCrew = first.Crew,
         });
     }
 

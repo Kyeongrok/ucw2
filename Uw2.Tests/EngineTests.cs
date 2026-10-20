@@ -137,4 +137,20 @@ public class EngineTests
         for (int g = 0; g < 6; g++) p.Buy(g, 10, 1);
         Assert.Equal(5, p.CargoTotals().Count);         // 여섯째 교역품은 칸이 없다
     }
+
+    [Fact]
+    public void PubHiresByEconomyAndCharmThenFillsShipsInOrder()
+    {
+        // 경제 900 · 매력 90(몫 30): 올 사람 min(900 x 30 / 500 = 54, (0 + 1) x 30) = 30, 값 900 / 20 + 5 = 50
+        Assert.Equal(50, Uw2.Game.Engine.Town.Pub.Price(900));
+        Assert.Equal(30, Uw2.Game.Engine.Town.Pub.Available(900, 90, 0));
+        Assert.Equal(54, Uw2.Game.Engine.Town.Pub.Available(900, 90, 1));
+        var p = new PlayerState(1000);
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "앞", Room = 80, MaxCrew = 20, Crew = 15 });
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "뒤", Room = 80, MaxCrew = 20 });
+        Assert.Equal(20, Uw2.Game.Engine.Town.Pub.MostHirable(30, p.Gold, 50, p.Vacancy));   // 돈 1000 / 50
+        Assert.Equal(20, p.Hire(20, 50));
+        Assert.Equal((20, 15), (p.Ships[0].Crew, p.Ships[1].Crew));
+        Assert.Equal(0, p.Gold);
+    }
 }

@@ -32,6 +32,14 @@ public sealed class PlayerState
 
         public int Load => Supplies.Sum() + Cargo.Sum(c => c.Amount);
         public int Free => Math.Max(0, Room - Load);
+
+        /// <summary>선원 — 함대 칸 +0(낱말). 새로 지은 배는 0 이다(<c>0x0043DF6A</c>).</summary>
+        public int Crew { get; set; }
+
+        /// <summary>최대 선원 — 배 기록 +0x12.</summary>
+        public int MaxCrew { get; init; }
+
+        public int Vacancy => Math.Max(0, MaxCrew - Crew);
     }
 
     public int Gold { get; private set; }
@@ -44,6 +52,25 @@ public sealed class PlayerState
 
     /// <summary>모든 배의 빈 자리.</summary>
     public int Free => Ships.Sum(s => s.Free);
+
+    /// <summary>모든 배의 선원 빈 자리.</summary>
+    public int Vacancy => Ships.Sum(s => s.Vacancy);
+
+    /// <summary>선원을 고용한다 — 앞 배부터 빈 자리를 채우고 한 사람 값을 낸다. 실제로 쓴 수를 돌려준다.</summary>
+    public int Hire(int count, int price)
+    {
+        if (price > 0) count = Math.Min(count, Gold / price);
+        int hired = 0;
+        foreach (var ship in Ships)
+        {
+            int n = Math.Min(count - hired, ship.Vacancy);
+            if (n <= 0) continue;
+            ship.Crew += n;
+            hired += n;
+        }
+        Gold -= hired * price;
+        return hired;
+    }
 
     /// <summary>
     /// 교역품을 산다 — 같은 교역품이 든 칸에 먼저, 없으면 빈 칸에 넣으며 배를 차례로 채운다. 실제로 산 양을 돌려준다.
