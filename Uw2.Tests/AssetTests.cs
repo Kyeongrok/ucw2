@@ -485,6 +485,7 @@ public class AssetTests
         Assert.Equal("후추라면 ", m.Format(0xCA, "후추"));
         Assert.Equal("비단이라면 ", m.Format(0xCA, "비단"));
         Assert.StartsWith("카를로타라고", m.Format(0x146, "카를로타"));
+        Assert.StartsWith("１５22년5월17일\n조안 페레로가 탄 배는", m.Format(0x3F7, "22", 5, 17, "조안", "페레로", "조안", "페레로"));   // 묘비 — %w
         Assert.Equal("그럼 금화 500닢을 입금시키겠습니다. 이율은 월 3%입니다.", m.Format(0x6A, 500));
     }
 

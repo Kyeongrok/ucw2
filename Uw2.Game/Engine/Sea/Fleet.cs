@@ -104,10 +104,13 @@ public sealed class Fleet
     public void SleepUntilMorning()
     {
         TimeOfDay = MorningTick;
-        Date.NextDay();
+        if (Date.NextDay()) Ended?.Invoke();
         Weather.NewDay();
         if (Date.Day == 0) NewMonth?.Invoke();
     }
+
+    /// <summary>해가 <see cref="GameDate.LastYear"/> 를 넘었다 — 서른 해 항해의 끝(<c>0x0043A897</c>, 끝 깃발 0x10).</summary>
+    public event Action? Ended;
 
     /// <summary>세이브에 담을 자리 · 날짜.</summary>
     public SaveGame.FleetState Export() => new()
@@ -214,7 +217,7 @@ public sealed class Fleet
         {
             TimeOfDay = 0;
             DaysAtSea++;
-            Date.NextDay();
+            if (Date.NextDay()) Ended?.Invoke();
             Weather.NewDay();
             NewDay?.Invoke();
             if (Date.Day == 0) NewMonth?.Invoke();

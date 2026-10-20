@@ -1290,6 +1290,7 @@ public sealed class SeaMapWindow : Window
 
         _host.Painted += UpdateStatus;
         _host.SeaDay += OnSeaDay;
+        _host.GameOver += OnGameOver;
         _host.Sighted += OnSighted;
         _host.DiseaseCaught += name =>
         {
@@ -2002,6 +2003,33 @@ public sealed class SeaMapWindow : Window
         }
         _host.Invalidate();
         Retitle();
+    }
+
+    /// <summary>게임이 끝나 제목으로 돌아간다.</summary>
+    public event Action? Ended;
+
+    private bool _over;
+
+    /// <summary>
+    /// 게임 끝(<c>0x004042C0</c>) — 끝 깃발 0x10 → 말 0x3F8(서른 해 은퇴), 0x18 → 0x3F6(폭풍), 0x19 → 0x1BA 뒤 0x3F7(선원 없음), 0x1A → 0x3F5(해전).
+    /// 묘비 글은 「１５%w년%w월%w일」 과 주인공 이름 · 성 둘씩이다. 다 보이면 제목으로 돌아간다.
+    /// </summary>
+    private void OnGameOver(int reason)
+    {
+        if (_over) return;
+        _over = true;
+        _host.Sailing = false;
+        if (reason == SeaMapHost.EndNoCrew) Say(0x1BA, "선원이 한 사람도 안 남았습니다. 더이상 항해를 계속할 수 없습니다.");
+        int id = reason switch
+        {
+            SeaMapHost.EndRetire => 0x3F8, SeaMapHost.EndStorm => 0x3F6, SeaMapHost.EndNoCrew => 0x3F7, _ => 0x3F5,
+        };
+        var d = _host.Fleet?.Date ?? GameDate.NewGame;
+        var (name, family) = _host.HeroName;
+        string yy = $"{(d.Year + 1) % 100:00}";
+        Say(id, $"{name} {family}의 항해는 여기서 끝났다.", yy, d.Month + 1, d.Day + 1, name, family, name, family);
+        Ended?.Invoke();
+        Close();
     }
 
     /// <summary>

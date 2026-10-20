@@ -16,22 +16,27 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        ShowTitle();
+    }
 
+    /// <summary>제목 창 — 게임이 끝나면(<see cref="SeaMapWindow.Ended"/>) 다시 띄운다.</summary>
+    private void ShowTitle()
+    {
         var title = new TitleWindow();
-        title.HeroChosen += hero =>
+        bool started = false;
+        SeaMapWindow Open()
         {
+            started = true;
             var map = new SeaMapWindow { Title = "대항해시대2 — 항해" };
+            map.Ended += ShowTitle;
+            map.Closed += (_, _) => { if (Windows.Count == 0) Shutdown(); };
             map.Show();
-            map.ShowHomePort(hero);
-            title.Close();
-        };
-        title.SaveChosen += save =>
-        {
-            var map = new SeaMapWindow { Title = "대항해시대2 — 항해" };
-            map.Show();
-            map.LoadGame(save);
-            title.Close();
-        };
+            return map;
+        }
+        title.HeroChosen += hero => { Open().ShowHomePort(hero); title.Close(); };
+        title.SaveChosen += save => { Open().LoadGame(save); title.Close(); };
+        title.Closed += (_, _) => { if (!started && Windows.Count == 0) Shutdown(); };
         title.Show();
     }
 }

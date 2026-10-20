@@ -49,7 +49,7 @@ public sealed class GameMessages
                 // %5d · %ld · %1d 처럼 폭 · 길이가 붙은 것도 받는다.
                 int j = i + 1;
                 while (j < f.Length && (char.IsDigit(f[j]) || f[j] is '-' or 'l')) j++;
-                if (j < f.Length && f[j] is 's' or 'd' or 'u' or 'c')
+                if (j < f.Length && f[j] is 's' or 'd' or 'u' or 'c' or 'w')
                 {
                     sb.Append(k < args.Length ? args[k++]?.ToString() : "");
                     i = j;

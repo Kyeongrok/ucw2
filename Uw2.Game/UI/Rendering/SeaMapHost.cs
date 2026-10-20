@@ -253,7 +253,10 @@ public sealed class SeaMapHost : HwndHost
                 if (Player.DiseaseDay(Fleet.DaysAtSea, luck, nav, i => CaptainStat(i, 2), Roll, cat) is { } caught)
                     DiseaseCaught?.Invoke(caught);
                 SyncLoad();
+                // 선원이 한 사람도 없으면 항해를 이을 수 없다(0x00417C40 — 끝 깃발 0x19).
+                if (Player.Ships.Sum(s => s.Crew) == 0) Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndNoCrew));
             };
+            Fleet.Ended += () => Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndRetire));
             Fleet.NewMonth += () =>
             {
                 Player.NewMonth();
@@ -691,6 +694,13 @@ public sealed class SeaMapHost : HwndHost
 
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;
+
+    /// <summary>
+    /// 게임이 끝났다 — 끝 깃발(<c>0x00470294</c>): 0x10 서른 해 · 0x18 폭풍 · 0x19 선원 없음 · 0x1A 해전. <c>0x004042C0</c> 이 묘비 글을 띄운다.
+    /// </summary>
+    public event Action<int>? GameOver;
+
+    public const int EndRetire = 0x10, EndStorm = 0x18, EndNoCrew = 0x19, EndBattle = 0x1A;
 
     /// <summary>고양이 — 지니고 있으면 쥐 떼가 일지 않는다(<c>0x00435A5C</c>).</summary>
     public const int Cat = 0x19;
