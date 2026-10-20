@@ -24,6 +24,7 @@ namespace Uw2.Support.Local.Formats;
 ///     fleets.png         133x70   새 게임 함대 일흔(값 = 날바이트, SDATA.DAT 0x247B)
 ///     goods.json                  교역품 이름 마흔여섯 (KOUKAI2-han8.exe)
 ///     menus.json                  고르기 목록 예순하나 (MENU.DAT)
+///     snr/SNR0~6.DAT · .MES       시나리오 바이트코드 · 글(그대로 옮겨 둔 것)
 ///     start-ships.json            선종 본보기 스물다섯(이름 · 노 · 대포 · 자리)과 주인공 첫 선종(SNR1~6.DAT)
 ///     markets.png        128x13   시장 열셋(값 = 날바이트, SDATA.DAT 0x605A)
 ///     portstate.png      37x100   항구 형편 백(값 = 날바이트, SDATA.DAT 0x66DA)
@@ -119,6 +120,7 @@ public sealed class AssetPack
         BakeWalk(Find("PORTCHIP.LZW"), outDir);
         BakeDoors(Find("ZA_DAT.DAT"), outDir);
         if (File.Exists(Find("MENU.DAT"))) BakeMenus(Find("MENU.DAT"), outDir);
+        BakeScenario(gameDirectory, outDir);
         if (File.Exists(Find("KAO.LZW"))) BakeKao(Find("KAO.LZW"), outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
@@ -338,6 +340,18 @@ public sealed class AssetPack
         WriteJson(Path.Combine(outDir, "goods.json"), e.GoodsNames.ToArray());
         IndexedPng.Write(Path.Combine(outDir, "markets.png"), e.MarketBytes, Economy.MarketSize, Economy.MarketCount, DataPalette());
         IndexedPng.Write(Path.Combine(outDir, "portstate.png"), e.StateBytes, Economy.StateSize, Economy.StateCount, DataPalette());
+    }
+
+    /// <summary>시나리오 파일(SNR0~6.DAT · .MES)을 <c>snr/</c> 에 그대로 옮긴다.</summary>
+    public static void BakeScenario(string gameDirectory, string outDir)
+    {
+        Directory.CreateDirectory(Path.Combine(outDir, "snr"));
+        for (int n = 0; n <= 6; n++)
+            foreach (string ext in (string[])["DAT", "MES"])
+            {
+                string src = Path.Combine(gameDirectory, $"SNR{n}.{ext}");
+                if (File.Exists(src)) File.Copy(src, Path.Combine(outDir, "snr", $"SNR{n}.{ext}"), true);
+            }
     }
 
     /// <summary><c>MENU.DAT</c> 목록을 굽는다.</summary>

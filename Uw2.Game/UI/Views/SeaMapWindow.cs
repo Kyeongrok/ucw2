@@ -67,6 +67,15 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     private void EnterBuilding(int b)
     {
+        // 그 항구 · 건물에 시나리오 이벤트가 걸려 있으면 그것이 먼저다(0x00431FD9 → 0x0043F8C0).
+        var (name, family) = _host.HeroName;
+        if (_host.Scenario?.Enter(_host.CurrentPort, b, _host.Player.Gold, name, family) is { Lines.Count: > 0 } run)
+        {
+            ScenarioDialog.Play(this, run.Lines);
+            _host.Apply(run);
+            Note($" · 「{PortDoors.Names[b]}」 이벤트");
+            return;
+        }
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
         int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items);

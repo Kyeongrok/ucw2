@@ -39,6 +39,9 @@ public sealed class PlayerState
 
     public PlayerState(int gold) => Gold = Math.Clamp(gold, 0, MaxGold);
 
+    /// <summary>돈을 바로 매긴다 — 시나리오 돈 명령(E4 · E6 · E7)이 쓴다.</summary>
+    public void SetGold(int gold) => Gold = Math.Clamp(gold, 0, MaxGold);
+
     /// <summary>모든 배의 빈 자리.</summary>
     public int Free => Ships.Sum(s => s.Free);
 

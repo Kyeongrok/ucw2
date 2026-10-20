@@ -8,6 +8,16 @@ public class AssetTests
 {
     private static readonly AssetPack Pack = Load();
 
+    private static string AssetDir
+    {
+        get
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, AssetPack.FolderName))) dir = dir.Parent;
+            return Path.Combine(dir!.FullName, AssetPack.FolderName);
+        }
+    }
+
     private static AssetPack Load()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -107,5 +117,20 @@ public class AssetTests
         Assert.Contains(5, lisbon);                                           // 카라벨 라티나
         Assert.All(lisbon, t => Assert.True(types[t].Field0 * 10 <= eco.States[0].Industry));
         Assert.Equal([24, 23, 22], Economy.ShipyardTypes[9]);                 // 나가사키 갈래
+    }
+
+    [Fact]
+    public void JoaoMeetsHisFatherAtTheMansion()
+    {
+        string dir = Path.Combine(AssetDir, "snr");
+        var vm = new Uw2.Game.Engine.ScenarioVm(File.ReadAllBytes(Path.Combine(dir, "SNR1.DAT")),
+                                                ScenarioText.Load(Path.Combine(dir, "SNR1.MES")));
+        // 리스본(0) · NPC(7) — 조안의 집. 처음에는 아버지가 탐험을 명하고 배를 맡긴다.
+        var run = vm.Enter(0, 7, 1000, "조안", "페레로");
+        Assert.NotNull(run);
+        Assert.Contains(run!.Lines, l => l.Body.Contains("프레스터 존왕국"));
+        Assert.Contains(5, run.Ships);                                        // 카라벨 라티나
+        Assert.Contains(run.Lines, l => l.Speaker == "페레로 공작");          // §$s 공작§
+        Assert.Null(vm.Enter(5, 7, 1000, "조안", "페레로"));                  // 튀니스에는 걸린 것이 없다
     }
 }

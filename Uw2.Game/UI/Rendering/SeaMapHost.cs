@@ -95,6 +95,8 @@ public sealed class SeaMapHost : HwndHost
         Chips = pack.ToChipMap();
         Wind = pack.Wind.Length > 0 ? WindCurTable.FromBytes(pack.Wind) : null;
         StartTables = pack.Start;
+        if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
+            _scenarioDir = Path.Combine(assetDir, "snr");
         Routes = pack.Routes;
         Economy = pack.Economy;
         Menus = pack.Menus;
@@ -157,6 +159,7 @@ public sealed class SeaMapHost : HwndHost
         try { Menus = MenuTable.Load(Path.Combine(gameDir, "MENU.DAT")); } catch { Menus = null; }
         try { Economy = Economy.Load(Path.Combine(gameDir, "SDATA.DAT"), Path.Combine(gameDir, "KOUKAI2-han8.exe")); }
         catch { Economy = null; }
+        _scenarioDir = gameDir;
         try { StartTables = StartData.Load(Path.Combine(gameDir, "SDATA.DAT")); }
         catch { StartTables = null; }  // 없으면 배를 못 띄울 뿐 지도는 돈다
 
@@ -312,6 +315,44 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>제 함대 배의 이름 — 본보기(선종 이름)를 그대로 쓴다. 명명은 아직이다.</summary>
     public string ShipName { get; private set; } = "";
 
+    /// <summary>시나리오 파일이 있는 폴더 — 구운 자산이면 <c>asset/snr</c>, 게임 폴더면 그 폴더.</summary>
+    private string? _scenarioDir;
+
+    /// <summary>주인공의 시나리오 기계. 파일이 없으면 null.</summary>
+    public ScenarioVm? Scenario { get; private set; }
+
+    /// <summary>주인공 이름 · 성 — 대사의 $n · $s.</summary>
+    public (string Name, string Family) HeroName { get; private set; } = ("", "");
+
+    private void LoadScenario(int person)
+    {
+        Scenario = null;
+        if (_scenarioDir == null) return;
+        for (int n = 1; n <= 6; n++)
+        {
+            string dat = Path.Combine(_scenarioDir, $"SNR{n}.DAT"), mes = Path.Combine(_scenarioDir, $"SNR{n}.MES");
+            if (!File.Exists(dat) || !File.Exists(mes)) continue;
+            var code = File.ReadAllBytes(dat);
+            if (Uw2.Support.Local.Formats.Scenario.OwnerOf(code) != person) continue;
+            Scenario = new ScenarioVm(code, ScenarioText.Load(mes));
+            return;
+        }
+    }
+
+    /// <summary>시나리오가 돌린 결과를 들인다 — 돈, 그리고 아직 없는 선종이면 배.</summary>
+    public void Apply(ScenarioVm.Run run)
+    {
+        Player.SetGold(run.Gold);
+        if (StartTables is not { } start || Fleet == null) return;
+        foreach (int type in run.Ships)
+        {
+            if (type < 0 || type >= start.ShipTypes.Count || Player.Ships.Any(s => s.Type == type)) continue;
+            var t = start.Templates.Count > type ? start.Templates[type] : default;
+            Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], start.People[HeroPerson[Hero]], t.Oars));
+            Player.Ships.Add(new PlayerState.Ship { Type = type, Name = t.Name ?? "", Room = t.CargoRoom });
+        }
+    }
+
     /// <summary>돈과 짐. 주인공을 정하면 새로 만든다.</summary>
     public PlayerState Player { get; private set; } = new(0);
 
@@ -346,6 +387,8 @@ public sealed class SeaMapHost : HwndHost
         // 첫 배는 그 주인공 시나리오(SNRn.DAT)의 첫 이벤트가 주는 선종이다 — 배 주기 명령 F9.
         int person = HeroPerson[Hero];
         var captain = start.People[person];
+        HeroName = (captain.Name, captain.Family);
+        LoadScenario(person);
         int type = person < start.HeroShips.Count && start.HeroShips[person] is >= 0 and var t ? t : StandInShipType;
         bool oars = type < start.Templates.Count && start.Templates[type].Oars;
         ShipName = type < start.Templates.Count ? start.Templates[type].Name : "";

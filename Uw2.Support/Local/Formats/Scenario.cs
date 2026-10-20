@@ -23,7 +23,8 @@ public static class Scenario
     /// <list type="bullet">
     /// <item><c>00xxxxxx</c> 넣기 · 셈(<c>0x0043E830</c>) — 3, 「넣기」(셈 0)에 줄 것이 바로 값(갈래 3)이면 4(<c>0C v hh ll</c>)</item>
     /// <item><c>01xxxxxx</c>(<c>0x0043EB90</c>) — 3</item>
-    /// <item><c>10xxxxxx</c> 견주어 뛰기(<c>0x0043ED90</c>) — 5(맞으면 다음으로, 아니면 끝 두 바이트 자리로), 받을 곳 갈래 2 면 4</item>
+    /// <item><c>10xxxxxx</c> 견주어 뛰기(<c>0x0043ED90</c>) — 5(맞으면 다음으로, 아니면 끝 두 바이트 자리로).
+    /// 앞이 깃발(갈래 2)이고 뒤가 깃발이 아니면 4 — 깃발 하나가 <c>셈 &amp; 1</c> 과 같은지만 본다</item>
     /// <item><c>11xxxxxx</c> 명령 — 표(<see cref="CommandLength"/>)</item>
     /// </list>
     /// 모르는 명령은 0 을 돌려준다.
@@ -37,7 +38,7 @@ public static class Scenario
                 int dest = (op >> 4) & 3, src = (op >> 2) & 3, calc = op & 3;
                 return dest != 2 && calc == 0 && src == 3 ? 4 : 3;
             case 1: return 3;
-            case 2: return ((op >> 4) & 3) == 2 ? 4 : 5;
+            case 2: return ((op >> 4) & 3) == 2 && ((op >> 2) & 3) != 2 ? 4 : 5;
             default: return CommandLength(op);
         }
     }

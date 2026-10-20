@@ -83,6 +83,7 @@ public static class Program
         AssetPack.BakeKao(Path.Combine(dir, "KAO.LZW"), outDir);
         AssetPack.BakeRoute(Path.Combine(dir, "DATA1.LZW"), outDir);
         AssetPack.BakeMenus(Path.Combine(dir, "MENU.DAT"), outDir);
+        AssetPack.BakeScenario(dir, outDir);
         string han8 = Path.Combine(dir, "KOUKAI2-han8.exe");
         if (File.Exists(han8)) AssetPack.BakeEconomy(Path.Combine(dir, "SDATA.DAT"), han8, outDir);
         var start = StartData.Load(Path.Combine(dir, "SDATA.DAT"));
