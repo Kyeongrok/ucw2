@@ -591,4 +591,25 @@ public class EngineTests
         Assert.Equal(0, Uw2.Game.Engine.Town.BlackJack.Pay(100, 50, 0, 4));
         Assert.Equal(400, Uw2.Game.Engine.Town.BlackJack.Pay(100, 50, 6, 0));
     }
+
+    [Fact]
+    public void SurrenderKeepsTwoThirdsToANationAndLeavesPiratesNothing()
+    {
+        var p = new PlayerState(9000);
+        p.Ships.Add(new PlayerState.Ship { Type = 0, Name = "a", Room = 100 });
+        p.Ships[0].Cargo[0] = (5, 30);
+        p.Ships[0].Cargo[1] = (6, 1);
+        Assert.Equal(-1, Uw2.Game.Engine.Sea.Encounter.Surrender(p, pirate: false));
+        Assert.Equal(6000, p.Gold);
+        Assert.Equal((5, 20), p.Ships[0].Cargo[0]);
+        Assert.Equal((-1, 0), p.Ships[0].Cargo[1]);
+        Assert.Equal(0x33C, Uw2.Game.Engine.Sea.Encounter.Surrender(p, pirate: true));
+        Assert.Equal((-1, 0), p.Ships[0].Cargo[0]);
+        p.SetGold(500);
+        Assert.Equal(0x33B, Uw2.Game.Engine.Sea.Encounter.Surrender(p, pirate: true));
+        Assert.Equal(1500, p.Gold);
+        p.SetGold(20000);
+        Assert.Equal(0x33D, Uw2.Game.Engine.Sea.Encounter.Surrender(p, pirate: true));
+        Assert.Equal(5000, p.Gold);
+    }
 }
