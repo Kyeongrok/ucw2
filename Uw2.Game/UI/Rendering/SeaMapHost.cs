@@ -678,6 +678,15 @@ public sealed class SeaMapHost : HwndHost
             Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load, Crew = Player.Ships[i].Crew };
     }
 
+    /// <summary>배 <paramref name="index"/> 의 선장이 바뀌었다 — 빠르기 셈의 항해 레벨 · 항해술을 새 선장 것으로.</summary>
+    public void Recaptain(int index)
+    {
+        if (Fleet == null || StartTables is not { } start || index < 0 || index >= Fleet.Ships.Count || index >= Player.Ships.Count) return;
+        int who = Player.Ships[index].Captain is >= 0 and var c ? c : HeroPersonNumber;
+        if (who >= start.People.Count) return;
+        Fleet.Ships[index] = Fleet.Ships[index] with { NavLevel = start.People[who].NavLevel, Seamanship = start.People[who].Seamanship };
+    }
+
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;
 

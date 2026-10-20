@@ -1065,10 +1065,9 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("세계지도", (_, _) => { _host.ShowWorld(); _portPick.SelectedIndex = -1; Retitle(); }));
         bar.Children.Add(Button("출항", (_, _) => PutToSea()));
         bar.Children.Add(Button("저장", (_, _) => SaveToSlot()));
-        bar.Children.Add(Button("식량할당", (_, _) => SetRations()));
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
-        bar.Children.Add(Button("급여설정", (_, _) => SetWages()));
-        bar.Children.Add(Button("승무원편성", (_, _) => RedistributeCrew()));
+        bar.Children.Add(Button("편성", (_, _) => Organize()));
+        bar.Children.Add(Button("지휘", (_, _) => Command()));
         bar.Children.Add(Button("상륙", (_, _) => Land()));
         bar.Children.Add(Button("아이템", (_, _) => UseItem()));
 
@@ -1613,6 +1612,57 @@ public sealed class SeaMapWindow : Window
         }
         _host.SyncLoad();
         Note(pool > 0 ? $" · 선원 {pool}명을 내렸습니다" : " · 승무원을 다시 짰습니다");
+    }
+
+    /// <summary>「편성」 — 목록 27(선장변경 · 인사변경 · 승무원편성 · 승무원비율 · 함선처분 · 적하편성, <c>0x00445372</c>) 가운데 된 것.</summary>
+    private void Organize()
+    {
+        int pick = BuildingMenu.Ask(this, "편성", ["선장변경", "승무원편성", "함선처분"]);
+        if (pick == 0) ChangeCaptain();
+        else if (pick == 1) RedistributeCrew();
+        else if (pick == 2) ScuttleShip();
+    }
+
+    /// <summary>「선장변경」 — 기함 말고 배 하나를 골라 쉬는 동료에게 맡긴다. 맡던 이는 쉰다.</summary>
+    private void ChangeCaptain()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var p = _host.Player;
+        if (p.Ships.Count <= 1) { Say(0xD9, "함선이 １척밖에 없습니다."); return; }
+        int pick = BuildingMenu.Ask(this, "선장변경 — 배",
+            p.Ships.Skip(1).Select(sh => $"{sh.Name}  선장 {_host.PersonName(sh.Captain >= 0 ? sh.Captain : _host.HeroPersonNumber)}").ToList());
+        if (pick < 0) return;
+        var ship = p.Ships[pick + 1];
+        var free = Navigators.Mates(vm.Memory).Select(t => t.Person)
+            .Where(x => Navigators.Get(vm.Memory, x, Navigators.Status) != Navigators.Captain).ToList();
+        if (free.Count == 0) { Say(0xE5, "동료가 없습니다."); return; }
+        int who = BuildingMenu.Ask(this, $"{ship.Name} — 새 선장", free.Select(_host.PersonName).ToList());
+        if (who < 0) return;
+        if (ship.Captain >= 0) Navigators.Command(vm.Memory, ship.Captain, aboard: false);
+        ship.Captain = free[who];
+        Navigators.Command(vm.Memory, ship.Captain, aboard: true);
+        _host.Recaptain(pick + 1);
+        Note($" · {ship.Name}의 선장을 {_host.PersonName(ship.Captain)}(으)로 바꿨습니다");
+    }
+
+    /// <summary>「함선처분」 — 배를 버린다. 기함은 안 된다(0xE9). 짐 · 선원도 함께 잃는다.</summary>
+    private void ScuttleShip()
+    {
+        var p = _host.Player;
+        if (p.Ships.Count <= 1) { Say(0xE9, "기함은 처분할 수 없습니다."); return; }
+        int pick = BuildingMenu.Ask(this, "함선처분", p.Ships.Skip(1).Select(ShipLine).ToList());
+        if (pick < 0) return;
+        var ship = p.Ships[pick + 1];
+        if (MessageBox.Show(this, $"{ship.Name}{MsgOr(0xDB, " — 좋습니까？")}", "함선처분", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (_host.RemoveShip(pick + 1)) Note($" · {ship.Name}{(KoreanBatchim(ship.Name) ? "을" : "를")} 처분했습니다");
+    }
+
+    /// <summary>「지휘」 — 목록 28(감시 · 교섭 · 전투 · 대열변경 · 식량할당 · 급여설정, <c>0x004454A2</c>) 가운데 된 것.</summary>
+    private void Command()
+    {
+        int pick = BuildingMenu.Ask(this, "지휘", ["식량할당", "급여설정"]);
+        if (pick == 0) SetRations();
+        else if (pick == 1) SetWages();
     }
 
     /// <summary>「급여설정」 — 바다 명령 목록 28 의 여섯째(<c>0x00441B10</c>). 동료를 골라 급여를 정한다(<see cref="Navigators.SetWage"/>).</summary>
