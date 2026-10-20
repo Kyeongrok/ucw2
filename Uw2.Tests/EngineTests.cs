@@ -425,4 +425,24 @@ public class EngineTests
         Assert.Equal(29, back.Docked.Count);
         Assert.Equal((0, "배3", 33), (back.Docked[3].Port, back.Docked[3].Ship.Name, back.Docked[3].Ship.Hull));
     }
+
+    [Fact]
+    public void SurveyPaintsThreeByThreeOnEnteringANewCellAndSurvivesASave()
+    {
+        var sv = Uw2.Game.Engine.Sea.Survey.NewGame();
+        Assert.Equal(130, sv.Total);
+        Assert.True(sv[4, 8]);
+        Assert.Equal(0, sv.Visit(10 * 24 + 3, 12 * 24));                  // 유럽 — 이미 칠해 있다
+        Assert.Equal(9, sv.Visit(40 * 24, 30 * 24));                      // 대서양 한가운데
+        Assert.Equal(0, sv.Visit(40 * 24 + 5, 30 * 24 + 5));              // 같은 칸은 다시 안 센다
+        Assert.Equal(3, sv.Visit(41 * 24, 30 * 24));                      // 오른쪽 한 줄만 새로
+        Assert.Equal((142, 12), (sv.Total, sv.SinceReport));
+        Assert.Equal(6, sv.Visit(0, 0));                                  // 맨 위 줄 · 왼쪽 끝은 돌아 89 로
+        Assert.True(sv[89, 0]);
+        Assert.Equal(2 * 4 * 18 * 20, Uw2.Game.Engine.Sea.Survey.Reward(1, 18) * 2);
+
+        var back = Uw2.Game.Engine.Sea.Survey.Import(sv.Export());
+        Assert.Equal((148, 18), (back.Total, back.SinceReport));
+        Assert.True(back[41, 31] && back[89, 1]);
+    }
 }

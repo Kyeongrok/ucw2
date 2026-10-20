@@ -28,6 +28,16 @@ public sealed class SaveGame
     public ScenarioVm.State? Common { get; set; }
     public byte[] PortStates { get; set; } = [];
 
+    /// <summary>지리 조사 판(<see cref="Sea.Survey"/>). 옛 세이브는 없다 — 그때는 새 게임 판이다.</summary>
+    public SurveyState? Survey { get; set; }
+
+    public sealed class SurveyState
+    {
+        public string Cells { get; set; } = "";
+        public int Total { get; set; }
+        public int SinceReport { get; set; }
+    }
+
     public sealed class FleetState
     {
         public int CellX { get; set; }

@@ -504,6 +504,7 @@ public sealed class SeaMapHost : HwndHost
             Hero = Hero, Port = CurrentPort, HomePort = homePort, SavedAt = DateTime.Now,
             Fleet = Fleet?.Export() ?? new(), Player = SaveGame.From(Player), Scenario = Scenario?.Export(), Common = Common?.Export(),
             PortStates = Economy is { } eco ? (byte[])eco.StateBytes.Clone() : [],
+            Survey = Survey.Export(),
         };
         string where = CurrentPort >= 0 ? SceneName : "바다";
         save.Summary = $"{HeroName.Name} {HeroName.Family} · {Fleet?.Date} · {where} · 돈 {Player.Gold}";
@@ -519,6 +520,7 @@ public sealed class SeaMapHost : HwndHost
         SetHero(save.Hero);
         if (Fleet == null || StartTables is not { } start) return;
         Player = SaveGame.ToPlayer(save.Player);
+        Survey = Survey.Import(save.Survey);
         Fleet.Ships.Clear();
         foreach (var s in Player.Ships)
         {
@@ -647,6 +649,9 @@ public sealed class SeaMapHost : HwndHost
         return true;
     }
 
+    /// <summary>지리 조사 판 — 바다에서 새 칸에 들 때마다 칠한다.</summary>
+    public Survey Survey { get; private set; } = Survey.NewGame();
+
     /// <summary>돈과 짐. 주인공을 정하면 새로 만든다.</summary>
     public PlayerState Player { get; private set; } = new(0);
 
@@ -748,6 +753,7 @@ public sealed class SeaMapHost : HwndHost
         fleet.Ships.Add(first);
         int gold = person < start.HeroGold.Count ? start.HeroGold[person] : 0;
         Player = new PlayerState(gold);
+        Survey = Survey.NewGame();
         Player.Ships.Add(NewShip(start, type, first.Crew));
         if (start.MiscBytes.Length > 2)
         {
@@ -1043,6 +1049,7 @@ public sealed class SeaMapHost : HwndHost
         {
             int day = Fleet.DaysAtSea;
             Fleet.Step();
+            Survey.Visit(Fleet.X, Fleet.Y);
             // 틱마다 남 함대도 다 한 걸음 간다(0x0041A362). 바람 · 해류는 제 함대 자리의 것을 같이 쓴다.
             foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);
             if (Fleet.DaysAtSea != day) foreach (var npc in Others) npc.NewDay();

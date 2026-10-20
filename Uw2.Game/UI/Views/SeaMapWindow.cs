@@ -303,7 +303,8 @@ public sealed class SeaMapWindow : Window
 
     /// <summary>
     /// 「NPC」 — 그 항구의 임자(<see cref="Patrons"/>). 귀족이면 「계약 · 발견물 보고 · 모험소문」(목록 24, <c>0x00421E90</c>),
-    /// 학자면 목록 25 인데 학자 볼일은 아직이다.
+    /// 학자면 「계약 · 기능 습득 · 지리 보고 · 지도확인」(목록 25). 계약하지 않았으면 보고 · 소문을 못 고르고, 했으면 계약을 못 고른다
+    /// (<c>0x0049EF44</c> = 6 · 1).
     /// </summary>
     private void AtPatron()
     {
@@ -312,19 +313,89 @@ public sealed class SeaMapWindow : Window
         int who = Patrons.InPort(m, _host.CurrentPort);
         if (who < 0) { Note(" · 아무도 없습니다"); return; }
         string name = Patrons.Name(m, who);
-        if (Patrons.KindOf(m, who) != Patrons.Noble) { Note($" · {name} — 학자 볼일은 아직 없습니다"); return; }
+        int kind = Patrons.KindOf(m, who);
+        if (kind is not (Patrons.Noble or Patrons.Scholar)) { Note($" · {name}"); return; }
         var (hero, family) = _host.HeroName;
-        if (Patrons.IsContracted(m, who)) Say(0x1DE, $"오！ {family}님, 어서 들어오세요.", family);
+        if (kind == Patrons.Scholar) Say(0x1ED, "내게 뭔가 용건이 있습니까？");
+        else if (Patrons.IsContracted(m, who)) Say(0x1DE, $"오！ {family}님, 어서 들어오세요.", family);
         else Say(0x1DD, "우리 가문에 무슨 용건이 있으십니까？");
-        string[] items = ["계  약", "발견물 보고", "모험소문"];
+        string[] items = kind == Patrons.Noble ? ["계  약", "발견물 보고", "모험소문"] : ["계  약", "기능 습득", "지리 보고"];
         while (true)
         {
-            int pick = BuildingMenu.Ask(this, name, items);
+            bool bound = Patrons.IsContracted(m, who);
+            var lines = items.Select((t, i) => (i == 0) == bound && !(kind == Patrons.Scholar && i == 1) ? t + " (안 됨)" : t).ToList();
+            int pick = BuildingMenu.Ask(this, name, lines);
             if (pick < 0) return;
-            if (pick == 0) ContractPatron(who, $"{hero} {family}");
-            else if (pick == 1) ReportDiscovery(who);
-            else Note(" · 「모험소문」은 아직 없습니다");
+            if (lines[pick].EndsWith("(안 됨)")) continue;
+            if (kind == Patrons.Noble)
+            {
+                if (pick == 0) ContractPatron(who, $"{hero} {family}");
+                else if (pick == 1) ReportDiscovery(who);
+                else Note(" · 「모험소문」은 아직 없습니다");
+            }
+            else
+            {
+                if (pick == 0) ContractScholar(who);
+                else if (pick == 1) LearnCartography();
+                else ReportSurvey(who);
+            }
         }
+    }
+
+    /// <summary>주인공이 지도작성술을 지녔는지 — 사람 +0x30 의 8(<c>0x00421F87</c>).</summary>
+    private const int SkillField = 0x30, Cartography = 8;
+
+    /// <summary>학자 「계약」(<c>0x00421F70</c>) — 지도작성술이 있어야 한다(0x1F0). 하면 보고 뒤 센 칸을 0 으로.</summary>
+    private void ContractScholar(int who)
+    {
+        if (_host.Scenario is not { } vm) return;
+        Say(0x1EF, "당신이 우리 지도제작소와 계약을 맺고 싶다는 사람입니까？");
+        if ((HeroField(SkillField) & Cartography) == 0) { Say(0x1F0, "지도작성술을 가지고 있지 않군요. 그럼 계약을 맺을 수 없습니다."); return; }
+        if (MessageBox.Show(this, MsgOr(0x1F1, "지금부터 답파할 지리 정보에 대해 금화를 지불하도록 하지요."), "계약", MessageBoxButton.YesNo)
+            != MessageBoxResult.Yes) { Say(0x1F3, "그래요？ 그럼 마음이 변하면 언제라도 와 주시오."); return; }
+        Patrons.Contract(vm.Memory, who, Patrons.Scholar);
+        _host.Survey.SinceReport = 0;
+        Say(0x1F4, "그럼, 근사한 보고를 기다리고 있겠습니다.");
+    }
+
+    /// <summary>
+    /// 「기능 습득」(<c>0x00422010</c>) — 항해술 · 지식 · 직감이 다 75 이상이어야 하고(0x1F6), 값은
+    /// min(60000, (5000 / (+0x22 / 5 + 1) + 200) x 100).
+    /// </summary>
+    private void LearnCartography()
+    {
+        if (_host.Scenario is not { } vm) return;
+        Say(0x1F5, "지도작성술을 습득하고 싶은 것이군요.");
+        string[] names = ["항해술", "지식", "직감"];
+        for (int k = 0; k < 3; k++)
+            if (HeroField(Navigators.Stats + 1 + k) < 75) { Say(0x1F6, $"지도작성에는 {names[k]}(가) 꼭 필요하죠.", names[k]); return; }
+        int price = Math.Min(60000, (5000 / (HeroField(Navigators.Stats + 6) / 5 + 1) + 200) * 100);
+        Say(0x1F7, $"기술을 습득하는 데는 금화 {price}닢이 필요합니다.", price);
+        var p = _host.Player;
+        if (p.Gold < price) { Say(0x1F8, "금화가 부족한 모양이군요."); return; }
+        if (MessageBox.Show(this, MsgOr(0x1F9, "좋겠습니까？"), "기능 습득", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        p.SetGold(p.Gold - price);
+        Navigators.Set(vm.Memory, _host.HeroPersonNumber, SkillField, HeroField(SkillField) | Cartography);
+        Note(" · 지도작성술을 익혔습니다");
+    }
+
+    /// <summary>「지리 보고」(<c>0x00422150</c>) — 보고 뒤 칠한 칸 x 20 x (5 − 격)을 받고 명성이 칸 x 5 오른다.</summary>
+    private void ReportSurvey(int who)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var sv = _host.Survey;
+        if (sv.SinceReport == 0) { Say(0x1FA, "아니, 조사가 전혀 진척되어 있지 않군요. 더 분발해 주세요."); return; }
+        if (sv.Total >= Survey.Complete) { Say(0x1FB, "와아！！ 드디어 세계지도를 완성하셨군요！"); sv.Finish(); }
+        int rank = vm.Memory.Read(ScenarioMemory.At(Patrons.Table, who, Patrons.Flags), false);
+        int reward = Survey.Reward(rank, sv.SinceReport);
+        var fp = ScenarioMemory.At(ScenarioMemory.HeroTable, _host.Hero, Patrons.FameField);
+        int fame = Survey.FameGain(vm.Memory.Read(fp, true), sv.SinceReport);
+        vm.Memory.Write(fp, vm.Memory.Read(fp, true) + fame, true);
+        Say(0x1FC, $"수고하셨습니다. 그럼 보수로 금화 {reward}닢을 드리겠습니다.", reward);
+        if (sv.Total < Survey.Complete) Say(0x1FD, "또 부탁합니다.");
+        _host.Player.SetGold(_host.Player.Gold + reward);
+        sv.SinceReport = 0;
+        Note($" · 지리 보고 {reward} · 모험가 명성 +{fame}");
     }
 
     /// <summary>「계약」(<c>0x00421AA0</c>) — 0x1E0 · 0x1E1 을 묻고, 하면 0x1E3, 안 하면 0x1E2.</summary>

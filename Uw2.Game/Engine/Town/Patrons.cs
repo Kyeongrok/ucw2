@@ -47,11 +47,11 @@ public static class Patrons
 
     public static bool IsContracted(ScenarioMemory m, int i) => (m.Read(At(i, Flags), false) & Contracted) != 0;
 
-    /// <summary>「계약」(<c>0x00421AA0</c>) — 다른 귀족과의 계약은 풀린다.</summary>
-    public static void Contract(ScenarioMemory m, int i)
+    /// <summary>「계약」(귀족 <c>0x00421AA0</c> · 학자 <c>0x00421F70</c>) — 같은 갈래의 다른 임자와의 계약은 풀린다.</summary>
+    public static void Contract(ScenarioMemory m, int i, int kind = Noble)
     {
         for (int k = 0; k < Count; k++)
-            if (m.Read(At(k, Kind), false) == Noble)
+            if (m.Read(At(k, Kind), false) == kind)
                 m.Write(At(k, Flags), m.Read(At(k, Flags), false) & ~Contracted, false);
         m.Write(At(i, Flags), m.Read(At(i, Flags), false) | Contracted, false);
     }
