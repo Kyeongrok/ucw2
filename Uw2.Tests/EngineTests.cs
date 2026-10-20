@@ -657,4 +657,13 @@ public class EngineTests
         Assert.Equal(300, Uw2.Game.Engine.Town.Dice.Payout(0, 100));
         Assert.Equal(150, Uw2.Game.Engine.Town.Dice.Payout(6, 100));
     }
+
+    [Fact]
+    public void SightReachComesFromTheBestShareTimesCrew()
+    {
+        Assert.Equal(5, Uw2.Game.Engine.Sea.Sighting.Reach([(25, 20), (25, 22)], telescope: false));      // 550 / 100
+        Assert.Equal(12, Uw2.Game.Engine.Sea.Sighting.Reach([(50, 300)], telescope: false));
+        Assert.Equal(24, Uw2.Game.Engine.Sea.Sighting.Reach([(50, 300)], telescope: true));
+        Assert.Equal(0, Uw2.Game.Engine.Sea.Sighting.Reach([], telescope: true));
+    }
 }

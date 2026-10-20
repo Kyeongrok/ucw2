@@ -11,13 +11,17 @@ namespace Uw2.Game.Engine.Sea;
 ///   발견물    +6 &amp; 0xC0 이 0 이면 같은 셈으로 알아본다. +6 |= 0x40
 ///   명성     항구 100 아래는 항구 형편 +0x1C x 25, 그 밖(특별한 곳) · 부락은 50 — 주인공 표 +4, 50000 까지(말 0x1DC)
 /// </code>
-/// 보이는 거리는 원본이 배 세간으로 셈하는 min(12, …) 에 망원경(아이템 0x18)이면 x 2 다(<c>0x0043568D</c>).
-/// 우리는 그 셈을 아직 안 옮겨 8 칩, 망원경이면 16 칩으로 둔다.
+/// 보이는 거리는 min(12, 배마다 (칸 곁 +8 몫% x 선원) 가운데 가장 큰 것 / 100) 에 망원경(아이템 0x18)이면 x 2 다
+/// (<c>0x004355C8</c> · <c>0x0043568D</c>, <see cref="Reach"/>).
 /// </remarks>
 public static class Sighting
 {
     public const int PortCount = 130, PortTable = ScenarioMemory.PortTable, PortFlags = 0x15, Known = 0x10, Seen = 0x40;
-    public const int SureReach = 2, BaseSight = 8, Telescope = 0x18;
+    public const int SureReach = 2, MaxSight = 12, Telescope = 0x18;
+
+    /// <summary>보이는 거리(칩) — 배마다 (몫% x 선원) 의 가장 큰 것 / 100 을 12 에서 자르고 망원경이면 두 배.</summary>
+    public static int Reach(IEnumerable<(int Share, int Crew)> ships, bool telescope) =>
+        Math.Min(MaxSight, ships.Select(s => s.Share * s.Crew).DefaultIfEmpty(0).Max() / 100) * (telescope ? 2 : 1);
 
     public readonly record struct Sight(bool Port, int Index, int Fame);
 

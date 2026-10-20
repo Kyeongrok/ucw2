@@ -62,7 +62,7 @@ public sealed class PlayerState
 
         /// <summary>
         /// 승무원비율 — 칸 곁 +9 돛에 붙은 몫 · +8 대포에 붙은 몫(%), 나머지(100 − 둘)가 셋째 몫이다. 새 배는 50 · 25(<c>0x0043DF83</c>).
-        /// 돛 몫은 빠르기 셈에 든다(<see cref="Sea.ShipSailing.SailingShare"/>).
+        /// 돛 몫은 빠르기 셈에, +8 몫은 보이는 거리에 든다(<see cref="Sea.ShipSailing.SailingShare"/> · <see cref="Sea.Sighting.Reach"/>).
         /// </summary>
         public int SailShare { get; set; } = 50;
         public int GunShare { get; set; } = 25;
