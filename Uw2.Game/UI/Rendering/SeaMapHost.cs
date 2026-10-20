@@ -732,7 +732,7 @@ public sealed class SeaMapHost : HwndHost
     {
         if (Fleet == null) return;
         for (int i = 0; i < Fleet.Ships.Count && i < Player.Ships.Count; i++)
-            Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load, Crew = Player.Ships[i].Crew, SailingShare = Player.Ships[i].SailShare };
+            Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Weight, Crew = Player.Ships[i].Crew, SailingShare = Player.Ships[i].SailShare };
     }
 
     /// <summary>배 <paramref name="index"/> 의 선장이 바뀌었다 — 빠르기 셈의 항해 레벨 · 항해술을 새 선장 것으로.</summary>

@@ -30,7 +30,11 @@ public sealed class PlayerState
         /// <summary>교역품 다섯 칸 — (번호, 양). 번호 -1 이 빈 칸.</summary>
         public (int Good, int Amount)[] Cargo { get; } = Enumerable.Repeat((-1, 0), CargoSlots).ToArray();
 
-        public int Load => Supplies.Sum() + Cargo.Sum(c => c.Amount);
+        /// <summary>짐(<c>0x0043B000</c>) — 물 / 10 + 식량 / 10 + 자재 + 탄약 + 교역품. 짐칸에서 빼는 것이 이것이다.</summary>
+        public int Load => Supplies[0] / 10 + Supplies[1] / 10 + Supplies[2] + Supplies[3] + Cargo.Sum(c => c.Amount);
+
+        /// <summary>배 무게(<c>0x0043B0A0</c>) — 짐 + 단 대포 x 한 문 무게 / 10 + 선원. 빠르기 셈의 짐 몫에 든다(칸 곁 +0x0A).</summary>
+        public int Weight => Load + Mounted * Town.Shipyard.GunWeight[Math.Clamp(GunKind, 0, 7)] / 10 + Crew;
         public int Free => Math.Max(0, Room - Load);
 
         /// <summary>선원 — 함대 칸 +0(낱말). 새로 지은 배는 0 이다(<c>0x0043DF6A</c>).</summary>

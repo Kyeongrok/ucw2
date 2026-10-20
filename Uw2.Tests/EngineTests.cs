@@ -469,8 +469,8 @@ public class EngineTests
         a.Supplies[PlayerState.Water] = 50;
         a.Cargo[0] = (7, 40);
         Assert.Equal(20, PlayerState.Transship(a, b, PlayerState.Water, 20));
-        Assert.Equal(10, PlayerState.Transship(a, b, PlayerState.SupplyKinds, 40));          // 나머지 자리 10
-        Assert.Equal(((7, 30), (7, 10)), (a.Cargo[0], b.Cargo[0]));
+        Assert.Equal(28, PlayerState.Transship(a, b, PlayerState.SupplyKinds, 40));          // 물 20 통은 짐 2(0x0043B000), 나머지 자리 28
+        Assert.Equal(((7, 12), (7, 28)), (a.Cargo[0], b.Cargo[0]));
         Assert.Equal(0, PlayerState.Transship(a, b, PlayerState.SupplyKinds, 5));             // 다 찼다
     }
 
