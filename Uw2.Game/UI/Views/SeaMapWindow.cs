@@ -218,9 +218,88 @@ public sealed class SeaMapWindow : Window
         if (b == ItemBuilding && pick == 0) { BuyItem(); return; }
         if (b == ItemBuilding && pick == 1) { SellItem(); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
+        if (b == HarborBuilding && pick == 2) { AtDock(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
     }
+
+    /// <summary>
+    /// 항 「도크」 — 목록 8(보관 · 배비 · 교환, <c>0x00423990</c>). 맡긴 수(0x114 · 0x115)와 더 맡길 수(0x116)를 먼저 말한다.
+    /// </summary>
+    private void AtDock()
+    {
+        var p = _host.Player;
+        int port = _host.CurrentPort;
+        while (true)
+        {
+            int here = p.DockedAt(port).Count;
+            int room = here + p.DockRoom(port);
+            string head = (here > 0 ? MsgOr(0x114, $"현재 도크에 {here}척 보관하고 있소.", here) : MsgOr(0x115, "현재 도크는 텅텅 비어 있소."))
+                          + " " + MsgOr(0x116, $"모두 해서 {room}척까지 맡길 수 있소.", room);
+            int pick = BuildingMenu.Ask(this, head.Replace('\n', ' '), ["보  관", "배  비", "교  환"]);
+            if (pick < 0) return;
+            if (pick == 0) StoreShip(port, swap: false);
+            else if (pick == 1) DeployShip(port);
+            else StoreShip(port, swap: true);
+        }
+    }
+
+    private string MsgOr(int id, string fallback, params object[] args) =>
+        _host.Messages is { } m && m[id].Length > 0 ? m.Format(id, args) : fallback;
+
+    /// <summary>
+    /// 「보관」(<c>0x004232F0</c>) · 「교환」(<c>0x00423780</c>) — 기함밖에 없으면 0x117, 도크가 차면 0x120.
+    /// 고른 배의 선원이 있으면 해고하느냐(0x119), 없으면 이 배냐(0xC9)를 묻는다. 교환이면 맡긴 배 하나를 대신 꺼낸다.
+    /// </summary>
+    private void StoreShip(int port, bool swap)
+    {
+        var p = _host.Player;
+        if (p.Ships.Count <= 1) { Say(0x117, "기함밖에 없습니다."); return; }
+        var docked = p.DockedAt(port);
+        if (swap && docked.Count == 0) { Say(0x11B, "보관하고 있는 배는 없습니다."); return; }
+        if (!swap && p.DockRoom(port) == 0) { Say(0x120, "이제 도크는 꽉 차있습니다."); return; }
+        int take = -1;
+        if (swap)
+        {
+            take = BuildingMenu.Ask(this, MsgOr(0x11C, "어느 배를 준비하겠습니까？"), docked.Select(ShipLine).ToList());
+            if (take < 0) return;
+        }
+        int pick = BuildingMenu.Ask(this, MsgOr(0x118, "어느 것을 맡길까요？"), p.Ships.Skip(1).Select(ShipLine).ToList());
+        if (pick < 0) return;
+        var ship = p.Ships[pick + 1];
+        string ask = ship.Crew > 0 ? MsgOr(0x119, $"선원 {ship.Crew}명을 해고하게 됩니다만, 좋습니까？", ship.Crew) : MsgOr(0xC9, "이 배로 하겠소？");
+        if (MessageBox.Show(this, ask, "도크", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (swap)
+        {
+            // 맡기는 배를 함대에서 빼고(선장은 쉰다), 그 선장이 꺼내는 배를 맡은 뒤, 뺀 배를 도크에 넣는다 — 도크 수는 그대로다.
+            int captain = ship.Captain;
+            if (!_host.RemoveShip(pick + 1)) return;
+            ship.Crew = 0;
+            ship.Captain = -1;
+            _host.UndockShip(port, take, captain >= 0 ? captain : _host.FreeMate);
+            p.Docked.Add((port, ship));
+            Say(0x11F, "그럼 바꿔 넣어 두겠습니다.");
+            return;
+        }
+        if (_host.DockShip(pick + 1, port)) Say(0x11A, "그럼, 맡아 두겠습니다.");
+    }
+
+    /// <summary>「배비」(<c>0x004234B0</c>) — 맡긴 배가 없으면 0x11B, 맡을 동료가 없으면 0x11D.</summary>
+    private void DeployShip(int port)
+    {
+        var p = _host.Player;
+        var docked = p.DockedAt(port);
+        if (docked.Count == 0) { Say(0x11B, "보관하고 있는 배는 없습니다."); return; }
+        if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
+        int pick = BuildingMenu.Ask(this, MsgOr(0x11C, "어느 배를 준비하겠습니까？"), docked.Select(ShipLine).ToList());
+        if (pick < 0) return;
+        int mate = _host.FreeMate;
+        if (mate < 0 && _host.HasMates) { Say(0x11D, "선장이 될 만한 사람은 없습니다만."); return; }
+        if (_host.UndockShip(port, pick, mate)) Say(0x11E, "그럼 예항시켜 두겠습니다.");
+    }
+
+    private string ShipLine(PlayerState.Ship s) =>
+        $"{s.Name}  내구 {s.Hull}/{s.MaxHull} · 선원 {s.Crew} · 짐 {s.Load}/{s.Room}";
 
     /// <summary>
     /// 「NPC」 — 그 항구의 임자(<see cref="Patrons"/>). 귀족이면 「계약 · 발견물 보고 · 모험소문」(목록 24, <c>0x00421E90</c>),

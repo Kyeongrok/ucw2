@@ -62,6 +62,20 @@ public sealed class PlayerState
     public int Gold { get; private set; }
     public List<Ship> Ships { get; } = [];
 
+    /// <summary>
+    /// 도크에 맡긴 배 — 원본은 배 칸 10 ~ 39(서른)를 쓰고 +0x1B 에 「항구 | 0x80」 을 적는다(<c>0x00423A90</c>).
+    /// 한 항구에 다섯까지다.
+    /// </summary>
+    public List<(int Port, Ship Ship)> Docked { get; } = [];
+
+    public const int DockPerPort = 5, DockTotal = 30;
+
+    public List<Ship> DockedAt(int port) => [.. Docked.Where(d => d.Port == port).Select(d => d.Ship)];
+
+    /// <summary>그 항구 도크에 더 맡길 수 있는 척 수(<c>0x0049A1A0</c> − 맡긴 수).</summary>
+    public int DockRoom(int port) =>
+        Math.Max(0, Math.Min(DockPerPort, DockedAt(port).Count + DockTotal - Docked.Count) - DockedAt(port).Count);
+
     public PlayerState(int gold) => Gold = Math.Clamp(gold, 0, MaxGold);
 
     /// <summary>은행 잔고 — 0 보다 크면 예금, 작으면 빚(<see cref="Town.Bank"/>).</summary>

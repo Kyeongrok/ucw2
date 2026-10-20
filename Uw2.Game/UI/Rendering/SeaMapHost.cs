@@ -578,6 +578,38 @@ public sealed class SeaMapHost : HwndHost
         return true;
     }
 
+    /// <summary>
+    /// 「보관」 — 배를 도크에 맡긴다. 선원은 내리고(<c>0x00423419</c> 이 해고한다) 선장은 쉬게 한다. 기함(0)은 못 맡긴다.
+    /// </summary>
+    public bool DockShip(int index, int port)
+    {
+        if (index <= 0 || index >= Player.Ships.Count || Player.DockRoom(port) == 0) return false;
+        var ship = Player.Ships[index];
+        if (!RemoveShip(index)) return false;
+        ship.Crew = 0;
+        ship.Captain = -1;
+        Player.Docked.Add((port, ship));
+        return true;
+    }
+
+    /// <summary>「배비」 — 그 항구 도크의 배 하나를 동료 <paramref name="captain"/> 에게 맡겨 함대 끝에 넣는다.</summary>
+    public bool UndockShip(int port, int k, int captain)
+    {
+        if (StartTables is not { } start || Fleet == null || Player.Ships.Count >= MaxShips) return false;
+        int at = Player.Docked.FindIndex(d => d.Port == port && k-- == 0);
+        if (at < 0) return false;
+        var ship = Player.Docked[at].Ship;
+        Player.Docked.RemoveAt(at);
+        var t = start.Templates.Count > ship.Type ? start.Templates[ship.Type] : default;
+        var skipper = captain >= 0 && captain < start.People.Count ? start.People[captain] : start.People[HeroPerson[Hero]];
+        Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[ship.Type], skipper, t.Oars) with { Crew = 0 });
+        ship.Captain = captain;
+        Player.Ships.Add(ship);
+        if (captain >= 0 && Scenario != null) Uw2.Game.Engine.Town.Navigators.Command(Scenario.Memory, captain, aboard: true);
+        SyncLoad();
+        return true;
+    }
+
     /// <summary>새 배를 맡을 동료 — 시나리오 기억이 없으면(게임 폴더 없이) -1 이고 막지 않는다.</summary>
     public int FreeMate => Scenario is { } vm ? Uw2.Game.Engine.Town.Navigators.FreeMate(vm.Memory) : -1;
 

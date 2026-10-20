@@ -51,6 +51,9 @@ public sealed class SaveGame
         public bool Scurvy { get; set; }
         public bool Fever { get; set; }
         public List<ShipData> Ships { get; set; } = [];
+
+        /// <summary>도크에 맡긴 배 — <see cref="ShipData.Port"/> 가 맡긴 항구다.</summary>
+        public List<ShipData> Docked { get; set; } = [];
     }
 
     public sealed class ShipData
@@ -70,37 +73,44 @@ public sealed class SaveGame
         public int Grade { get; set; }
         public int Captain { get; set; } = -1;
         public int Morale { get; set; } = PlayerState.DefaultMorale;
+        public int Port { get; set; } = -1;
     }
 
     public static PlayerData From(PlayerState p) => new()
     {
         Gold = p.Gold, Balance = p.Balance, WaterRate = p.WaterRate, FoodRate = p.FoodRate, Scurvy = p.Scurvy, Fever = p.Fever,
-        Ships = [.. p.Ships.Select(s => new ShipData
-        {
-            Type = s.Type, Name = s.Name, Room = s.Room, Supplies = [.. s.Supplies],
-            CargoGoods = [.. s.Cargo.Select(c => c.Good)], CargoAmounts = [.. s.Cargo.Select(c => c.Amount)],
-            Crew = s.Crew, MaxCrew = s.MaxCrew, Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail,
-            Grade = s.Grade, Captain = s.Captain, Morale = s.Morale,
-        })],
+        Ships = [.. p.Ships.Select(s => Of(s, -1))],
+        Docked = [.. p.Docked.Select(d => Of(d.Ship, d.Port))],
     };
+
+    private static ShipData Of(PlayerState.Ship s, int port) => new()
+    {
+        Type = s.Type, Name = s.Name, Room = s.Room, Supplies = [.. s.Supplies],
+        CargoGoods = [.. s.Cargo.Select(c => c.Good)], CargoAmounts = [.. s.Cargo.Select(c => c.Amount)],
+        Crew = s.Crew, MaxCrew = s.MaxCrew, Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail,
+        Grade = s.Grade, Captain = s.Captain, Morale = s.Morale, Port = port,
+    };
+
+    private static PlayerState.Ship ToShip(ShipData s)
+    {
+        var ship = new PlayerState.Ship
+        {
+            Type = s.Type, Name = s.Name, Room = s.Room, MaxCrew = s.MaxCrew, Crew = s.Crew,
+            Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail, Grade = s.Grade, Captain = s.Captain, Morale = s.Morale,
+        };
+        for (int k = 0; k < PlayerState.SupplyKinds && k < s.Supplies.Length; k++) ship.Supplies[k] = s.Supplies[k];
+        for (int k = 0; k < PlayerState.CargoSlots && k < s.CargoGoods.Length && k < s.CargoAmounts.Length; k++)
+            ship.Cargo[k] = (s.CargoGoods[k], s.CargoAmounts[k]);
+        return ship;
+    }
 
     public static PlayerState ToPlayer(PlayerData d)
     {
         var p = new PlayerState(d.Gold) { WaterRate = d.WaterRate, FoodRate = d.FoodRate, Scurvy = d.Scurvy, Fever = d.Fever };
         p.Transfer(d.Balance);          // 돈 → 잔고로 옮긴 꼴이라 돈은 다시 매긴다
         p.SetGold(d.Gold);
-        foreach (var s in d.Ships)
-        {
-            var ship = new PlayerState.Ship
-            {
-                Type = s.Type, Name = s.Name, Room = s.Room, MaxCrew = s.MaxCrew, Crew = s.Crew,
-                Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail, Grade = s.Grade, Captain = s.Captain, Morale = s.Morale,
-            };
-            for (int k = 0; k < PlayerState.SupplyKinds && k < s.Supplies.Length; k++) ship.Supplies[k] = s.Supplies[k];
-            for (int k = 0; k < PlayerState.CargoSlots && k < s.CargoGoods.Length && k < s.CargoAmounts.Length; k++)
-                ship.Cargo[k] = (s.CargoGoods[k], s.CargoAmounts[k]);
-            p.Ships.Add(ship);
-        }
+        foreach (var s in d.Ships) p.Ships.Add(ToShip(s));
+        foreach (var s in d.Docked) p.Docked.Add((s.Port, ToShip(s)));
         return p;
     }
 

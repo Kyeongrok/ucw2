@@ -408,4 +408,21 @@ public class EngineTests
         p.Patch(a, 2, 1, 50, 70);
         Assert.Equal(65, a.Sail);
     }
+
+    [Fact]
+    public void DockHoldsFivePerPortAndSurvivesASave()
+    {
+        var p = new PlayerState(0);
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "기함", Room = 80 });
+        Assert.Equal(PlayerState.DockPerPort, p.DockRoom(0));
+        for (int i = 0; i < 5; i++) p.Docked.Add((0, new PlayerState.Ship { Type = 5, Name = $"배{i}", Room = 80, Hull = 30 + i }));
+        Assert.Equal(0, p.DockRoom(0));
+        Assert.Equal(5, p.DockRoom(1));
+        for (int i = 0; i < 24; i++) p.Docked.Add((2 + i % 6, new PlayerState.Ship { Type = 5, Name = "x", Room = 80 }));
+        Assert.Equal(1, p.DockRoom(1));                                      // 서른 칸 가운데 하나만 남았다
+
+        var back = SaveGame.ToPlayer(SaveGame.From(p));
+        Assert.Equal(29, back.Docked.Count);
+        Assert.Equal((0, "배3", 33), (back.Docked[3].Port, back.Docked[3].Ship.Name, back.Docked[3].Ship.Hull));
+    }
 }
