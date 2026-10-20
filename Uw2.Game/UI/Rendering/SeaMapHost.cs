@@ -7,6 +7,7 @@ using System.Windows.Media;
 using Uw2.Game.Engine;
 using Uw2.Game.Engine.Sea;
 using Uw2.Game.Engine.Town;
+using Uw2.Game.UI.Views;
 using Uw2.Support.Local.Formats;
 using Uw2.Support.Local.Helpers;
 using Vortice.Direct3D11;
@@ -95,6 +96,7 @@ public sealed class SeaMapHost : HwndHost
         Chips = pack.ToChipMap();
         Wind = pack.Wind.Length > 0 ? WindCurTable.FromBytes(pack.Wind) : null;
         StartTables = pack.Start;
+        if (pack.Faces.Length > 0) Faces = new FaceSheet(pack.Faces, pack.FacesWidth);
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
         Routes = pack.Routes;
@@ -317,6 +319,9 @@ public sealed class SeaMapHost : HwndHost
 
     /// <summary>시나리오 파일이 있는 폴더 — 구운 자산이면 <c>asset/snr</c>, 게임 폴더면 그 폴더.</summary>
     private string? _scenarioDir;
+
+    /// <summary>얼굴 판 — 시나리오 대사 창이 쓴다. 구워 두지 않았으면 null.</summary>
+    public FaceSheet? Faces { get; private set; }
 
     /// <summary>주인공의 시나리오 기계. 파일이 없으면 null.</summary>
     public ScenarioVm? Scenario { get; private set; }

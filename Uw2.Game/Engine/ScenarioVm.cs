@@ -15,7 +15,14 @@ namespace Uw2.Game.Engine;
 /// </code>
 /// 옮긴 명령: 넣기 · 셈(00), 견주어 뛰기(10), 뛰기 FE, 대사 C8 · D4, 배 주기 F9, 돈 E4 · E6 · E7, 그침 F2 · F4 · FF,
 /// 다음 절 F0 · 다음 장 F1 — 이벤트가 끝난 뒤 넘긴다(<c>0x0043F7BA</c>). 다음 장은 절을 0 으로, 깃발 앞 서른둘을 지운다.
-/// 나머지는 길이(<see cref="Scenario.LengthAt"/>)만큼 넘긴다 — 얼굴(CC) · 말하는 쪽(C0) · 고르기(DC?) 따위는 아직이다.
+/// <code>
+///   C0 n       대사 창 고르기(0x0043D0E0) — 창 표 0x0045E348 의 n 번(1 위 · 2 아래 · 0 · 3 넓은 창)
+///   CC hh ll   그 창에 얼굴(0x0043D4B0 → 0x00434E70), CD v 는 변수 v 의 얼굴
+///   C9 v hh ll 고르기(0x0043D2B0) — 글 하나를 줄 바꿈(0x0A)으로 갈라 항목으로 띄우고 고른 차례(0 부터)를 변수 v 에.
+///              물리기는 없다(0x00437FD0 은 0xFF 면 다시 묻는다)
+///   D0 · DC    게임 기억 가리키개(0x0043D510) — 아직 옮기지 않는다
+/// </code>
+/// 나머지는 길이(<see cref="Scenario.LengthAt"/>)만큼 넘긴다.
 /// 게임 기억을 가리키는 변수(갈래 1, <c>0x0049F260</c> 표)는 0 으로 읽는다.
 /// </remarks>
 public sealed class ScenarioVm
@@ -33,7 +40,13 @@ public sealed class ScenarioVm
     public int Chapter { get; set; }
     public int Section { get; set; }
 
-    public readonly record struct Line(string Speaker, string Body);
+    /// <summary>대사 한 줄 — 창(C0)과 얼굴(CC, 없으면 -1)을 함께 든다.</summary>
+    public readonly record struct Line(string Speaker, string Body, int Window = 0, int Face = -1);
+
+    /// <summary>
+    /// 고르기를 묻는다 — 아직 보이지 않은 대사(<paramref name="before"/>)를 먼저 보이고 항목 중 하나의 차례를 돌려준다.
+    /// </summary>
+    public delegate int Chooser(IReadOnlyList<Line> before, IReadOnlyList<string> options);
 
     /// <summary>한 번 돌린 것 — 대사와 돌린 결과.</summary>
     public sealed class Run
@@ -41,7 +54,14 @@ public sealed class ScenarioVm
         public List<Line> Lines { get; } = [];
         public List<int> Ships { get; } = [];
         public int Gold { get; set; }
+
+        /// <summary>고르기 앞에서 이미 보인 대사 수 — 나머지(<see cref="Pending"/>)를 끝에 보인다.</summary>
+        public int Shown { get; set; }
+        public IReadOnlyList<Line> Pending => Lines.Skip(Shown).ToList();
     }
+
+    /// <summary>고르기를 물을 곳. 없으면 늘 첫 항목.</summary>
+    public Chooser? Choose { get; set; }
 
     private int Word(int at) => at + 1 < _code.Length ? _code[at] << 8 | _code[at + 1] : 0;
 
@@ -97,6 +117,7 @@ public sealed class ScenarioVm
     private Run Run_(int baseAt, int ip, int gold, string name, string family, ref bool nextSection, ref bool nextChapter)
     {
         var run = new Run { Gold = gold };
+        int window = 0, face = -1;
         for (int step = 0; step < MaxSteps && ip >= 0 && ip < _code.Length; step++)
         {
             byte op = _code[ip];
@@ -146,8 +167,26 @@ public sealed class ScenarioVm
                     {
                         case 0xC8 or 0xD4:
                             var (who, body) = ScenarioText.Render(_text[Word(ip + 1)], name, family);
-                            run.Lines.Add(new Line(who, body));
+                            run.Lines.Add(new Line(who, body, window, face));
                             break;
+                        case 0xC0:
+                            if (a1 < 4 && a1 != window) { window = a1; face = -1; }
+                            break;
+                        case 0xCC: face = Word(ip + 1); break;
+                        case 0xCD: face = _vars[a1]; break;
+                        case 0xC9:
+                        {
+                            var options = ScenarioText.Render(_text[Word(ip + 2)], name, family).Body
+                                .Split('\n', '\r').Where(o => o.Length > 0).ToList();
+                            int pick = 0;
+                            if (Choose != null && options.Count > 0)
+                            {
+                                pick = Math.Clamp(Choose(run.Pending, options), 0, options.Count - 1);
+                                run.Shown = run.Lines.Count;
+                            }
+                            _vars[a1] = (ushort)pick;
+                            break;
+                        }
                         case 0xF9:
                             run.Ships.Add(a1);
                             break;

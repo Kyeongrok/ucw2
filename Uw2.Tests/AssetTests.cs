@@ -133,4 +133,32 @@ public class AssetTests
         Assert.Contains(run.Lines, l => l.Speaker == "페레로 공작");          // §$s 공작§
         Assert.Null(vm.Enter(5, 7, 1000, "조안", "페레로"));                  // 튀니스에는 걸린 것이 없다
     }
+    [Fact]
+    public void ChoiceGoesIntoAVariableAndFacesFollowTheWindow()
+    {
+        // 장 0 → 0x14, 절 0 → 0x16. 방아쇠 [0][7] → +8.  C0 02 · CC 0005 · C8 0000 · C9 01 0001 · E6 01(돈 += 변수 1) · FF
+        var code = new byte[0x16 + 8 + 16];
+        code[0x13] = 0x14; code[0x15] = 0x02;
+        byte[] body = [0x00, 0x07, 0x00, 0x08, 0xFF, 0xFF, 0xFF, 0xFF,
+                       0xC0, 0x02, 0xCC, 0x00, 0x05, 0xC8, 0x00, 0x00, 0xC9, 0x01, 0x00, 0x01, 0xE6, 0x01, 0xFF];
+        code = [.. code[..0x16], .. body];
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        var cp = System.Text.Encoding.GetEncoding(949);
+        byte[] t0 = cp.GetBytes("§아버지§/가거라"), t1 = cp.GetBytes("예\n아니오\n글쎄요");
+        var mes = new List<byte>();
+        foreach (int o in (int[])[12, 12 + t0.Length, 12 + t0.Length + t1.Length])
+            mes.AddRange([(byte)(o >> 24), (byte)(o >> 16), (byte)(o >> 8), (byte)o]);
+        mes.AddRange(t0); mes.AddRange(t1);
+
+        var vm = new Uw2.Game.Engine.ScenarioVm(code, ScenarioText.FromBytes([.. mes]));
+        IReadOnlyList<string>? asked = null;
+        int before = -1;
+        vm.Choose = (lines, options) => { asked = options; before = lines.Count; return 2; };
+        var run = vm.Enter(0, 7, 100, "조안", "페레로")!;
+        Assert.Equal(["예", "아니오", "글쎄요"], asked);
+        Assert.Equal(1, before);                                   // 고르기 앞 대사를 먼저 넘긴다
+        Assert.Empty(run.Pending);
+        Assert.Equal(102, run.Gold);                               // 고른 차례 2 가 변수 1 에
+        Assert.Equal((2, 5), (run.Lines[0].Window, run.Lines[0].Face));
+    }
 }
