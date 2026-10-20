@@ -100,6 +100,7 @@ public sealed class SeaMapHost : HwndHost
 
         _portMaps = pack.PortMaps.Length > 0 ? PortMap.FromCells(pack.PortMaps) : null;
         _portChipNo = pack.PortChipSet.Length > 0 ? PortChipNumbers.FromBytes(pack.PortChipSet) : null;
+        _portBounds = pack.PortWalkBounds.Length > 0 ? pack.PortWalkBounds : null;
         _portSets = pack.PortAtlases.Length > 0
             ? [.. pack.PortAtlases.Select(a => ChipSheet.FromAtlas(
                   a, pack.PortAtlasSize.W, pack.PortAtlasSize.H,
@@ -181,13 +182,15 @@ public sealed class SeaMapHost : HwndHost
         {
             PortTable.RegisterEncodings();
             _portMaps = PortMap.Load(Path.Combine(gameDir, "PORTMAP.LZW"));
-            _portSets = PortChipSets.Load(Path.Combine(gameDir, "PORTCHIP.LZW")).All;
+            var portChips = PortChipSets.Load(Path.Combine(gameDir, "PORTCHIP.LZW"));
+            _portSets = portChips.All;
+            _portBounds = portChips.Bounds;
             _portChipNo = PortChipNumbers.Load(Path.Combine(gameDir, "CHIP_NO.DAT"));
             Ports = PortTable.Load(gameDir);
         }
         catch
         {
-            _portMaps = null; _portSets = null; _portChipNo = null; Ports = null;
+            _portMaps = null; _portSets = null; _portBounds = null; _portChipNo = null; Ports = null;
         }
 
         Build = GameFolder.BuildOf(gameDir);
@@ -372,8 +375,9 @@ public sealed class SeaMapHost : HwndHost
         _renderer.GridStep = 8;
 
         // 부두 언저리에 사람을 세운다. 배가 들어온 자리가 아래쪽 물가다.
-        var set = _portSets[Math.Clamp(_portChipNo[port], 0, _portSets.Length - 1)];
-        Walker = new Walker(_portMaps[port], _portMaps.WalkableChips(port, set));
+        int setNo = Math.Clamp(_portChipNo[port], 0, _portSets.Length - 1);
+        var bounds = _portBounds != null && setNo < _portBounds.Length ? _portBounds[setNo] : default;
+        Walker = new Walker(_portMaps[port], bounds);
         if (!Walker.PlaceNear(PortMap.Size / 2.0, PortMap.Size * 0.72)) Walker = null;
         UseWalkerSprite(Walker != null);
 
@@ -396,6 +400,7 @@ public sealed class SeaMapHost : HwndHost
     private ChipSheet? _worldSheet;
     private PortMap? _portMaps;
     private ChipSheet[]? _portSets;
+    private WalkBounds[]? _portBounds;
     private PortChipNumbers? _portChipNo;
 
     /// <summary>온 지도가 창에 들어오게 배율을 맞춘다.</summary>

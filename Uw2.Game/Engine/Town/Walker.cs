@@ -6,8 +6,9 @@ namespace Uw2.Game.Engine.Town;
 /// 도시 안을 걸어 다니는 사람. 자리는 <b>항구지도 칸</b>(96 x 96)이다.
 /// </summary>
 /// <remarks>
-/// 밟을 수 있는 칸은 <see cref="PortMap.WalkableChips"/> 가 가른다 — 게임 표를 아직 못 찾아
-/// <b>넓게 깔린 바닥·길 칩</b>을 자료에서 뽑아 쓴다.
+/// 밟을 수 있는지는 게임 판정(<c>KOUKAI2.EXE 0x00433580</c>)을 그대로 쓴다 — 그림이 2 x 2 칸이고
+/// <b>밑줄 두 칸(왼발 · 오른발)</b>의 칩을 벌의 걸음 경계(<see cref="WalkBounds"/>)에 댄다.
+/// 자리 X 는 그림 가로 한가운데(두 발 사이)이고 Y 는 발이 밟은 줄이다.
 ///
 /// 걸음은 <b>칸의 사분의 일씩</b> 나아간다. 칸에 딱 맞춰 튀지 않고 부드럽게 미끄러지되,
 /// 막힌 데서는 가로·세로 하나만 살려 벽을 따라 흐른다 — 바다에서 배가 하는 것과 같은 얼개다.
@@ -27,11 +28,11 @@ public sealed class Walker
     public enum Facing { Down = 0, Left = 1, Right = 2, Up = 3 }
 
     private readonly byte[] _cells;
-    private readonly HashSet<byte> _walk;
+    private readonly WalkBounds _bounds;
 
-    public Walker(byte[] portCells, HashSet<byte> walkable)
+    public Walker(byte[] portCells, WalkBounds bounds)
     {
-        _cells = portCells; _walk = walkable;
+        _cells = portCells; _bounds = bounds;
     }
 
     /// <summary>지금 자리(칸).</summary>
@@ -50,12 +51,12 @@ public sealed class Walker
     /// <summary>막혀서 못 간 틱이면 참.</summary>
     public bool Blocked { get; private set; }
 
-    /// <summary>그 칸을 밟을 수 있는지.</summary>
+    /// <summary>그 자리에 설 수 있는지. 두 발이 밟는 칸은 <c>round(x)-1</c> 과 <c>round(x)</c> 다.</summary>
     public bool CanWalk(double x, double y)
     {
-        int cx = (int)Math.Floor(x), cy = (int)Math.Floor(y);
-        if (cx < 0 || cy < 0 || cx >= PortMap.Size || cy >= PortMap.Size) return false;
-        return _walk.Contains(_cells[cy * PortMap.Size + cx]);
+        int right = (int)Math.Round(x), left = right - 1, row = (int)Math.Floor(y);
+        if (left < 0 || row < 0 || right >= PortMap.Size || row >= PortMap.Size) return false;
+        return _bounds.CanStand(_cells[row * PortMap.Size + left], _cells[row * PortMap.Size + right]);
     }
 
     /// <summary>그 자리에서 가장 가까운 밟을 수 있는 칸에 세운다.</summary>
@@ -66,7 +67,7 @@ public sealed class Walker
                 for (int dx = -r; dx <= r; dx++)
                 {
                     if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r) continue;
-                    double nx = x + dx + 0.5, ny = y + dy + 0.5;
+                    double nx = Math.Round(x) + dx, ny = Math.Floor(y) + dy + 0.5;
                     if (CanWalk(nx, ny)) { X = nx; Y = ny; return true; }
                 }
         return false;

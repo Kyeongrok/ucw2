@@ -56,13 +56,14 @@ public static class Program
         uw2 ports  <폴더>
         uw2 port   <폴더> <번호> <낼 곳.bmp>
         uw2 assets <폴더> <낼 곳> [덧폴더]
-        uw2 start  <폴더> <낼 곳>              선종 · 사람 표만 굽는다(SDATA.DAT)
+        uw2 start  <폴더> <낼 곳>              선종 · 사람 표와 걸음 경계만 굽는다
         """);
 
     /// <summary>선종 · 사람 표만 굽고 선종 표를 늘어놓는다.</summary>
     private static int Start(string dir, string outDir)
     {
         AssetPack.BakeStart(Path.Combine(dir, "SDATA.DAT"), outDir);
+        AssetPack.BakeWalk(Path.Combine(dir, "PORTCHIP.LZW"), outDir);
         var start = StartData.Load(Path.Combine(dir, "SDATA.DAT"));
         foreach (var t in start.ShipTypes)
             Console.WriteLine($"{t.Index,2}  내구 {t.Durability,3} 역풍 {t.Upwind,3} 돛 {t.Sail,3} 드는선원 {t.RequiredCrew,3}"

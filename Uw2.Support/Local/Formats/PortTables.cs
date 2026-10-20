@@ -26,64 +26,6 @@ public sealed class PortMap
     /// <summary>읽은 항구 수.</summary>
     public int Ports => _maps.Length;
 
-    /// <summary>
-    /// 걸어 다닐 수 있는 칩. <b>바닥·길과 같은 색으로 그려진 칩</b>을 고른다.
-    /// </summary>
-    /// <remarks>
-    /// 게임 표를 아직 못 찾아 그림에서 뽑는다. 항구 한 곳에 칩이 이백 가지 넘게 쓰이는데,
-    /// 길은 곧은 토막 하나가 아니라 <b>모퉁이·가장자리까지 여러 벌</b>이라 개수로만 고르면
-    /// 네거리에서 걸음이 막힌다. 그래서 이렇게 한다.
-    /// <list type="number">
-    ///   <item>가장 흔한 칩을 물로 본다.</item>
-    ///   <item>물을 뺀 가장 흔한 둘을 <b>바닥</b>과 <b>길</b>로 본다.</item>
-    ///   <item>그 둘이 쓰는 색인을 모아, <b>그 색으로만 거의 다 그려진 칩</b>을 밟을 수 있다고 본다.</item>
-    /// </list>
-    /// 건물·나무·물가는 딴 색이 섞여 있어 걸러진다.
-    /// </remarks>
-    public HashSet<byte> WalkableChips(int port, ChipSheet sheet)
-    {
-        var cells = _maps[port];
-        var count = new int[256];
-        foreach (byte c in cells) count[c]++;
-
-        int water = Biggest(count, -1);
-        int ground = Biggest(count, water);
-        int road = Biggest(count, water, ground);
-
-        // 바닥과 길이 쓰는 색인을 모은다.
-        var ink = new bool[16];
-        foreach (int t in (int[])[ground, road])
-            if (t >= 0 && t < sheet.Count)
-                for (int y = 0; y < ChipSheet.Size; y++)
-                    for (int x = 0; x < ChipSheet.Size; x++)
-                        ink[sheet[t, x, y] & 0xF] = true;
-
-        var walk = new HashSet<byte>();
-        for (int t = 0; t < sheet.Count && t < 256; t++)
-        {
-            if (t == water) continue;
-            int same = 0;
-            for (int y = 0; y < ChipSheet.Size; y++)
-                for (int x = 0; x < ChipSheet.Size; x++)
-                    if (ink[sheet[t, x, y] & 0xF]) same++;
-            if (same >= ChipSheet.Size * ChipSheet.Size * WalkPurity) walk.Add((byte)t);
-        }
-        return walk;
-    }
-
-    /// <summary>칩이 이만큼 바닥·길 색으로만 그려져 있어야 밟을 수 있다고 본다.</summary>
-    public const double WalkPurity = 0.92;
-
-    private static int Biggest(int[] count, params int[] skip)
-    {
-        int best = -1;
-        for (int i = 0; i < count.Length; i++)
-        {
-            if (Array.IndexOf(skip, i) >= 0) continue;
-            if (best < 0 || count[i] > count[best]) best = i;
-        }
-        return best;
-    }
 
     /// <summary>그 항구의 물 칩. 가장 흔한 것이 물이다.</summary>
     public byte WaterChip(int port)
@@ -132,8 +74,11 @@ public sealed class PortChipSets
     /// <summary>벌 전부.</summary>
     public ChipSheet[] All => _sets;
 
-    /// <summary>벌마다 딸린 4바이트. 아직 뜻을 모른다.</summary>
+    /// <summary>벌마다 딸린 4바이트 — 걸음 경계(<see cref="WalkBounds"/>).</summary>
     public byte[] ExtraOf(int set) => _extras[set];
+
+    /// <summary>벌마다 걸음 경계. 게임이 항구에 들 때 <c>0x0046EDDC</c> 에 넉 바이트를 옮겨 둔다(<c>0x004360C8</c>).</summary>
+    public WalkBounds[] Bounds => [.. _extras.Select(WalkBounds.FromBytes)];
 
     /// <summary>파일에서 읽는다.</summary>
     public static PortChipSets Load(string path)
@@ -187,4 +132,27 @@ public sealed class PortChipNumbers
             throw new InvalidDataException($"CHIP_NO.DAT 이 {Count}바이트가 아닙니다 ({d.Length})");
         return new PortChipNumbers(d);
     }
+}
+
+/// <summary>
+/// 항구 칩 벌 하나의 걸음 경계 — <c>PORTCHIP.LZW</c> 의 4바이트 청크 <c>[0, a, b, c]</c>.
+/// </summary>
+/// <remarks>
+/// 걸음 판정 <c>KOUKAI2.EXE 0x00432EB0</c> · <c>0x00433580</c> 이 이렇게 쓴다. 사람 그림은 2 x 2 칸이고
+/// <b>밑줄 두 칸(왼발 · 오른발)</b>만 본다.
+/// <code>
+///   왼발 칩  &lt; b                          이어야 하고
+///   오른발 칩 &lt; a  또는  b &lt;= 칩 &lt; c      이어야 걷는다
+/// </code>
+/// 곧 칩 번호가 쓰임새대로 늘어서 있다 — <c>0..a-1</c> 은 어디든 밟는 바닥, <c>a..b-1</c> 은 왼발만,
+/// <c>b..c-1</c> 은 오른발만(오른쪽 · 왼쪽이 벽인 가장자리 칩), <c>c..</c> 는 건물 · 물 · 나무라 못 밟는다.
+/// </remarks>
+public readonly record struct WalkBounds(byte A, byte B, byte C)
+{
+    public static WalkBounds FromBytes(byte[] raw) =>
+        raw.Length >= 4 ? new WalkBounds(raw[1], raw[2], raw[3]) : new WalkBounds(0, 0, 0);
+
+    /// <summary>두 발이 밟은 칩으로 걸을 수 있는지.</summary>
+    public bool CanStand(byte left, byte right) =>
+        left < B && (right < A || (right >= B && right < C));
 }
