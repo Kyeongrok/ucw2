@@ -484,4 +484,34 @@ public class AssetTests
         Assert.Contains("금화 25가 드는데", m.Format(0xCD, 25));
         Assert.Equal("그럼 금화 500닢을 입금시키겠습니다. 이율은 월 3%입니다.", m.Format(0x6A, 500));
     }
+
+    [Fact]
+    public void DiscoveriesSeedFiftyAndStonehengeIsFoundNearLondon()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Sea.Discoveries.Table, pack.Start!.DiscoveryBytes);
+        var stone = Uw2.Game.Engine.Sea.Discoveries.Get(m, 0);
+        Assert.Equal((168, 270, 10, 4), (stone.X, stone.Y, stone.Difficulty, stone.Kind));   // 유적
+        var colony = ColonyText.Load(Path.Combine(AssetDir, "snr", "COLONY.DAT"));
+        Assert.Equal(100, colony.Count);
+        Assert.Equal("스톤 헨지", colony.Name(0));
+        Assert.StartsWith("중앙에 환상열석", colony.Text(0));
+
+        var rng = new Random(1);
+        Uw2.Game.Engine.Sea.Discoveries.Seed(m, rng.Next);
+        int present = Enumerable.Range(0, Uw2.Game.Engine.Sea.Discoveries.Used)
+            .Count(i => !Uw2.Game.Engine.Sea.Discoveries.Get(m, i).IsAbsent);
+        Assert.Equal(Uw2.Game.Engine.Sea.Discoveries.InGame, present);
+
+        // 스톤 헨지를 이번 게임에 두고 곁에서 찾는다 — 어려움 10 < 운 50 x 3/20 + 지식 20 x 7/20 = 14.
+        m.Write(Uw2.Game.Engine.ScenarioMemory.At(16, 0, 6), stone.Flags & 0x7F, false);
+        Assert.Equal(0, Uw2.Game.Engine.Sea.Discoveries.Near(m, 167, 268)?.Index);
+        Assert.NotEqual(0, Uw2.Game.Engine.Sea.Discoveries.Near(m, 140, 268)?.Index ?? -1);
+        Assert.Equal(Uw2.Game.Engine.Sea.Discoveries.Outcome.NoFood, Uw2.Game.Engine.Sea.Discoveries.Search(m, 0, 50, 20, 0, false));
+        Assert.Equal(Uw2.Game.Engine.Sea.Discoveries.Outcome.Nothing, Uw2.Game.Engine.Sea.Discoveries.Search(m, 0, 20, 10, 0, true));
+        Assert.Equal(Uw2.Game.Engine.Sea.Discoveries.Outcome.Found, Uw2.Game.Engine.Sea.Discoveries.Search(m, 0, 50, 20, 0, true));
+        Assert.Equal(Uw2.Game.Engine.Sea.Discoveries.Outcome.AlreadyFound, Uw2.Game.Engine.Sea.Discoveries.Search(m, 0, 50, 20, 0, true));
+        Assert.Equal(25, Uw2.Game.Engine.Sea.Discoveries.FightStrength(swordsmanship: 50, battleLevel: 25));   // v = 25 + 25 = 50
+    }
 }

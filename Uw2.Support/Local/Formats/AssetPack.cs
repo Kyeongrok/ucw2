@@ -27,10 +27,12 @@ namespace Uw2.Support.Local.Formats;
 ///     heroes.png         14x6     주인공 여섯 날바이트(SDATA.DAT 0x2427) — 시나리오 기억
 ///     misc.png           93x1     함대 뒤 덩이(SDATA.DAT 0x48D9) — 물 · 식량 비율 · 동료 칸
 ///     items.png          20x100   아이템 백(SDATA.DAT 0x55B6) — 이름 · 값 · 힘 · 갈래
+///     discoveries.png    7x100    발견물 백(SDATA.DAT 0x5D86) — 자리 · 어려움 · 갈래
 ///     goods.json                  교역품 이름 마흔여섯 (KOUKAI2-han8.exe)
 ///     menus.json                  고르기 목록 예순하나 (MENU.DAT)
 ///     snr/SNR0~6.DAT · .MES       시나리오 바이트코드 · 글(그대로 옮겨 둔 것)
 ///     snr/MESSAGE.DAT             게임 말 1179(그대로)
+///     snr/COLONY.DAT              발견물 이름 · 풀이 백(그대로)
 ///     start-ships.json            선종 본보기 스물다섯(이름 · 노 · 대포 · 자리)과 주인공 첫 선종(SNR1~6.DAT)
 ///     markets.png        128x13   시장 열셋(값 = 날바이트, SDATA.DAT 0x605A)
 ///     portstate.png      37x100   항구 형편 백(값 = 날바이트, SDATA.DAT 0x66DA)
@@ -360,6 +362,8 @@ public sealed class AssetPack
             }
         string msg = Path.Combine(gameDirectory, "MESSAGE.DAT");
         if (File.Exists(msg)) File.Copy(msg, Path.Combine(outDir, "snr", "MESSAGE.DAT"), true);
+        string colony = Path.Combine(gameDirectory, "COLONY.DAT");
+        if (File.Exists(colony)) File.Copy(colony, Path.Combine(outDir, "snr", "COLONY.DAT"), true);
     }
 
     /// <summary><c>MENU.DAT</c> 목록을 굽는다.</summary>
@@ -391,6 +395,8 @@ public sealed class AssetPack
                          StartData.HeroSize, StartData.HeroCount, DataPalette());
         IndexedPng.Write(Path.Combine(outDir, "misc.png"), start.MiscBytes, StartData.MiscSize, 1, DataPalette());
         IndexedPng.Write(Path.Combine(outDir, "items.png"), start.ItemBytes, StartData.ItemSize, StartData.ItemCount, DataPalette());
+        IndexedPng.Write(Path.Combine(outDir, "discoveries.png"), start.DiscoveryBytes,
+                         StartData.DiscoverySize, StartData.DiscoveryCount, DataPalette());
         string? game = Path.GetDirectoryName(sdataPath);
         var heroShips = game != null ? Scenario.HeroShips(game) : [];
         var heroGold = game != null ? Scenario.HeroGold(game) : [];
@@ -474,10 +480,12 @@ public sealed class AssetPack
             byte[]? miscBytes = File.Exists(miscPath) ? IndexedPng.Read(miscPath).Pixels : null;
             string itemsPath = Path.Combine(dir, "items.png");
             byte[]? itemBytes = File.Exists(itemsPath) ? IndexedPng.Read(itemsPath).Pixels : null;
+            string discPath = Path.Combine(dir, "discoveries.png");
+            byte[]? discBytes = File.Exists(discPath) ? IndexedPng.Read(discPath).Pixels : null;
             var startShips = ReadJson<StartShipsJson>(Path.Combine(dir, "start-ships.json"));
             var start = shipTypes != null && people != null
                 ? StartData.FromTables([.. shipTypes.Select(t => t.To())], [.. people.Select(p => p.To())], fleetBytes,
-                                       startShips?.Templates, startShips?.HeroShips, startShips?.HeroGold, peopleBytes, nationBytes, heroBytes, miscBytes, itemBytes)
+                                       startShips?.Templates, startShips?.HeroShips, startShips?.HeroGold, peopleBytes, nationBytes, heroBytes, miscBytes, itemBytes, discBytes)
                 : null;
 
             return new AssetPack

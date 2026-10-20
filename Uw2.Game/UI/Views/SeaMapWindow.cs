@@ -637,6 +637,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("저장", (_, _) => SaveToSlot()));
         bar.Children.Add(Button("식량할당", (_, _) => SetRations()));
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
+        bar.Children.Add(Button("상륙", (_, _) => Land()));
 
         // 항구 고르개. 표를 못 읽으면 번호만 늘어놓는다.
         _portPick = new ComboBox
@@ -853,6 +854,176 @@ public sealed class SeaMapWindow : Window
                 break;
         }
         MessageBox.Show(this, sb.Length > 0 ? sb.ToString() : "—", items[pick]);
+    }
+
+    /// <summary>
+    /// 「상륙」 — 바다 명령 목록 29(<c>0x0041AD60</c>). 함대 둘레에 뭍이 있어야 내린다(아니면 말 0x1B9).
+    /// 곁에 이번 게임의 발견물이 있으면 「부락에 상륙하겠습니다」 뒤 목록 35, 없으면 목록 36 이다(<see cref="Discoveries"/>).
+    /// </summary>
+    private void Land()
+    {
+        if (_host.Fleet is not { } f || _host.CurrentPort >= 0 || _host.Scenario is not { } vm) return;
+        int fx = (int)Math.Floor(f.X), fy = (int)Math.Floor(f.Y);
+        bool shore = false;
+        for (int dy = -1; dy <= 2 && !shore; dy++)
+            for (int dx = -1; dx <= 2 && !shore; dx++)
+                if ((dx is -1 or 2 || dy is -1 or 2) && !f.CanSail(fx + dx, fy + dy) && !f.CanSail(fx + dx - 1, fy + dy - 1))
+                    shore = true;
+        if (!shore) { Say(0x1B9, "그곳에는 상륙할 수 없습니다."); return; }
+
+        var spot = Discoveries.Near(vm.Memory, fx, fy);
+        var m = _host.Messages;
+        string ask = (spot != null ? m?[0x1B7] ?? "부락에 " : "") + (m?[0x1B8] ?? "상륙하겠습니다.\n좋습니까？");
+        if (MessageBox.Show(this, ask.Replace("\\n", "\n"), "상륙", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        f.UnderSail = false;
+        if (spot is { } s) AtVillage(s.Index);
+        else OnShore();
+    }
+
+    /// <summary>탐색 덤(<c>0x0049A164</c>) — 부락에 내릴 때마다 0 에서 시작하고 「환대」 가 5 씩 올린다.</summary>
+    private int _searchBonus;
+
+    /// <summary>부락 — 목록 35(보물탐색 · 환대 · 식량약탈 · 출항 · 대기, <c>0x0041BA90</c>).</summary>
+    private void AtVillage(int index)
+    {
+        _searchBonus = 0;
+        string[] items = ["보물탐색", "환  대", "식량약탈", "출  항"];
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, "부락", items);
+            switch (pick)
+            {
+                case 0: SearchVillage(index); break;
+                case 1: Feast(); break;
+                case 2: Loot(); break;
+                default: Note(" · 배로 돌아왔습니다"); return;
+            }
+        }
+    }
+
+    /// <summary>뭍 — 목록 36(출항 · 응급수리 · 탐색 · 대기, <c>0x0041B090</c>). 응급수리는 아직이다.</summary>
+    private void OnShore()
+    {
+        string[] items = ["출  항", "탐  색"];
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, "상륙", items);
+            if (pick != 1) { Note(" · 배로 돌아왔습니다"); return; }
+            SearchWater();
+        }
+    }
+
+    private int HeroField(int field) =>
+        _host.Scenario is { } vm ? Navigators.Get(vm.Memory, _host.HeroPersonNumber, field) : 0;
+
+    /// <summary>식량을 <paramref name="amount"/> 만큼 덜어 낸다 — 앞 배부터. 모자라면 아무것도 안 하고 거짓.</summary>
+    private bool TakeFood(int amount)
+    {
+        var ships = _host.Player.Ships;
+        if (ships.Sum(s => s.Supplies[PlayerState.Food]) < amount) return false;
+        foreach (var s in ships)
+        {
+            int k = Math.Min(amount, s.Supplies[PlayerState.Food]);
+            s.Supplies[PlayerState.Food] -= k;
+            amount -= k;
+        }
+        _host.SyncLoad();
+        return true;
+    }
+
+    /// <summary>땅에서 싸운다 — 배마다 선원 x 세기 / 100 이 죽는다(<c>0x0041ACE0</c>, 말 0x1AB).</summary>
+    private string LandFight()
+    {
+        int strength = Discoveries.FightStrength(HeroField(Navigators.Stats + 5), HeroField(Navigators.BattleLevel));
+        int dead = 0;
+        foreach (var s in _host.Player.Ships)
+        {
+            int k = s.Crew * strength / 100;
+            s.Crew -= k;
+            dead += k;
+        }
+        return M(0x1AB, $"선원 중에서 {dead}명의 사상자가 났습니다.", dead)[3..];
+    }
+
+    /// <summary>「보물탐색」(<c>0x0041BB50</c>).</summary>
+    private void SearchVillage(int index)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var p = _host.Player;
+        var r = Discoveries.Search(vm.Memory, index, HeroField(Church.Luck), HeroField(Navigators.Stats + 3), _searchBonus,
+                                   p.Ships.Any(s => s.Supplies[PlayerState.Food] > 0));
+        var spot = Discoveries.Get(vm.Memory, index);
+        string kind = Discoveries.KindNames[spot.Kind];
+        switch (r)
+        {
+            case Discoveries.Outcome.NoFood: Say(0x1AC, "식량이 없습니다. 수색을 중단합시다."); return;
+            case Discoveries.Outcome.AlreadyFound: Say(0x1B0, "색다른 물건은 하나도 없습니다."); return;
+            case Discoveries.Outcome.Nothing: Say(0x1AD, "아무것도 발견되지 않았습니다."); return;
+        }
+        string head = r == Discoveries.Outcome.Attacked
+            ? M(0x1AE, $"{kind}에게 습격당했습니다.", kind)[3..] + " " + LandFight()
+            : M(0x1AF, $"{kind}(를) 발견했습니다.", kind)[3..];
+        string name = _host.Colony?.Name(index) ?? kind;
+        string text = _host.Colony?.Text(index) ?? "";
+        ScenarioDialog.Play(this, _host.Faces,
+        [
+            new ScenarioVm.Line("", head),
+            new ScenarioVm.Line(name, text.Length > 0 ? text : name),
+        ]);
+        Note($" · 「{name}」을(를) 찾았습니다");
+    }
+
+    /// <summary>「환대」(<c>0x0041BD40</c>) — 식량 20 을 내주고 탐색 덤 +5.</summary>
+    private void Feast()
+    {
+        if (MessageBox.Show(this, _host.Messages?[0x1B1] ?? "현지인을 대접하겠습니까？", "환대", MessageBoxButton.YesNo)
+            != MessageBoxResult.Yes) return;
+        if (!TakeFood(Discoveries.FeastFood)) { Say(0x1B3, "나누어 줄 정도의 식량은 없습니다."); return; }
+        _searchBonus += Discoveries.FeastBonus;
+        Say(0x1B2, $"우호도가 {_searchBonus}(가) 되었습니다.", _searchBonus);
+    }
+
+    /// <summary>
+    /// 「식량약탈」(<c>0x0041BE00</c>) — (rand(5) + 2) x 10 을 싣고, 넷에 하나는 반격을 받는다. 주인공 +0x22 · 운이 2 까지 떨어지고
+    /// 탐색 덤은 0 으로 돌아간다.
+    /// </summary>
+    private void Loot()
+    {
+        if (MessageBox.Show(this, _host.Messages?[0x1B4] ?? "현지인으로부터 약탈하겠습니까？", "식량약탈", MessageBoxButton.YesNo)
+            != MessageBoxResult.Yes) return;
+        if (_host.Scenario is not { } vm) return;
+        int amount = Discoveries.LootAmount(Random.Shared.Next);
+        string text = M(0x1B5, $"{amount}명분의 식량을 약탈했습니다.", amount)[3..];
+        if (Random.Shared.Next(4) == 0) text += "\n" + (_host.Messages?[0x1B6] ?? "원주민에게 반격을 받고, ") + LandFight();
+        int hero = _host.HeroPersonNumber;
+        int charm = Navigators.Get(vm.Memory, hero, Navigators.Stats + 6);
+        Navigators.Set(vm.Memory, hero, Navigators.Stats + 6, charm - Math.Clamp(charm - 50, 0, 2));
+        int luck = Navigators.Get(vm.Memory, hero, Church.Luck);
+        Navigators.Set(vm.Memory, hero, Church.Luck, luck - Math.Min(2, luck));
+        _searchBonus = 0;
+        _host.Player.BuySupply(PlayerState.Food, amount / PlayerState.Lot, 0);
+        _host.SyncLoad();
+        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", text)]);
+    }
+
+    /// <summary>
+    /// 뭍 「탐색」 — 물을 찾는다(<c>0x0041B8B0</c>). rand(100) &lt; 운이면 찾고(0x1AA) 배마다 빈 자리만큼 물을 채운다.
+    /// 원본은 사막 칩(0x59)이면 찾을 수 없다고 먼저 묻는데(0x1A8), 그건 아직 안 가린다.
+    /// </summary>
+    private void SearchWater()
+    {
+        if (Random.Shared.Next(100) >= HeroField(Church.Luck)) { Say(0x1A9, "물은 발견되지 않았습니다."); return; }
+        int filled = 0;
+        foreach (var s in _host.Player.Ships)
+        {
+            int k = s.Free;
+            s.Supplies[PlayerState.Water] += k;
+            filled += k;
+        }
+        _host.SyncLoad();
+        Say(0x1AA, "깨끗한 물을 발견했습니다.");
+        if (filled == 0) Say(0x1A6, "더이상 실을 수 없습니다.");
+        else Note($" · 물 {filled}통을 실었습니다");
     }
 
     /// <summary>

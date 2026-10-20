@@ -358,6 +358,9 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>게임 말(<c>MESSAGE.DAT</c>). 없으면 null — 그때는 우리 글로 대신한다.</summary>
     public GameMessages? Messages { get; private set; }
 
+    /// <summary>발견물 이름 · 풀이(<c>COLONY.DAT</c>). 없으면 null.</summary>
+    public ColonyText? Colony { get; private set; }
+
     /// <summary>주인공의 시나리오 기계. 파일이 없으면 null.</summary>
     public ScenarioVm? Scenario { get; private set; }
 
@@ -371,6 +374,8 @@ public sealed class SeaMapHost : HwndHost
         if (_scenarioDir == null) return;
         string msgPath = Path.Combine(_scenarioDir, "MESSAGE.DAT");
         Messages = File.Exists(msgPath) ? GameMessages.Load(msgPath) : null;
+        string colonyPath = Path.Combine(_scenarioDir, "COLONY.DAT");
+        Colony = File.Exists(colonyPath) ? ColonyText.Load(colonyPath) : null;
         for (int n = 1; n <= 6; n++)
         {
             string dat = Path.Combine(_scenarioDir, $"SNR{n}.DAT"), mes = Path.Combine(_scenarioDir, $"SNR{n}.MES");
@@ -397,6 +402,11 @@ public sealed class SeaMapHost : HwndHost
             if (Ports is { } pt) Scenario.Memory.FillPorts(pt.Ports.Select(p => (p.X, p.Y, p.Name, p.Nation)));
             if (Economy is { } ge) Scenario.Memory.FillGoodsNames(ge.GoodsNames);
             if (StartTables is { ItemBytes.Length: > 0 } si) Scenario.Memory.Fill(Uw2.Game.Engine.Town.ItemShop.Table, si.ItemBytes);
+            if (StartTables is { DiscoveryBytes.Length: > 0 } sd)
+            {
+                Scenario.Memory.Fill(Discoveries.Table, sd.DiscoveryBytes);
+                Discoveries.Seed(Scenario.Memory, Random.Shared.Next);
+            }
             if (StartTables is { MiscBytes.Length: > 0 } sm)
             {
                 Scenario.Memory.Fill(ScenarioMemory.MiscTable, sm.MiscBytes);
