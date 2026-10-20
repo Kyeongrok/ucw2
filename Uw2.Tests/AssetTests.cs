@@ -586,4 +586,16 @@ public class AssetTests
         Assert.Equal(12, Uw2.Game.Engine.Town.Barmaids.Get(m, maid, Uw2.Game.Engine.Town.Barmaids.Liking));
         Assert.Empty(Uw2.Game.Engine.Town.Barmaids.Giftable(m));
     }
+
+    [Fact]
+    public void JoaosAudienceIsAScenarioEventAtBuilding0x15()
+    {
+        string dir = Path.Combine(AssetDir, "snr");
+        var vm = new Uw2.Game.Engine.ScenarioVm(File.ReadAllBytes(Path.Combine(dir, "SNR1.DAT")),
+                                                ScenarioText.Load(Path.Combine(dir, "SNR1.MES")));
+        vm.Chapter = 1;
+        vm.Section = 1;
+        var run = vm.Enter(0, 0x15, 1000, "조안", "페레로");                          // 리스본 왕궁 알현(0x00427800)
+        Assert.NotNull(run);                                                          // 걸린 이벤트가 있다(조건은 기억에 따른다)
+    }
 }
