@@ -35,6 +35,9 @@ public sealed class StartData
 
     /// <summary>발견물 표 — <c>0x5D86</c>, 7바이트 x 100(메모리 0x00460620). 98 개를 쓴다.</summary>
     public const int DiscoveryOffset = 0x5D86, DiscoverySize = 7, DiscoveryCount = 100;
+
+    /// <summary>「NPC」 건물 임자 표 — <c>0xAF7</c>, 22바이트 x 20(메모리 0x0045B9B0, 사람 표 바로 앞).</summary>
+    public const int PatronOffset = 0xAF7, PatronSize = 22, PatronCount = 20;
     public const int ShipTypeOffset = 0x4936, ShipTypeSize = 12, ShipTypeCount = 25;
     public const int FleetOffset = 0x247B, FleetSize = 0x85, FleetCount = 70, SlotCount = 10, SlotSize = 9;
 
@@ -147,6 +150,9 @@ public sealed class StartData
     /// <summary>발견물 표 날바이트(100 x 7) — 시나리오 기억 표 16.</summary>
     public byte[] DiscoveryBytes { get; init; } = [];
 
+    /// <summary>임자 표 날바이트(20 x 22) — 시나리오 기억 표 4.</summary>
+    public byte[] PatronBytes { get; init; } = [];
+
     /// <summary>나라마다 서울 항구 — 원본은 여기서 투자를 받지 않는다(<c>0x00431A70</c>).</summary>
     public IEnumerable<int> Capitals =>
         Enumerable.Range(0, NationBytes.Length / NationSize).Select(n => (int)NationBytes[n * NationSize + CapitalField]);
@@ -161,12 +167,13 @@ public sealed class StartData
                                        IReadOnlyList<ShipTemplate>? templates = null, IReadOnlyList<int>? heroShips = null,
                                        IReadOnlyList<int>? heroGold = null, byte[]? peopleBytes = null,
                                        byte[]? nationBytes = null, byte[]? heroBytes = null, byte[]? miscBytes = null,
-                                       byte[]? itemBytes = null, byte[]? discoveryBytes = null) =>
+                                       byte[]? itemBytes = null, byte[]? discoveryBytes = null,
+                                       byte[]? patronBytes = null) =>
         new(types, people, fleets ?? [])
         {
             Templates = templates ?? [], HeroShips = heroShips ?? [], HeroGold = heroGold ?? [], PeopleBytes = peopleBytes ?? [],
             NationBytes = nationBytes ?? [], HeroBytes = heroBytes ?? [], MiscBytes = miscBytes ?? [],
-            ItemBytes = itemBytes ?? [], DiscoveryBytes = discoveryBytes ?? [],
+            ItemBytes = itemBytes ?? [], DiscoveryBytes = discoveryBytes ?? [], PatronBytes = patronBytes ?? [],
         };
 
     private static Fleet[] ParseFleets(byte[] raw)
@@ -214,6 +221,7 @@ public sealed class StartData
             MiscBytes = s.MiscBytes,
             ItemBytes = s.ItemBytes,
             DiscoveryBytes = s.DiscoveryBytes,
+            PatronBytes = s.PatronBytes,
             HeroShips = Scenario.HeroShips(game),
             HeroGold = Scenario.HeroGold(game),
         };
@@ -261,6 +269,7 @@ public sealed class StartData
             MiscBytes = d.AsSpan(MiscOffset, MiscSize).ToArray(),
             ItemBytes = d.AsSpan(ItemOffset, ItemSize * ItemCount).ToArray(),
             DiscoveryBytes = d.AsSpan(DiscoveryOffset, DiscoverySize * DiscoveryCount).ToArray(),
+            PatronBytes = d.AsSpan(PatronOffset, PatronSize * PatronCount).ToArray(),
         };
     }
 }

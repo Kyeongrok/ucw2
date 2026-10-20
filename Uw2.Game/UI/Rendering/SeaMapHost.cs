@@ -402,6 +402,7 @@ public sealed class SeaMapHost : HwndHost
             if (Ports is { } pt) Scenario.Memory.FillPorts(pt.Ports.Select(p => (p.X, p.Y, p.Name, p.Nation)));
             if (Economy is { } ge) Scenario.Memory.FillGoodsNames(ge.GoodsNames);
             if (StartTables is { ItemBytes.Length: > 0 } si) Scenario.Memory.Fill(Uw2.Game.Engine.Town.ItemShop.Table, si.ItemBytes);
+            if (StartTables is { PatronBytes.Length: > 0 } sq) Scenario.Memory.Fill(Patrons.Table, sq.PatronBytes);
             if (StartTables is { DiscoveryBytes.Length: > 0 } sd)
             {
                 Scenario.Memory.Fill(Discoveries.Table, sd.DiscoveryBytes);

@@ -514,4 +514,29 @@ public class AssetTests
         Assert.Equal(Uw2.Game.Engine.Sea.Discoveries.Outcome.AlreadyFound, Uw2.Game.Engine.Sea.Discoveries.Search(m, 0, 50, 20, 0, true));
         Assert.Equal(25, Uw2.Game.Engine.Sea.Discoveries.FightStrength(swordsmanship: 50, battleLevel: 25));   // v = 25 + 25 = 50
     }
+
+    [Fact]
+    public void NobleBuysAFoundDiscoveryForGoldAndAdventurerFame()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Town.Patrons.Table, pack.Start!.PatronBytes);
+        m.Fill(Uw2.Game.Engine.Sea.Discoveries.Table, pack.Start.DiscoveryBytes);
+        int count = Uw2.Game.Engine.Town.Patrons.InPort(m, 34);
+        Assert.Equal(1, count);
+        Assert.Equal("모리스 백작", Uw2.Game.Engine.Town.Patrons.Name(m, count));
+        Assert.Equal(0, Uw2.Game.Engine.Town.Patrons.InPort(m, 0));                    // 리스본은 집사 마르코
+        Assert.Empty(Uw2.Game.Engine.Town.Patrons.Reportable(m));                      // 0x80 — 이번 게임에 없다
+
+        Uw2.Game.Engine.Town.Patrons.Contract(m, count);
+        Assert.True(Uw2.Game.Engine.Town.Patrons.IsContracted(m, count));
+        Assert.False(Uw2.Game.Engine.Town.Patrons.IsContracted(m, 0));
+
+        m.Write(Uw2.Game.Engine.ScenarioMemory.At(16, 0, 6), 0x24, false);            // 스톤 헨지 — 찾았다
+        Assert.Equal([0], Uw2.Game.Engine.Town.Patrons.Reportable(m));
+        int reward = Uw2.Game.Engine.Town.Patrons.Report(m, count, 0, hero: 5, out int fame, out int message);
+        Assert.Equal((2000, 80, 0x1E6), (reward, fame, message));                     // (5 − 격 1) x 10 x 50 · 10 x 8
+        Assert.Equal(80, m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 5, 4), true));
+        Assert.Empty(Uw2.Game.Engine.Town.Patrons.Reportable(m));
+    }
 }

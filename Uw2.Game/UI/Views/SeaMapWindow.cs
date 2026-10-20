@@ -32,7 +32,7 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9, PalaceBuilding = 5, GuildBuilding = 6, FortuneBuilding = 11;
+    private const int NpcBuilding = 7, HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9, PalaceBuilding = 5, GuildBuilding = 6, FortuneBuilding = 11;
 
     /// <summary>조합 일 갈래 — 0x00458688 부터 다섯(상품수송 · 상품구입 · 편지배달 · 해적퇴치 · 빚수금).</summary>
     private static readonly string[] JobNames = ["상품 수송", "상품 구입", "편지 배달", "해적 퇴치", "빚 수금"];
@@ -185,6 +185,7 @@ public sealed class SeaMapWindow : Window
             if (run.Stopped && b != InnBuilding) return;
         }
         if (!menu && b != InnBuilding) return;
+        if (b == NpcBuilding) { AtPatron(); return; }
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
         if (b == ChurchBuilding) _worshipped = false;
@@ -219,6 +220,67 @@ public sealed class SeaMapWindow : Window
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>
+    /// 「NPC」 — 그 항구의 임자(<see cref="Patrons"/>). 귀족이면 「계약 · 발견물 보고 · 모험소문」(목록 24, <c>0x00421E90</c>),
+    /// 학자면 목록 25 인데 학자 볼일은 아직이다.
+    /// </summary>
+    private void AtPatron()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        int who = Patrons.InPort(m, _host.CurrentPort);
+        if (who < 0) { Note(" · 아무도 없습니다"); return; }
+        string name = Patrons.Name(m, who);
+        if (Patrons.KindOf(m, who) != Patrons.Noble) { Note($" · {name} — 학자 볼일은 아직 없습니다"); return; }
+        var (hero, family) = _host.HeroName;
+        if (Patrons.IsContracted(m, who)) Say(0x1DE, $"오！ {family}님, 어서 들어오세요.", family);
+        else Say(0x1DD, "우리 가문에 무슨 용건이 있으십니까？");
+        string[] items = ["계  약", "발견물 보고", "모험소문"];
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, name, items);
+            if (pick < 0) return;
+            if (pick == 0) ContractPatron(who, $"{hero} {family}");
+            else if (pick == 1) ReportDiscovery(who);
+            else Note(" · 「모험소문」은 아직 없습니다");
+        }
+    }
+
+    /// <summary>「계약」(<c>0x00421AA0</c>) — 0x1E0 · 0x1E1 을 묻고, 하면 0x1E3, 안 하면 0x1E2.</summary>
+    private void ContractPatron(int who, string heroName)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var msg = _host.Messages;
+        string ask = (msg?.Format(0x1E0, heroName) ?? $"그대가 계약을 맺고 싶다는 {heroName}씨인가？") + "\n"
+                     + (msg?[0x1E1] ?? "다른 귀족에게 발견물을 팔아 넘길 수는 없는데, 괜찮겠소？");
+        if (MessageBox.Show(this, ask, "계약", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        {
+            Say(0x1E2, "그러한가. 마음이 변하면 다시 찾아오게나.");
+            return;
+        }
+        Patrons.Contract(vm.Memory, who);
+        Say(0x1E3, "그럼, 근사한 보고를 기다리고 있겠네.");
+    }
+
+    /// <summary>「발견물 보고」(<c>0x00421B30</c>) — 찾은 것을 하나 골라 판다. 돈과 모험가 명성(주인공 표 +4)이 오른다.</summary>
+    private void ReportDiscovery(int who)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        var list = Patrons.Reportable(m);
+        if (list.Count == 0) { Say(0x1E4, "흠, 특별히 새로운 발견은 없었던 모양이군."); return; }
+        Say(0x1E5, "무엇을 발견하셨나？");
+        int pick = BuildingMenu.Ask(this, "발견물 보고", list.Select(i => _host.Colony?.Name(i) ?? $"발견물 {i}").ToList());
+        if (pick < 0) return;
+        int disc = list[pick];
+        string name = _host.Colony?.Name(disc) ?? $"발견물 {disc}";
+        int reward = Patrons.Report(m, who, disc, _host.Hero, out int fame, out int message);
+        _host.Player.SetGold(_host.Player.Gold + reward);
+        _host.WriteShipSide();
+        Say(message, $"{name}？ 그럼, 금화 {reward}닢을 받아 주시요.", name, reward);
+        Note(M(0x1DC, $"모험가의 명성이 {fame} 높아졌습니다.", fame));
     }
 
     /// <summary>게임 말 하나를 대사 창에 띄운다 — 말이 없으면 <paramref name="fallback"/>.</summary>
