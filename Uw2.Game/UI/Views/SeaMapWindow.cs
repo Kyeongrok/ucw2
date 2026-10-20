@@ -838,7 +838,16 @@ public sealed class SeaMapWindow : Window
         int crew = p.Ships.Sum(s => s.Crew), room = p.Ships.Sum(s => s.MaxCrew);
         int water = p.Ships.Sum(s => s.Supplies[PlayerState.Water]), food = p.Ships.Sum(s => s.Supplies[PlayerState.Food]);
         int morale = p.Ships.Count > 0 ? p.Ships.Min(s => s.Morale) : 0;
-        return $"배 {p.Ships.Count}척 · 선원 {crew}/{room} · 사기 {morale} · 물 {water} · 식량 {food}";
+        return $"배 {p.Ships.Count}척 · 선원 {crew}/{room} · 사기 {morale} · 물 {water} · 식량 {food}" + JobText();
+    }
+
+    /// <summary>맡은 조합 일 — 함께 쓰는 시나리오의 장(1 수송 · 2 구입 · 3 편지 · 4 해적 · 5 빚)과 변수 16 · 17 항구.</summary>
+    private string JobText()
+    {
+        if (_host.Common is not { Chapter: > 0 and <= 5 } job) return "";
+        string[] kinds = ["수송", "구입", "편지", "해적 퇴치", "빚 수금"];
+        string Port(int i) => _host.Ports is { } pt && i < pt.Ports.Count ? pt.Ports[i].Name : $"#{i}";
+        return $" · 일: {kinds[job.Chapter - 1]}({Port(job.GetVar(16))} → {Port(job.GetVar(17))})";
     }
 
     private string BalanceText() =>
