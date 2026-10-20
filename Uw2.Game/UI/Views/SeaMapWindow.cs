@@ -754,7 +754,8 @@ public sealed class SeaMapWindow : Window
         var p = _host.Player;
         int crew = p.Ships.Sum(s => s.Crew), room = p.Ships.Sum(s => s.MaxCrew);
         int water = p.Ships.Sum(s => s.Supplies[PlayerState.Water]), food = p.Ships.Sum(s => s.Supplies[PlayerState.Food]);
-        return $"배 {p.Ships.Count}척 · 선원 {crew}/{room} · 물 {water} · 식량 {food}";
+        int morale = p.Ships.Count > 0 ? p.Ships.Min(s => s.Morale) : 0;
+        return $"배 {p.Ships.Count}척 · 선원 {crew}/{room} · 사기 {morale} · 물 {water} · 식량 {food}";
     }
 
     private string BalanceText() =>

@@ -14,7 +14,7 @@ namespace Uw2.Game.Engine;
 /// </remarks>
 public sealed class PlayerState
 {
-    public const int MaxGold = 600_000_000, CargoSlots = 5, SupplyKinds = 4, Lot = 10;
+    public const int MaxGold = 600_000_000, CargoSlots = 5, SupplyKinds = 4, Lot = 10, DefaultMorale = 60, MutinyBelow = 20;
 
     public sealed class Ship
     {
@@ -49,6 +49,9 @@ public sealed class PlayerState
 
         /// <summary>등급 — 배 기록 +0x10 의 아래 세 비트. 배 값에 든다(<see cref="Town.Shipyard.Value"/>).</summary>
         public int Grade { get; init; }
+
+        /// <summary>사기 0 ~ 100 — 함대 칸 곁 +0x1C. 새로 맡는 배는 60(0x0040B927).</summary>
+        public int Morale { get; set; } = DefaultMorale;
 
         /// <summary>선장 사람 번호 — 함대 칸 곁 +0x1B. -1 은 주인공.</summary>
         public int Captain { get; set; } = -1;
@@ -91,20 +94,40 @@ public sealed class PlayerState
     /// <summary>
     /// 바다의 하루 — 배마다 식량 다음 물을 먹는다(<c>0x00417480</c> · <c>0x004176F0</c>).
     /// 먹는 양은 <c>선원 x 비율 / 100 + 1</c>(<see cref="DailyUse"/>)이고 제 배에 없으면 그것이 있는 앞 배에서 꺼낸다.
-    /// 아무 배에도 없던 것의 수를 돌려준다(원본은 그때 사기를 깎는다 — 0x004176B0).
+    /// 먹을 때마다 사기가 움직인다(<see cref="MoraleChange"/>) — <paramref name="lead"/> 는 배 차례 → 그 배 선장 능력치 +0x1C.
+    /// 아무 배에도 없으면 먹지 못하고 사기를 <c>min(16, 사기)</c> 깎는다(<c>0x004176B0</c>).
+    /// 아무 배에도 없던 것의 수를 돌려준다. 사기 20 아래의 선상 반란(<c>0x00417650</c>)은 아직이다.
     /// </summary>
-    public int ConsumeDay()
+    public int ConsumeDay(Func<int, int>? lead = null)
     {
         int lacking = 0;
-        foreach (var ship in Ships)
-            foreach (int kind in (int[])[Food, Water])
+        foreach (int kind in (int[])[Food, Water])
+            for (int i = 0; i < Ships.Count; i++)
             {
-                int need = DailyUse(ship.Crew, kind == Food ? FoodRate : WaterRate);
+                var ship = Ships[i];
+                int rate = kind == Food ? FoodRate : WaterRate;
+                int need = DailyUse(ship.Crew, rate);
                 var from = ship.Supplies[kind] > 0 ? ship : Ships.FirstOrDefault(s => s.Supplies[kind] > 0);
-                if (from == null) { lacking++; continue; }
+                if (from == null)
+                {
+                    lacking++;
+                    ship.Morale -= Math.Min(16, ship.Morale);
+                    continue;
+                }
                 from.Supplies[kind] -= Math.Min(need, from.Supplies[kind]);
+                ship.Morale = Math.Clamp(ship.Morale - MoraleChange(lead?.Invoke(i) ?? 0, rate), 0, 100);
             }
         return lacking;
+    }
+
+    /// <summary>
+    /// 한 번 먹을 때 깎이는 사기(<c>0x004175ED</c>) — 괄호 = 100 − 선장 능력치 / 5 − 비율, 괄호 &gt; 0 이면 괄호 / 5,
+    /// 아니면 괄호 / 10(음수라 사기가 오른다).
+    /// </summary>
+    public static int MoraleChange(int lead, int rate)
+    {
+        int b = 100 - lead / 5 - rate;
+        return b > 0 ? b / 5 : b / 10;
     }
 
     /// <summary>하루에 먹는 양 — <c>선원 x 비율 / 100 + 1</c>(<c>0x004175C3</c>). 원본은 깃발 0x0045A1A8 &amp; 0x1800 이면 / 200 이다.</summary>
@@ -122,7 +145,10 @@ public sealed class PlayerState
         {
             int n = Math.Min(count - hired, ship.Vacancy);
             if (n <= 0) continue;
+            // 새 선원만큼 사기를 60 쪽으로 — 60 + (사기 − 60) x 전 선원 / 새 선원(0x00424241).
+            int before = ship.Crew;
             ship.Crew += n;
+            ship.Morale = DefaultMorale + (ship.Morale - DefaultMorale) * before / ship.Crew;
             hired += n;
         }
         Gold -= hired * price;

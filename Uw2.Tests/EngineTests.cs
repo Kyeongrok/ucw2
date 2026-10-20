@@ -332,4 +332,25 @@ public class EngineTests
         Assert.Equal(59, Uw2.Game.Engine.Town.Navigators.Get(m, 0, Uw2.Game.Engine.Town.Church.Luck));
         Assert.Equal(1, Uw2.Game.Engine.Town.Church.Worship(m, 0, _ => 1));
     }
+
+    [Fact]
+    public void MoraleRisesOnFullRationsAndFallsWhenSuppliesRunOut()
+    {
+        Assert.Equal(-1, PlayerState.MoraleChange(80, 100));     // 괄호 −16 → / 10 = −1, 사기 +1
+        Assert.Equal(17, PlayerState.MoraleChange(75, 0));       // 괄호 85 → / 5
+        var p = new PlayerState(0);
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "배", Room = 100, Crew = 10 });
+        p.Ships[0].Supplies[PlayerState.Food] = 50;
+        p.Ships[0].Supplies[PlayerState.Water] = 50;
+        p.ConsumeDay(_ => 80);
+        Assert.Equal(62, p.Ships[0].Morale);                     // 60 + 1 + 1
+        p.Ships[0].Supplies[PlayerState.Water] = 0;
+        p.ConsumeDay(_ => 80);
+        Assert.Equal(62 + 1 - 16, p.Ships[0].Morale);
+        // 선원 10 · 사기 47 에 열을 더 태우면 60 + (47 − 60) x 10 / 20
+        p.Ships[0] = new PlayerState.Ship { Type = 5, Name = "배", Room = 100, Crew = 10, MaxCrew = 20, Morale = 47 };
+        p.SetGold(1000);
+        p.Hire(10, 1);
+        Assert.Equal(54, p.Ships[0].Morale);
+    }
 }

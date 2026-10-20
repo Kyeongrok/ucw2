@@ -246,7 +246,7 @@ public sealed class SeaMapHost : HwndHost
             Fleet = new Fleet(Map, Chips, Wind);
             Fleet.NewDay += () =>
             {
-                Player.ConsumeDay();
+                Player.ConsumeDay(i => CaptainLead(i));
                 SyncLoad();
             };
             Fleet.NewMonth += () =>
@@ -568,6 +568,14 @@ public sealed class SeaMapHost : HwndHost
         if (Fleet == null) return;
         for (int i = 0; i < Fleet.Ships.Count && i < Player.Ships.Count; i++)
             Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load, Crew = Player.Ships[i].Crew };
+    }
+
+    /// <summary>그 배 선장의 능력치 +0x1C — 사기 셈에 든다.</summary>
+    private int CaptainLead(int ship)
+    {
+        if (StartTables is not { } st || ship >= Player.Ships.Count) return 0;
+        int who = Player.Ships[ship].Captain is >= 0 and var c ? c : HeroPersonNumber;
+        return who < st.People.Count && st.People[who].Stats.Length > 0 ? st.People[who].Stats[0] : 0;
     }
 
     /// <summary>주인공의 사람 번호.</summary>

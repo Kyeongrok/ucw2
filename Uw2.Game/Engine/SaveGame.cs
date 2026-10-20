@@ -64,6 +64,7 @@ public sealed class SaveGame
         public int Sail { get; set; }
         public int Grade { get; set; }
         public int Captain { get; set; } = -1;
+        public int Morale { get; set; } = PlayerState.DefaultMorale;
     }
 
     public static PlayerData From(PlayerState p) => new()
@@ -74,7 +75,7 @@ public sealed class SaveGame
             Type = s.Type, Name = s.Name, Room = s.Room, Supplies = [.. s.Supplies],
             CargoGoods = [.. s.Cargo.Select(c => c.Good)], CargoAmounts = [.. s.Cargo.Select(c => c.Amount)],
             Crew = s.Crew, MaxCrew = s.MaxCrew, Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail,
-            Grade = s.Grade, Captain = s.Captain,
+            Grade = s.Grade, Captain = s.Captain, Morale = s.Morale,
         })],
     };
 
@@ -88,7 +89,7 @@ public sealed class SaveGame
             var ship = new PlayerState.Ship
             {
                 Type = s.Type, Name = s.Name, Room = s.Room, MaxCrew = s.MaxCrew, Crew = s.Crew,
-                Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail, Grade = s.Grade, Captain = s.Captain,
+                Hull = s.Hull, MaxHull = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail, Grade = s.Grade, Captain = s.Captain, Morale = s.Morale,
             };
             for (int k = 0; k < PlayerState.SupplyKinds && k < s.Supplies.Length; k++) ship.Supplies[k] = s.Supplies[k];
             for (int k = 0; k < PlayerState.CargoSlots && k < s.CargoGoods.Length && k < s.CargoAmounts.Length; k++)
