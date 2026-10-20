@@ -107,7 +107,7 @@ public sealed class SeaMapWindow : Window
         UpdateStatus();
     }
 
-    /// <summary>은행 — 예금 · 출금 · 대출 · 상환(<see cref="Bank"/>). 작위는 아직 0 으로 친다.</summary>
+    /// <summary>은행 — 예금 · 출금 · 대출 · 상환(<see cref="Bank"/>). 대출 한도는 작위로 오른다.</summary>
     private void UseBank(int pick)
     {
         var p = _host.Player;
@@ -117,7 +117,7 @@ public sealed class SeaMapWindow : Window
         {
             0 => Bank.MaxDeposit(p.Gold, p.Balance),
             1 => Bank.MaxWithdraw(p.Gold, p.Balance),
-            2 => Bank.MaxLoan(p.Balance, rank: 0),
+            2 => Bank.MaxLoan(p.Balance, _host.HeroRank),
             _ => Bank.MaxRepay(p.Gold, p.Balance),
         };
         if (most <= 0)
@@ -150,7 +150,7 @@ public sealed class SeaMapWindow : Window
         int port = _host.CurrentPort;
         if (_host.Economy is not { } eco || port < 0 || port >= eco.States.Count || _host.HeroRecord is not { } hero) return;
         int economy = eco.States[port].Economy, price = Pub.Price(economy);
-        int available = Pub.Available(economy, hero.Stats.Length > 6 ? hero.Stats[6] : 0, rank: 0);
+        int available = Pub.Available(economy, hero.Stats.Length > 6 ? hero.Stats[6] : 0, _host.HeroRank);
         if (available == 0) { Note(" · 지금은 일하려는 사람이 없습니다"); return; }
         int most = Pub.MostHirable(available, p.Gold, price, p.Vacancy);
         int n = AmountDialog.Ask(this, $"선원 고용 — {available}명이 일하겠답니다 · 한 사람 {price} · 빈 자리 {p.Vacancy}", most);

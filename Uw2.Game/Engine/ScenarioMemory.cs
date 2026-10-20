@@ -8,7 +8,7 @@ namespace Uw2.Game.Engine;
 /// 표 스물(번호 → 원본 자리, 기록 크기). 자리 셈은 원본 그대로 「바탕 + r x 크기 + f」 이고 기록 크기가 0 이면 r 을 안 쓴다.
 /// <code>
 ///    0  0x0045E268  32      7  0x0046F8C8 …  9(r &lt; 10, 그 위는 0x0049F9D0)   14  0x0045FF88 128  시장(SDATA 0x605A)
-///    1  0x0045A1E8  14      8  0x0045BE08 0x85  함대(SDATA 0x247B)          15  0x00460608   8
+///    1  0x0045A1E8  14  주인공(+0x0D 작위)  8  0x0045BE08 0x85  함대(SDATA 0x247B)          15  0x00460608   8
 ///    2  0x0049F5A8   0  돈(+0) · 주인공(+7)     9  0x004610B0  30  제 배 곁(보급 · 짐)   16  0x00460620   7
 ///    3  0x0045A240  50  사람(+0x2C 함대)        10  0x00461560  22  배 기록          17  0x004608E0  20
 ///    4  0x0045B9B0  22                         11  0x00461AF8  12               18  0x0049F5B8   0  (불러 온 기록)
@@ -25,6 +25,9 @@ public sealed class ScenarioMemory
 
     /// <summary>표 2 +7 — 주인공 사람 번호(<c>0x0049F5AF</c>). 원본은 이것 + 1 로 <c>SNRn</c> 을 고른다(<c>0x00415AD9</c>).</summary>
     public const int HeroField = 7;
+
+    /// <summary>표 1 — 주인공마다 14바이트(0x0045A1E8, 세이브에서 불러 온다 0x004035C6). +0x0D 가 작위(0 없음 · 1 사작 … 9 공작).</summary>
+    public const int HeroTable = 1, RankField = 0x0D;
 
     /// <summary>표마다 기록 크기(<c>0x0043D510</c> 의 곱).</summary>
     public static readonly int[] Stride = [32, 14, 0, 50, 22, 19, 0, 9, 0x85, 30, 22, 12, 22, 37, 128, 8, 7, 20, 0, 4];

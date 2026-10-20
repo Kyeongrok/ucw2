@@ -446,6 +446,10 @@ public sealed class SeaMapHost : HwndHost
             Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load, Crew = Player.Ships[i].Crew };
     }
 
+    /// <summary>주인공 작위 — 시나리오 기억 표 1 +0x0D. 새 게임은 0 이고 시나리오가 올린다.</summary>
+    public int HeroRank =>
+        Scenario?.Memory.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, HeroPerson[Hero], ScenarioMemory.RankField), false) ?? 0;
+
     /// <summary>주인공 사람 기록 — 주점 셈(매력)이 쓴다.</summary>
     public StartData.Person? HeroRecord =>
         StartTables is { } start && HeroPerson[Hero] < start.People.Count ? start.People[HeroPerson[Hero]] : null;
