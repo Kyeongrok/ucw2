@@ -175,6 +175,33 @@ public sealed class PortDoors
     public static readonly string[] Names =
         ["교역소", "주점", "조선소", "항", "여관", "왕궁", "조합", "NPC", "은행", "ITEM", "교회", "점술가"];
 
+    /// <summary>
+    /// 그 시각(하루 72틱, 한 시간 3틱)에 건물이 열려 있는지 — <c>0x00431EFD</c> 의 갈래표 <c>0x0043212C</c>.
+    /// 닫혀 있으면 「문이 잠겨 있습니다.」(말 <c>0x2FD</c>, <c>0x00432160</c>)다.
+    /// </summary>
+    /// <remarks>
+    /// <code>
+    ///   교역소 · 조선소 · 왕궁 · 조합 · 은행   12~59     (4시~20시)
+    ///   주점                              12~23 만 닫음 (4시~8시)
+    ///   ITEM                              6~8 · 24~59 (2시~3시 · 8시~20시)
+    ///   교회                              12~71     (4시~24시)
+    ///   점술가                            48~71     (16시~24시)
+    ///   항 · 여관 · NPC                    늘
+    /// </code>
+    /// </remarks>
+    public static bool IsOpen(int building, int tick) => building switch
+    {
+        0 or 2 or 5 or 6 or 8 => tick is >= 12 and < 60,
+        1 => tick is < 12 or >= 24,
+        9 => tick is >= 24 and < 60 || tick is >= 6 and < 9,
+        10 => tick >= 12,
+        11 => tick >= 48,
+        _ => true,
+    };
+
+    /// <summary>잠긴 문 앞에서 하는 말(<c>MESSAGE.DAT 0x2FD</c>).</summary>
+    public const string LockedText = "문이 잠겨 있습니다.";
+
     private readonly byte[] _raw;
 
     private PortDoors(byte[] raw) => _raw = raw;

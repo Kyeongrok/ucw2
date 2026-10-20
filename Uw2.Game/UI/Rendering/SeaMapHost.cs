@@ -80,7 +80,7 @@ public sealed class SeaMapHost : HwndHost
     public event Action? Painted;
 
     /// <summary>도시에서 건물 문에 섰을 때 — 건물 번호(<see cref="PortDoors.Names"/>)를 넘긴다.</summary>
-    public event Action<int>? BuildingEntered;
+    public event Action<int, bool>? BuildingEntered;
 
     /// <summary>함대를 새로 띄웠을 때 — 날씨 말 따위를 붙이라고 넘긴다.</summary>
     public event Action<Fleet>? FleetReady;
@@ -572,10 +572,12 @@ public sealed class SeaMapHost : HwndHost
         bool before = Walker.Moving;
         for (int i = 0; i < Math.Min(ticks, 8); i++) Walker.Step_(ix, iy);
 
-        // 문에 서면 그 건물에 든다. 건물 안은 아직 없어 알리기만 하고 한 칸 물러 나온다.
+        // 문에 서면 그 건물에 든다 — 닫힌 시각이면 잠겨 있다. 건물 안은 아직 없어 알리기만 하고 한 칸 물러 나온다.
+        // 도시의 시각은 바다에서 넘어온 함대 시각을 그대로 쓴다(도시 안에서 시각이 흐르는지는 아직 안 봤다).
         if (Walker.Moving && Walker.Building is int building and >= 0)
         {
-            BuildingEntered?.Invoke(building);
+            int tick = Fleet?.TimeOfDay ?? Fleet.MorningTick;
+            BuildingEntered?.Invoke(building, PortDoors.IsOpen(building, tick));
             Walker.StepOutOfDoor();
         }
 

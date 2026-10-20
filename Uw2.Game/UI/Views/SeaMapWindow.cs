@@ -85,9 +85,11 @@ public sealed class SeaMapWindow : Window
             _seaNote = $" · 「{line}」";
             UpdateStatus();
         };
-        _host.BuildingEntered += b =>
+        _host.BuildingEntered += (b, open) =>
         {
-            _doorNote = $" · 「{PortDoors.Names[b]}」에 들어갔습니다(안은 아직 없습니다)";
+            _doorNote = open
+                ? $" · 「{PortDoors.Names[b]}」에 들어갔습니다(안은 아직 없습니다)"
+                : $" · 「{PortDoors.Names[b]}」 — {PortDoors.LockedText}";
             UpdateStatus();
         };
         Loaded += (_, _) => OpenBest();
