@@ -85,7 +85,59 @@ public sealed class Economy
     /// <summary>날바이트를 떠 온 사본 — 게임마다 따로 바뀌게.</summary>
     public Economy Clone() => new(GoodsNames, (byte[])MarketBytes.Clone(), (byte[])StateBytes.Clone());
 
-    public const int EconomyCap = 1000, InvestDivisor = 300;
+    public const int EconomyCap = 1000, InvestDivisor = 300, InvestCap = 50000, NoNation = 6;
+
+    /// <summary>
+    /// 그 항구에 넣을 수 있는 투자 — min(돈, 50000, 50000 − 이달 투자)(<c>0x004212B0</c> 교역소 · <c>0x0042A850</c> 조선소 공업).
+    /// </summary>
+    public int MaxInvest(int port, bool industry, int gold)
+    {
+        int at = port * StateSize + (industry ? 6 : 2);
+        if (at + 2 > StateBytes.Length) return 0;
+        return Math.Max(0, Math.Min(Math.Min(gold, InvestCap), InvestCap - BitConverter.ToUInt16(StateBytes, at)));
+    }
+
+    /// <summary>
+    /// 투자한다 — 이달 투자(+2 · +6)에 더하고, 나라 몫을 올린다(<c>0x004213A0</c> · <c>0x0042A5D0</c>).
+    /// 오르는 몫은 min(투자 / 경제(공업이면 공업), 100 − 그 나라 몫). 다른 나라 가운데 몫이 있는 것들이 그것을 똑같이 나눠 내고,
+    /// 모자란 나라가 못 낸 것은 몫이 남은 나라가 하나씩 더 낸다. 주인공에 나라가 없으면(6) 올라가는 나라 없이 깎이기만 한다.
+    /// 오른 몫을 돌려준다.
+    /// </summary>
+    public int Invest(int port, bool industry, int amount, int nation)
+    {
+        var r = StateBytes;
+        int o = port * StateSize;
+        if (amount <= 0 || o + StateSize > r.Length) return 0;
+        int at = o + (industry ? 6 : 2);
+        int v = Math.Min(0xFFFF, BitConverter.ToUInt16(r, at) + amount);
+        r[at] = (byte)v; r[at + 1] = (byte)(v >> 8);
+
+        int divisor = Math.Max(1, (int)BitConverter.ToUInt16(r, o + (industry ? 4 : 0)));
+        int gain = nation == NoNation ? Math.Min(100, amount / divisor)
+                                      : Math.Min(amount / divisor, 100 - r[o + 8 + nation]);
+        gain = Math.Max(0, gain);
+        if (nation != NoNation) r[o + 8 + nation] = (byte)(r[o + 8 + nation] + gain);
+        int others = Enumerable.Range(0, 6).Count(k => k != nation && r[o + 8 + k] > 0);
+        if (others > 0)
+        {
+            int each = gain / others, owed = 0;
+            for (int k = 0; k < 6; k++)
+            {
+                if (k == nation || r[o + 8 + k] == 0) continue;
+                if (r[o + 8 + k] >= each) r[o + 8 + k] -= (byte)each;
+                else { owed += each - r[o + 8 + k]; r[o + 8 + k] = 0; }
+            }
+            while (owed > 0)
+            {
+                int before = owed;
+                for (int k = 0; k < 6 && owed > 0; k++)
+                    if (k != nation && r[o + 8 + k] > 0) { r[o + 8 + k]--; owed--; }
+                if (owed == before) break;
+            }
+        }
+        States = [.. Enumerable.Range(0, r.Length / StateSize).Select(k => ParseState(r, k * StateSize))];
+        return gain;
+    }
 
     /// <summary>
     /// 달이 바뀔 때 항구 형편 백을 고친다(<c>0x0042B8A0</c>).

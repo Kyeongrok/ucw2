@@ -205,4 +205,18 @@ public class EngineTests
         Assert.Equal(43, eco.States[0].PriceIndex[0]);
         Assert.Equal(57, eco.States[0].PriceIndex[9]);
     }
+
+    [Fact]
+    public void InvestingRaisesOurShareAndOthersPayEqually()
+    {
+        var states = new byte[Economy.StateSize];
+        states[0] = 100;                                        // 경제 100
+        byte[] shares = [50, 30, 20, 0, 0, 0];
+        shares.CopyTo(states, 8);
+        var eco = Economy.FromParts([], [], states);
+        Assert.Equal(50000, eco.MaxInvest(0, false, 90000));
+        Assert.Equal(10, eco.Invest(0, false, 1000, nation: 0));  // 1000 / 100 = 10
+        Assert.Equal([60, 25, 15, 0, 0, 0], eco.States[0].Shares);
+        Assert.Equal(49000, eco.MaxInvest(0, false, 90000));
+    }
 }

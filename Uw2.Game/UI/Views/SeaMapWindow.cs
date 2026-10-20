@@ -137,6 +137,8 @@ public sealed class SeaMapWindow : Window
         if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
         if (b == TradeBuilding && pick == 1) { SellGoods(); return; }
+        if (b == TradeBuilding && pick == 2) { Invest(industry: false); return; }
+        if (b == ShipyardBuilding && pick == 5) { Invest(industry: true); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
         if (b == ShipyardBuilding && pick == 2) { RepairShips(); return; }
         if (b == ShipyardBuilding && pick == 3) { SellShip(); return; }
@@ -179,6 +181,26 @@ public sealed class SeaMapWindow : Window
         if (n <= 0) return;
         p.Transfer(pick is 0 or 3 ? n : -n);
         Note($" · {names[pick]} {n}");
+    }
+
+    /// <summary>교역소 「투자」 · 조선소 「공업투자」 — 이달 투자에 더하고 주인공 나라의 몫을 올린다(<see cref="Economy.Invest"/>).</summary>
+    /// <remarks>원본은 여섯 나라 서울에서는 투자를 받지 않는다(0x00431A70, 나라 표 +0x0A) — 나라 표를 아직 안 읽어 거르지 않는다.</remarks>
+    private void Invest(bool industry)
+    {
+        if (_host.Economy is not { } eco) return;
+        int port = _host.CurrentPort;
+        if (port < 0 || port >= eco.States.Count) return;
+        var p = _host.Player;
+        int most = eco.MaxInvest(port, industry, p.Gold);
+        if (most <= 0) { Note(" · 이달에는 더 받지 않습니다"); return; }
+        string what = industry ? "공업투자" : "투자";
+        int n = AmountDialog.Ask(this, $"{what} — 돈 {p.Gold} · 경제 {eco.States[port].Economy} · 공업 {eco.States[port].Industry}", most);
+        if (n <= 0) return;
+        int nation = _host.HeroNation;
+        int gain = eco.Invest(port, industry, n, nation);
+        p.SetGold(p.Gold - n);
+        string share = nation < Economy.NoNation ? $" · 우리 몫 {eco.States[port].Shares[nation]}%(+{gain})" : "";
+        Note($" · {what} {n}{share}");
     }
 
     /// <summary>주점 「선원 고용」 — 올 사람 · 값은 원본 셈(<see cref="Pub"/>), 앞 배부터 빈 자리를 채운다.</summary>

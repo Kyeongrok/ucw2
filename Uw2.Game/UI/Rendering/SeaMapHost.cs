@@ -486,6 +486,16 @@ public sealed class SeaMapHost : HwndHost
     public int HeroRank =>
         Scenario?.Memory.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, HeroPerson[Hero], ScenarioMemory.RankField), false) ?? 0;
 
+    /// <summary>주인공의 나라 — 사람 표 +0x31 의 아래 네 비트(<c>0x0042A5DB</c>). 6 은 나라 없음.</summary>
+    public int HeroNation
+    {
+        get
+        {
+            int o = HeroPerson[Hero] * StartData.PersonSize + 0x31;
+            return StartTables is { } st && o < st.PeopleBytes.Length ? Math.Min(Economy.NoNation, st.PeopleBytes[o] & 0x0F) : Economy.NoNation;
+        }
+    }
+
     /// <summary>주인공 사람 기록 — 주점 셈(매력)이 쓴다.</summary>
     public StartData.Person? HeroRecord =>
         StartTables is { } start && HeroPerson[Hero] < start.People.Count ? start.People[HeroPerson[Hero]] : null;
