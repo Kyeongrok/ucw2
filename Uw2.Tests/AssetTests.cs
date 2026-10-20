@@ -624,4 +624,13 @@ public class AssetTests
         var sea = joao.Enter(0xA0, 3, 1000, "조안", "페레로");
         Assert.Contains(sea!.Lines, l => l.Body.Contains("마냐나"));                // 밀항자에게 성을 지어 준다
     }
+
+    [Fact]
+    public void FcRaisesABarmaidsLikingUpToAHundred()
+    {
+        var vm = new Uw2.Game.Engine.ScenarioVm(OneEvent(0xFC, 0x01, 0x46, 0xFC, 0x01, 0x46, 0xFF), ScenarioText.FromBytes(new byte[8]));
+        vm.Memory.Fill(Uw2.Game.Engine.Town.Barmaids.Table, Load().Start!.BarmaidBytes);
+        vm.Enter(0, 7, 0, "", "");
+        Assert.Equal(100, Uw2.Game.Engine.Town.Barmaids.Get(vm.Memory, 1, Uw2.Game.Engine.Town.Barmaids.Liking));   // 70 + 70 → 100
+    }
 }

@@ -399,6 +399,13 @@ public sealed class ScenarioVm
                         case 0xEE: _vars[a1] = (ushort)FreeRoom; break;
                         case 0xE2: Cargo?.Invoke(_vars[a1] & 0xFF, _vars[a2]); break;
                         case 0xE3: _vars[a2] = (ushort)(Cargo?.Invoke(_vars[a1] & 0xFF, int.MinValue) ?? 0); break;
+                        case 0xFC:
+                        {
+                            // 여급 a1 의 호감 += a2, 100 까지(0x0043E140) — 여급 표는 기억 표 5 다.
+                            var liking = ScenarioMemory.At(Town.Barmaids.Table, a1, Town.Barmaids.Liking);
+                            Memory.Write(liking, Math.Min(Town.Barmaids.MaxLiking, Memory.Read(liking, false) + a2), false);
+                            break;
+                        }
                         case 0xFB:
                         {
                             int heroP = Memory.Read(new ScenarioMemory.Pointer(ScenarioMemory.GoldTable, ScenarioMemory.HeroField), false);
