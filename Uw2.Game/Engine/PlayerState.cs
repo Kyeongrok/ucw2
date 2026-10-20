@@ -273,6 +273,32 @@ public sealed class PlayerState
     }
 
     /// <summary>
+    /// 「적하편성」 — <paramref name="from"/> 의 짐 하나를 <paramref name="to"/> 로 옮긴다. <paramref name="what"/> 은 0 ~ 3 이 보급
+    /// (물 · 식량 · 자재 · 탄약), 4 부터 교역품 칸이다. 받는 배의 빈 자리 · 교역품 칸까지만 옮기고 옮긴 양을 돌려준다.
+    /// </summary>
+    public static int Transship(Ship from, Ship to, int what, int amount)
+    {
+        amount = Math.Min(amount, to.Free);
+        if (what < SupplyKinds)
+        {
+            amount = Math.Clamp(amount, 0, from.Supplies[what]);
+            from.Supplies[what] -= amount;
+            to.Supplies[what] += amount;
+            return amount;
+        }
+        int slot = what - SupplyKinds;
+        if (slot >= CargoSlots || from.Cargo[slot].Good < 0) return 0;
+        var (good, have) = from.Cargo[slot];
+        int into = Array.FindIndex(to.Cargo, c => c.Good == good);
+        if (into < 0) into = Array.FindIndex(to.Cargo, c => c.Good < 0);
+        if (into < 0) return 0;
+        amount = Math.Clamp(amount, 0, have);
+        to.Cargo[into] = (good, to.Cargo[into].Amount + amount);
+        from.Cargo[slot] = have - amount > 0 ? (good, have - amount) : (-1, 0);
+        return amount;
+    }
+
+    /// <summary>
     /// 「승무원편성」(<c>0x00446310</c>) — 배에서 내린 선원은 함대 공용(<c>0x0049FAEC</c>)으로 모인다. 배 하나의 선원을
     /// <paramref name="crew"/> 로 맞추고(그 배 최대 · 지금 + 공용까지), 더 태우면 사기는 사람 수로 섞는다. 공용에 남은 수를 돌려준다.
     /// </summary>

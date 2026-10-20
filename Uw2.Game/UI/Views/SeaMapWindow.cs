@@ -1617,10 +1617,42 @@ public sealed class SeaMapWindow : Window
     /// <summary>「편성」 — 목록 27(선장변경 · 인사변경 · 승무원편성 · 승무원비율 · 함선처분 · 적하편성, <c>0x00445372</c>) 가운데 된 것.</summary>
     private void Organize()
     {
-        int pick = BuildingMenu.Ask(this, "편성", ["선장변경", "승무원편성", "함선처분"]);
+        int pick = BuildingMenu.Ask(this, "편성", ["선장변경", "승무원편성", "함선처분", "적하편성"]);
         if (pick == 0) ChangeCaptain();
         else if (pick == 1) RedistributeCrew();
         else if (pick == 2) ScuttleShip();
+        else if (pick == 3) MoveCargo();
+    }
+
+    /// <summary>「적하편성」 — 배에서 배로 보급 · 교역품을 옮긴다(<see cref="PlayerState.Transship"/>).</summary>
+    private void MoveCargo()
+    {
+        var p = _host.Player;
+        if (p.Ships.Count <= 1) { Say(0xD9, "함선이 １척밖에 없습니다."); return; }
+        int a = BuildingMenu.Ask(this, "적하편성 — 어느 배에서", p.Ships.Select(ShipLine).ToList());
+        if (a < 0) return;
+        var from = p.Ships[a];
+        var names = _host.Economy?.GoodsNames;
+        var items = new List<(int What, string Line)>();
+        for (int k = 0; k < PlayerState.SupplyKinds; k++)
+            if (from.Supplies[k] > 0) items.Add((k, $"{Economy.SupplyNames[k]} {from.Supplies[k]}"));
+        for (int k = 0; k < PlayerState.CargoSlots; k++)
+            if (from.Cargo[k].Good >= 0)
+                items.Add((PlayerState.SupplyKinds + k, $"{(names != null ? names[from.Cargo[k].Good] : from.Cargo[k].Good.ToString())} {from.Cargo[k].Amount}"));
+        if (items.Count == 0) { Note(" · 옮길 짐이 없습니다"); return; }
+        int w = BuildingMenu.Ask(this, $"{from.Name} — 무엇을", items.Select(i => i.Line).ToList());
+        if (w < 0) return;
+        var others = p.Ships.Where(s => s != from).ToList();
+        int b = BuildingMenu.Ask(this, "어느 배로", others.Select(ShipLine).ToList());
+        if (b < 0) return;
+        var to = others[b];
+        int what = items[w].What;
+        int have = what < PlayerState.SupplyKinds ? from.Supplies[what] : from.Cargo[what - PlayerState.SupplyKinds].Amount;
+        int amount = AmountDialog.Ask(this, $"얼마나 옮기겠습니까？(0-{Math.Min(have, to.Free)})", Math.Min(have, to.Free));
+        if (amount <= 0) return;
+        int moved = PlayerState.Transship(from, to, what, amount);
+        _host.SyncLoad();
+        Note($" · {from.Name} → {to.Name} {moved}");
     }
 
     /// <summary>「선장변경」 — 기함 말고 배 하나를 골라 쉬는 동료에게 맡긴다. 맡던 이는 쉰다.</summary>

@@ -460,4 +460,17 @@ public class EngineTests
         Assert.Equal((30, 0), (b.Crew, pool));
         Assert.Equal((10 * 40 + 20 * 80) / 30, b.Morale);                // 66
     }
+
+    [Fact]
+    public void TransshipMovesSuppliesAndGoodsWithinTheReceiversRoom()
+    {
+        var a = new PlayerState.Ship { Type = 5, Name = "가", Room = 100 };
+        var b = new PlayerState.Ship { Type = 5, Name = "나", Room = 30 };
+        a.Supplies[PlayerState.Water] = 50;
+        a.Cargo[0] = (7, 40);
+        Assert.Equal(20, PlayerState.Transship(a, b, PlayerState.Water, 20));
+        Assert.Equal(10, PlayerState.Transship(a, b, PlayerState.SupplyKinds, 40));          // 나머지 자리 10
+        Assert.Equal(((7, 30), (7, 10)), (a.Cargo[0], b.Cargo[0]));
+        Assert.Equal(0, PlayerState.Transship(a, b, PlayerState.SupplyKinds, 5));             // 다 찼다
+    }
 }
