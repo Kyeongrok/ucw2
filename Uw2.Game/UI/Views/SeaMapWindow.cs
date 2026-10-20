@@ -490,6 +490,18 @@ public sealed class SeaMapWindow : Window
         e.Handled = true;
     }
 
+    /// <summary>함대 한눈에 — 배 수 · 선원 · 물 · 식량.</summary>
+    private string FleetText()
+    {
+        var p = _host.Player;
+        int crew = p.Ships.Sum(s => s.Crew), room = p.Ships.Sum(s => s.MaxCrew);
+        int water = p.Ships.Sum(s => s.Supplies[PlayerState.Water]), food = p.Ships.Sum(s => s.Supplies[PlayerState.Food]);
+        return $"배 {p.Ships.Count}척 · 선원 {crew}/{room} · 물 {water} · 식량 {food}";
+    }
+
+    private string BalanceText() =>
+        _host.Player.Balance switch { > 0 and var b => $" · 예금 {b}", < 0 and var b => $" · 빚 {-b}", _ => "" };
+
     private void UpdateStatus()
     {
         if (_host.Map == null) return;
@@ -503,7 +515,7 @@ public sealed class SeaMapWindow : Window
                 ? $" · 사람 ({wk.X:F1}, {wk.Y:F1}) {wk.Face}" + (wk.Blocked ? " · 막힘" : "")
                 : " · 걸을 데를 못 찾았습니다";
             _status.Text = $"{_host.SceneName} ({_host.CurrentPort}번) · {PortMap.Size}x{PortMap.Size} 칸"
-                         + who + $" · 돈 {_host.Player.Gold} · 빈 자리 {_host.Player.Free}" + _doorNote + $" · {_host.Source}";
+                         + who + $" · 돈 {_host.Player.Gold}{BalanceText()} · 빈 자리 {_host.Player.Free} · {FleetText()}" + _doorNote + $" · {_host.Source}";
             return;
         }
         // 커서 자리는 칩 눈금이다. 칸은 그 절반이다.
@@ -525,7 +537,7 @@ public sealed class SeaMapWindow : Window
         string sail = "";
         if (f != null && _host.CurrentPort < 0)
         {
-            sail = $" | {f.Date} {Fleet.Clock(f.TimeOfDay)} · {f.DaysAtSea}일째 · 돈 {_host.Player.Gold} · 「{_host.ShipName}」 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
+            sail = $" | {f.Date} {Fleet.Clock(f.TimeOfDay)} · {f.DaysAtSea}일째 · 돈 {_host.Player.Gold} · 「{_host.ShipName}」 {FleetText()} ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
                  + $" · 바람 {Fleet.DirName(f.LastWind.Dir)} {f.LastWind.Speed}"
                  + $" · 해류 {Fleet.DirName(f.LastCurrent.Dir)} {f.LastCurrent.Speed}"
                  + $" · {Sailing.Knots(f.LastSpeed)}노트({f.LastSpeed})"
