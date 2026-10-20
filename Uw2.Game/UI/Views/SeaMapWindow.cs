@@ -1229,9 +1229,10 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     private void ShowFleetInfo()
     {
-        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보"];
+        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람"];
         int pick = BuildingMenu.Ask(this, "함대", items);
         if (pick < 0) return;
+        if (pick == 5) { CargoAdvice(); return; }
         var p = _host.Player;
         var vm = _host.Scenario;
         var st = _host.StartTables;
@@ -1738,6 +1739,33 @@ public sealed class SeaMapWindow : Window
             if (Navigators.SetWage(vm.Memory, slot, person, amount) == Navigators.WageAnswer.Thanks) { Say(0xDF, "감사합니다."); return; }
             Say(0xE0, "겨우 그 정도라니, 말도 안돼.");
         }
+    }
+
+    /// <summary>
+    /// 「적하일람」(<c>0x004434C0</c>) — 실은 교역품 하나를 고르면 어디서 비싸게 팔리는지 귀띔한다. 주인공이 회계(사람 +0x30 의 2)를
+    /// 지녔으면 0x350, 아니면 경리주임(처지 4)이 회계를 지녔으면 0x351, 없으면 0x352 「잘 모르겠는데요」.
+    /// </summary>
+    private void CargoAdvice()
+    {
+        if (_host.Economy is not { } eco || _host.Ports is not { } ports) return;
+        var goods = _host.Player.CargoTotals().Keys.OrderBy(g => g).ToList();
+        if (goods.Count == 0) { Note(" · 실은 교역품이 없습니다"); return; }
+        int pick = BuildingMenu.Ask(this, "적하일람", goods.Select(g => $"{eco.GoodsNames[g]} {_host.Player.CargoTotals()[g]}").ToList());
+        if (pick < 0) return;
+        int good = goods[pick];
+        string name = eco.GoodsNames[good];
+        int best = eco.BestSellPort(good, ports.Ports.Count);
+        string port = best >= 0 ? ports.Ports[best].Name : "";
+        const int Accounting = 2;
+        if ((HeroField(SkillField) & Accounting) != 0 && best >= 0) { Say(0x350, $"{name}(는) 분명히 {port}항에서 비싸게 팔렸었지.", name, port); return; }
+        if (_host.Scenario is { } vm && Navigators.InPost(vm.Memory, 1) is >= 0 and var clerk)
+        {
+            if ((Navigators.Get(vm.Memory, clerk, SkillField) & Accounting) != 0 && best >= 0)
+                Say(0x351, $"내 기억으론, {name}(는) {port}항에서 비싸게 팔렸던 것 같습니다.", name, port);
+            else Say(0x352, $"음… {name}(는) 어디에서 팔면 좋지？ 나는 회계 능력이 없어서 잘 모르겠는데요.", name);
+            return;
+        }
+        Note(" · 회계를 아는 이가 없습니다 — 경리주임을 두세요");
     }
 
     /// <summary>

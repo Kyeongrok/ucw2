@@ -252,6 +252,22 @@ public sealed class Economy
     /// <summary>
     /// 그 항구 교역소가 쳐 주는 값 — <c>0x004210E0</c>. 그 항구 특산품이면 바탕의 절반 셈(<c>/200</c>)이다.
     /// </summary>
+    /// <summary>
+    /// 그 교역품을 가장 비싸게 사 주는 항구(<c>0x00443680</c>) — 파는 값(<see cref="SellPrice"/>)이 가장 큰 항구. 없으면 -1.
+    /// 원본은 항구 기록 +0x15 의 0x40 이 선 항구만 견준다.
+    /// </summary>
+    public int BestSellPort(int good, int ports, Func<int, bool>? counts = null)
+    {
+        int best = -1, price = 0;
+        for (int p = 0; p < ports && p < States.Count; p++)
+        {
+            if (counts != null && !counts(p)) continue;
+            int v = SellPrice(p, good);
+            if (v > price) { price = v; best = p; }
+        }
+        return best;
+    }
+
     public int SellPrice(int port, int good)
     {
         if (port < 0 || port >= States.Count || good < 0 || good >= GoodsCount) return 0;
