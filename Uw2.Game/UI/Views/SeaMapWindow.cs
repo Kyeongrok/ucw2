@@ -197,7 +197,7 @@ public sealed class SeaMapWindow : Window
         UpdateStatus();
     }
 
-    /// <summary>왕궁 — 그 항구 나라가 주인공 나라일 때만 쓴다. 「자금원조」만 됐다(<see cref="Palace"/>).</summary>
+    /// <summary>왕궁 — 망명은 다른 나라에서, 자금 · 선박원조는 제 나라에서(<see cref="Palace"/>). 알현 · 밀회는 시나리오 몫이다.</summary>
     private void AtPalace(int pick)
     {
         if (_host.Scenario is not { } vm || _host.Ports is not { } ports || _host.CurrentPort < 0
@@ -216,6 +216,19 @@ public sealed class SeaMapWindow : Window
             return;
         }
         if (!ours) { Note(" · 이 나라의 왕궁은 당신을 맞지 않습니다"); return; }
+        if (pick == 3)
+        {
+            int type = Palace.ShipAid(vm.Memory, nation);
+            if (type < 0 || _host.StartTables is not { } st || type >= st.ShipTypes.Count) { Note(" · 지금 내어 줄 배는 없다고 합니다"); return; }
+            if (_host.Player.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
+            int mate = _host.FreeMate;
+            if (mate < 0) { Note(" · 배를 맡을 항해사가 없습니다"); return; }
+            if (!_host.AddShip(type, captain: mate)) return;
+            Palace.TookShip(vm.Memory, nation);
+            string ship = type < st.Templates.Count ? st.Templates[type].Name ?? "" : "";
+            Note($" · {Josa(ship, "을", "를")} 받았습니다 · 선장 {_host.PersonName(mate)}");
+            return;
+        }
         if (pick != 2) { Note(" · 그것은 아직 없습니다"); return; }
         int gold = _host.Player.Gold;
         int got = Palace.TakeFunds(vm.Memory, nation, ref gold);

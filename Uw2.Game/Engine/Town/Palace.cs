@@ -13,12 +13,25 @@ namespace Uw2.Game.Engine.Town;
 ///   망명             다른 나라 왕궁에서만. 주인공 +0x31 아래 세 비트를 그 나라로, 고향 항구(함대 +0x26)를 이 항구로.
 ///                    새 나라 표 +2 가 7 이면 6 으로, +5 ~ +7 을 0 으로. 주인공 표 +6 + 나라(나라마다 호의):
 ///                    옛 나라는 30 이상이면 30 깎고, 새 나라는 +10 해 100 ~ 200 에 둔다(0x00427910)
-///   선박원조         나라 표 +8 — 아직
+///   선박원조         나라 표 +8 이 남은 척수, +7 이 줄 선종. 함대 자리와 맡을 동료가 있어야 하고, 한 척 주면 +8 을 하나 줄인다
+///                    (0x00427B20 → 0x0043DEA0 — 배 주기 F9 와 같은 손)
 /// </code>
 /// </remarks>
 public static class Palace
 {
-    public const int NationField = 0x15, FundField = 5, ShipField = 8;
+    public const int NationField = 0x15, FundField = 5, ShipTypeField = 7, ShipField = 8;
+
+    /// <summary>선박원조로 줄 선종 — 남은 것이 없으면 -1.</summary>
+    public static int ShipAid(ScenarioMemory m, int nation) =>
+        m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, nation, ShipField), false) > 0
+            ? m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, nation, ShipTypeField), false) : -1;
+
+    /// <summary>선박원조 한 척을 받았다 — 남은 척수를 하나 줄인다.</summary>
+    public static void TookShip(ScenarioMemory m, int nation)
+    {
+        var at = ScenarioMemory.At(ScenarioMemory.NationTable, nation, ShipField);
+        m.Write(at, Math.Max(0, m.Read(at, false) - 1), false);
+    }
 
     /// <summary>그 항구를 다스리는 나라 — 항구 표 나라 바이트(0x0043AED0 +0x15)의 아래 세 비트.</summary>
     public static int NationOf(PortTable.Port port) => port.Nation & 7;
