@@ -434,6 +434,12 @@ public sealed class SeaMapHost : HwndHost
         if (StartTables is not { } start || Fleet == null) return;
         foreach (int type in run.Ships)
             if (!Player.Ships.Any(s => s.Type == type)) AddShip(type);
+        foreach (var (type, name) in run.ShipNames)
+            if (name.Length > 0 && Player.Ships.LastOrDefault(s => s.Type == type) is { } ship)
+            {
+                ship.Name = name;
+                if (ReferenceEquals(ship, Player.Ships[0])) ShipName = name;
+            }
     }
 
     /// <summary>

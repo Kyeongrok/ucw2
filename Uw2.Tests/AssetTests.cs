@@ -643,4 +643,16 @@ public class AssetTests
         Assert.Equal("조안 페레로", run.Lines[0].Speaker);
         Assert.StartsWith("항해 레벨", run.Lines[0].Body);
     }
+
+    [Fact]
+    public void FaNamesTheShipTheScenarioJustGave()
+    {
+        string dir = Path.Combine(AssetDir, "snr");
+        // SNR1 의 FA 05 0084 를 떼어 돌린다 — 앞에 F9 05 로 배를 받는다.
+        var vm = new Uw2.Game.Engine.ScenarioVm(OneEvent(0xF9, 0x05, 0x05, 0xFA, 0x05, 0x00, 0x84, 0xFF),
+                                                ScenarioText.Load(Path.Combine(dir, "SNR1.MES")));
+        var run = vm.Enter(0, 7, 1000, "조안", "페레로")!;
+        Assert.Equal([5], run.Ships);
+        Assert.Equal([(5, "헤르메스Ⅱ세")], run.ShipNames);
+    }
 }

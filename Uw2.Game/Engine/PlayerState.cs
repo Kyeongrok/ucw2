@@ -19,7 +19,7 @@ public sealed class PlayerState
     public sealed class Ship
     {
         public required int Type { get; init; }
-        public required string Name { get; init; }
+        public required string Name { get; set; }
 
         /// <summary>짐 자리 — 배 기록 +0x14.</summary>
         public required int Room { get; init; }

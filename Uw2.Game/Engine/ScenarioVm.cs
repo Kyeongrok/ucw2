@@ -106,6 +106,12 @@ public sealed class ScenarioVm
         public List<Line> Lines { get; } = [];
         public List<int> Ships { get; } = [];
 
+        /// <summary>
+        /// 받은 배의 이름 — <c>FA t hhll</c> 이 바로 앞 <c>F9 t</c> 로 받은 배에 글 hhll 을 이름으로 붙인다
+        /// (<c>0x0043E1D0</c> 이 글을 펴고 <c>0x0043E000</c> 이 그 칸을 제 배로 돌린다).
+        /// </summary>
+        public List<(int Type, string Name)> ShipNames { get; } = [];
+
         /// <summary>동료로 든 사람(FB).</summary>
         public List<int> Joined { get; } = [];
         public int Gold { get; set; }
@@ -399,6 +405,9 @@ public sealed class ScenarioVm
                         case 0xEE: _vars[a1] = (ushort)FreeRoom; break;
                         case 0xE2: Cargo?.Invoke(_vars[a1] & 0xFF, _vars[a2]); break;
                         case 0xE3: _vars[a2] = (ushort)(Cargo?.Invoke(_vars[a1] & 0xFF, int.MinValue) ?? 0); break;
+                        case 0xFA:
+                            run.ShipNames.Add((a1, ScenarioText.Render(Expand(_text[Word(ip + 2)]), name, family).Body.Trim()));
+                            break;
                         case 0xE8:
                         {
                             // 사람 a1 의 신상 장면(0x0043DC70) — 원본은 얼굴 · 능력치 창이다. 이름과 레벨 · 능력치를 한 줄로 보인다.
