@@ -1713,7 +1713,7 @@ public sealed class SeaMapWindow : Window
         {
             int pick = BuildingMenu.Ask(this, "상륙", items);
             if (pick == 1) PatchShip();
-            else if (pick == 2) SearchWater();
+            else if (pick == 2) { if (!DigTreasure()) SearchWater(); }
             else { Note(" · 배로 돌아왔습니다"); return; }
         }
     }
@@ -1845,6 +1845,19 @@ public sealed class SeaMapWindow : Window
         _host.Player.BuySupply(PlayerState.Food, amount / PlayerState.Lot, 0);
         _host.SyncLoad();
         ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", text)]);
+    }
+
+    /// <summary>뭍 「탐색」 — 가진 보물 지도의 자리면 보물을 캔다(말 0x1AF, <see cref="Discoveries.Dig"/>). 캤으면 참.</summary>
+    private bool DigTreasure()
+    {
+        if (_host.Scenario is not { } vm || _host.Fleet is not { } f) return false;
+        int spot = Discoveries.TreasureNear(vm.Memory, (int)f.X, (int)f.Y, ItemShop.Owned(vm.Memory));
+        if (spot < 0) return false;
+        int treasure = Discoveries.Dig(vm.Memory, spot);
+        string name = ItemShop.Get(vm.Memory, treasure).Name;
+        Say(0x1AF, $"{name}(를) 발견했습니다.", name);
+        ShowItem(treasure);
+        return true;
     }
 
     /// <summary>

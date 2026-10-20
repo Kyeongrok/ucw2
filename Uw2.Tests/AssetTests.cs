@@ -812,4 +812,23 @@ public class AssetTests
         Assert.Equal(10, targets.Distinct().Count());
         Assert.Equal(-1, Uw2.Game.Engine.Sea.Discoveries.MapTarget(m, 0x20));
     }
+
+    [Fact]
+    public void DiggingAtAMapSpotTurnsTheMapIntoTheTreasure()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Sea.Discoveries.Table, pack.Start!.DiscoveryBytes);
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, pack.Start.ItemBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        Uw2.Game.Engine.Sea.Discoveries.Seed(m, new Random(3).Next);
+        int target = Uw2.Game.Engine.Sea.Discoveries.MapTarget(m, 0x50);
+        var spot = Uw2.Game.Engine.Sea.Discoveries.Get(m, target);
+        Assert.Equal(-1, Uw2.Game.Engine.Sea.Discoveries.TreasureNear(m, spot.X, spot.Y, []));
+        Assert.True(Uw2.Game.Engine.Town.ItemShop.Give(m, 0x50));
+        Assert.Equal(target, Uw2.Game.Engine.Sea.Discoveries.TreasureNear(m, spot.X - 1, spot.Y, Uw2.Game.Engine.Town.ItemShop.Owned(m)));
+        Assert.Equal(0x5A, Uw2.Game.Engine.Sea.Discoveries.Dig(m, target));
+        Assert.Equal([0x5A], Uw2.Game.Engine.Town.ItemShop.Owned(m));                       // 지도가 보물로
+        Assert.Equal(-1, Uw2.Game.Engine.Sea.Discoveries.TreasureNear(m, spot.X, spot.Y, [0x50]));   // 한 번만
+    }
 }

@@ -60,6 +60,37 @@ public static class Discoveries
         }
     }
 
+    /// <summary>
+    /// 보물 캐기(<c>0x0041B870</c> → <c>0x0041BA20</c>) — 숨은 발견물 가운데 가진 지도가 가리키는 것이 곁에 있고 아직 안 캤으면(0x10) 그 번호.
+    /// 원본은 지도를 살 때 그 자리에 0x20 을 세우고(<c>0x004250C9</c>) 깃발 0xA0 으로 가리지만, 우리는 지도를 가졌는지로 본다.
+    /// </summary>
+    public static int TreasureNear(ScenarioMemory m, int x, int y, IEnumerable<int> owned, int reach = 3)
+    {
+        foreach (int item in owned)
+        {
+            int t = MapTarget(m, item);
+            if (t < 0) continue;
+            var s = Get(m, t);
+            if ((s.Flags & 0x10) != 0) continue;
+            if (Math.Abs(s.X - x) <= reach + 1 && Math.Abs(s.Y - y) <= reach + 1) return t;
+        }
+        return -1;
+    }
+
+    /// <summary>캤다 — 지도(0x50 + k)를 보물(+4 = 0x5A + k)로 바꾸고 +6 |= 0x10. 보물 아이템 번호를 돌려준다.</summary>
+    public static int Dig(ScenarioMemory m, int index)
+    {
+        int treasure = m.Read(At(index, Linked), false);
+        int map = treasure - 10;
+        for (int i = 0; i < Town.ItemShop.OwnedSlots; i++)
+        {
+            var at = new ScenarioMemory.Pointer(ScenarioMemory.MiscTable, Town.ItemShop.OwnedFirst + i);
+            if (m.Read(at, false) == map) { m.Write(at, treasure, false); break; }
+        }
+        m.Write(At(index, Flags), m.Read(At(index, Flags), false) | 0x10, false);
+        return treasure;
+    }
+
     /// <summary>그 지도가 가리키는 발견물 — 없으면 -1.</summary>
     public static int MapTarget(ScenarioMemory m, int item) =>
         item is >= FirstMap and < FirstMap + Maps ? m.Read(ScenarioMemory.At(Town.ItemShop.Table, item, MapLink), false) is var i && i < Used ? i : -1 : -1;
