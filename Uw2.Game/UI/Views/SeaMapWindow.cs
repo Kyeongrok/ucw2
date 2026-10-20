@@ -1859,7 +1859,7 @@ public sealed class SeaMapWindow : Window
                     sb.AppendLine($"{s.Name} ({type}) — 선장 {Captain(s)}");
                     sb.AppendLine($"    내구 {s.Hull}/{s.MaxHull} · 선원 {s.Crew}/{s.MaxCrew} · 사기 {s.Morale} · 짐 {s.Load}/{s.Room}");
                     if (s.Mounted > 0 || s.Figurehead > 0)
-                        sb.AppendLine($"    대포 {(s.Mounted > 0 ? $"{Shipyard.GunNames[Math.Clamp(s.GunKind, 0, 7)]} {s.Mounted}/{s.Guns}(화력 {s.Mounted * Shipyard.GunPower[Math.Clamp(s.GunKind, 0, 7)]})" : "없음")}"
+                        sb.AppendLine($"    대포 {(s.Mounted > 0 ? $"{Shipyard.GunNames[Math.Clamp(s.GunKind, 0, 7)]} {s.Mounted}/{s.Guns}(무게 {s.Mounted * Shipyard.GunWeight[Math.Clamp(s.GunKind, 0, 7)]})" : "없음")}"
                                       + (s.Figurehead > 0 ? $" · 선수상 {Shipyard.Figureheads[s.Figurehead]}" : ""));
                 }
                 if (p.Rats || p.Scurvy) sb.AppendLine((p.Rats ? "쥐 떼 " : "") + (p.Scurvy ? "괴혈병" : ""));

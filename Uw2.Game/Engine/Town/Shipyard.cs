@@ -119,8 +119,11 @@ public static class Shipyard
     public static readonly string[] GunNames = ["미탑재", "캐논", "데미캐논", "캐논페드로", "컬버린", "데미컬버린", "세이커", "카로네이드"];
     public static readonly int[] GunPrice = [0, 360, 80, 40, 250, 40, 5, 600];
 
-    /// <summary>한 문 화력(<c>0x00457258</c>) — 함선정보 「단 문 / 자리(화력)」 의 화력은 단 문 수 x 이것(말 0x378).</summary>
-    public static readonly int[] GunPower = [0, 20, 13, 10, 15, 11, 4, 15];
+    /// <summary>
+    /// 한 문 무게 x 10(<c>0x00457258</c>) — 함선정보 「단 문 / 자리(…)」 의 셋째는 단 문 수 x 이것(말 0x378).
+    /// 배 무게(<c>0x0043B0A0</c>) = 단 문 수 x 이것 / 10 + 짐(<c>0x0043B000</c> — 물 · 식량 / 10, 자재 · 탄약, 교역품) + 선원.
+    /// </summary>
+    public static readonly int[] GunWeight = [0, 20, 13, 10, 15, 11, 4, 15];
 
     /// <summary>
     /// 「무장」(<c>0x0042A080</c>) 에 늘어놓는 갈래 — min(6, (경제 + 공업) / 200 + 1). 공업 · 경제가 다 900 을 넘고 운이 90 을 넘으면
