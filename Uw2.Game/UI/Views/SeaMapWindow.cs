@@ -225,6 +225,7 @@ public sealed class SeaMapWindow : Window
         if (b == ChurchBuilding) { AtChurch(pick); return; }
         if (b == PalaceBuilding) { AtPalace(pick); return; }
         if (b == GuildBuilding && pick == 0) { OfferJobs(); return; }
+        if (b == GuildBuilding && pick == 1) { NationInfo(); return; }
         if (b == FortuneBuilding) { TellFortune(pick); return; }
         if (b == ItemBuilding && pick == 0) { BuyItem(); return; }
         if (b == ItemBuilding && pick == 1) { SellItem(); return; }
@@ -1190,6 +1191,35 @@ public sealed class SeaMapWindow : Window
         p.SetGold(p.Gold - price);
         _host.SyncLoad();
         Note($" · {ship.Name} — 선원 자리 {ship.MaxCrew} · 대포 {ship.Guns} · 짐칸 {ship.Room}");
+    }
+
+    /// <summary>나라 이름 일곱(<c>0x00457388</c>, 13바이트씩) — 일곱째는 해적이다.</summary>
+    private static readonly string[] NationNames7 = ["포르투갈", "에스파니아", "오스만제국", "영국", "이탈리아", "네덜란드", "해적"];
+
+    /// <summary>
+    /// 조합 「나라정보」(<c>0x0041EC50</c>) — 나라를 고르고(0xA2) 금화 100 을 내면(0x56 · 아니면 0x57, 모자라면 0xA3)
+    /// 나라 표(기억 표 0) +2 의 노리는 나라(0x58 — 7 이상이면 0x355 「네 함대를 노리고 있다」)와 +4 의 상선대 행선지(0x59)를 일러 준다.
+    /// </summary>
+    private void NationInfo()
+    {
+        if (_host.Scenario is not { } vm || _host.Ports is not { } ports) return;
+        var p = _host.Player;
+        int n = BuildingMenu.Ask(this, MsgOr(0xA2, "어느 나라의 정보요？"), NationNames7.Take(6).ToList());
+        if (n < 0) return;
+        if (MessageBox.Show(this, MsgOr(0x56, "정보를 얻으려면 금화 100닢이 드는데, 지불할 마음은 있는지？"), "나라정보", MessageBoxButton.YesNo)
+            != MessageBoxResult.Yes) { Say(0x57, "흥！ 나중에 울지 마라！"); return; }
+        if (p.Gold < 100) { Say(0xA3, "돈이 없는 녀석은 돌아가라."); return; }
+        p.SetGold(p.Gold - 100);
+        var m = vm.Memory;
+        int target = m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, n, 2), false);
+        int port = m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, n, 4), false);
+        var lines = new List<ScenarioVm.Line>
+        {
+            new("", target < 7 ? MsgOr(0x58, $"{NationNames7[n]}(는) {NationNames7[target]}(를) 노리고 있는 모양이야.", NationNames7[n], NationNames7[target])
+                                : MsgOr(0x355, $"조심해！ {NationNames7[n]}(는) 네 함대를 노리고 있다.", NationNames7[n])),
+        };
+        if (port < ports.Ports.Count) lines.Add(new("", MsgOr(0x59, $"상선대는 {ports.Ports[port].Name}(를) 향하고 있는 모양인데요.", ports.Ports[port].Name)));
+        ScenarioDialog.Play(this, _host.Faces, lines);
     }
 
     /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>
