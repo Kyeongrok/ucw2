@@ -49,7 +49,7 @@ public sealed class PortTable
     /// <param name="Name">이름.</param>
     /// <param name="X">세계지도 위 자리(칩 눈금).</param>
     /// <param name="Y">〃</param>
-    /// <param name="Nation">나라·문화권 한 바이트. 뜻은 아직 안 갈렸다.</param>
+    /// <param name="Nation">나라 바이트 — 아래 세 비트가 그 항구를 다스리는 나라(나라 표 차례), 0x50 비트 뜻은 아직.</param>
     public readonly record struct Port(int Index, string Name, int X, int Y, byte Nation)
     {
         /// <summary>세계지도 칸 자리.</summary>
@@ -135,8 +135,12 @@ public sealed class PortTable
         for (int i = 0; i < bestRun; i++)
         {
             var r = file.Slice(best + i * bestStride, bestStride);
+            // 22바이트 판의 참 짜임은 [x][y][이름 17][나라] 라 나라 바이트는 레코드 맨 끝, 곧 다음 레코드 [0] 자리다
+            // (리스본 0x50 · 세빌리아 0x51 … 아래 세 비트가 나라 표 차례 — 왕궁이 0x0043AED0 +0x15 로 읽는다).
+            int nationAt = best + i * bestStride + (bestStride == 22 ? bestStride : 0);
+            byte nation = nationAt < file.Length ? file[nationAt] : r[0];
             ports.Add(new Port(i, DecodeName(r[HeadSize..]),
-                               r[1] | (r[2] << 8), r[3] | (r[4] << 8), r[0]));
+                               r[1] | (r[2] << 8), r[3] | (r[4] << 8), nation));
         }
         return new PortTable(ports, source) { Stride = bestStride };
     }

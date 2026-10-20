@@ -20,7 +20,7 @@ namespace Uw2.Game.Engine;
 /// </remarks>
 public sealed class ScenarioMemory
 {
-    public const int TableCount = 20, NationTable = 0, GoldTable = 2, MiscTable = 6, PeopleTable = 3, FleetTable = 8, PlayerShipTable = 9,
+    public const int TableCount = 20, NationTable = 0, GoldTable = 2, MiscTable = 6, PortTable = 12, PeopleTable = 3, FleetTable = 8, PlayerShipTable = 9,
                      MarketTable = 14, PortStateTable = 13;
 
     /// <summary>표 2 +7 — 주인공 사람 번호(<c>0x0049F5AF</c>). 원본은 이것 + 1 로 <c>SNRn</c> 을 고른다(<c>0x00415AD9</c>).</summary>
@@ -41,6 +41,26 @@ public sealed class ScenarioMemory
     {
         for (int t = 0; t < TableCount; t++)
             _tables[t] = new byte[Math.Max(Stride[t], 1) * 256 + 256];
+    }
+
+    /// <summary>
+    /// 항구 표(표 12, 22바이트) — [x][y][이름 17(cp949)][나라]. 시나리오가 +4(이름) · +0x15(나라)를 짚는다.
+    /// </summary>
+    public void FillPorts(IEnumerable<(int X, int Y, string Name, byte Nation)> ports)
+    {
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        var cp949 = System.Text.Encoding.GetEncoding(949);
+        int r = 0;
+        foreach (var (x, y, name, nation) in ports)
+        {
+            var rec = new byte[22];
+            rec[0] = (byte)x; rec[1] = (byte)(x >> 8); rec[2] = (byte)y; rec[3] = (byte)(y >> 8);
+            var bytes = cp949.GetBytes(name);
+            Array.Copy(bytes, 0, rec, 4, Math.Min(16, bytes.Length));
+            rec[0x15] = nation;
+            for (int i = 0; i < 22; i++) Write(At(PortTable, r, i), rec[i], false);
+            r++;
+        }
     }
 
     /// <summary>표 스물의 사본 — 세이브에 담는다.</summary>

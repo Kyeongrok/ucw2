@@ -253,4 +253,12 @@ public class AssetTests
         Assert.Equal(700, gold);
         Assert.Empty(Uw2.Game.Engine.Town.ItemShop.Owned(m));
     }
+
+    [Fact]
+    public void PortNationByteIsTheLastOfTheRecord()
+    {
+        var ports = Load().Ports;
+        // 서울 일곱이 나라 표 차례 0 ~ 6 으로 — 리스본 · 세빌리아 · 이스탄불 · 런던 · 제노바 · 암스테르담 · 알제
+        Assert.Equal([0, 1, 2, 3, 4, 5, 6], new[] { 0, 1, 2, 29, 8, 33, 4 }.Select(i => ports[i].Nation & 7).ToArray());
+    }
 }

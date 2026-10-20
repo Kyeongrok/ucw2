@@ -32,7 +32,7 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2, PubBuilding = 1, BankBuilding = 8, InnBuilding = 4, ChurchBuilding = 10, ItemBuilding = 9, PalaceBuilding = 5;
 
     /// <summary>이번에 교회에 든 뒤 예배를 드렸는지(<c>0x0049A188</c>).</summary>
     private bool _worshipped;
@@ -189,11 +189,31 @@ public sealed class SeaMapWindow : Window
         if (b == InnBuilding && pick == 1) { ShowSupport(); return; }
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == ChurchBuilding) { AtChurch(pick); return; }
+        if (b == PalaceBuilding) { AtPalace(pick); return; }
         if (b == ItemBuilding && pick == 0) { BuyItem(); return; }
         if (b == ItemBuilding && pick == 1) { SellItem(); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
+    }
+
+    /// <summary>왕궁 — 그 항구 나라가 주인공 나라일 때만 쓴다. 「자금원조」만 됐다(<see cref="Palace"/>).</summary>
+    private void AtPalace(int pick)
+    {
+        if (_host.Scenario is not { } vm || _host.Ports is not { } ports || _host.CurrentPort < 0
+            || _host.CurrentPort >= ports.Ports.Count) return;
+        int nation = Palace.NationOf(ports.Ports[_host.CurrentPort]);
+        if (nation != (_host.HeroNation & 7)) { Note(" · 이 나라의 왕궁은 당신을 맞지 않습니다"); return; }
+        if (pick != 2) { Note(" · 그것은 아직 없습니다"); return; }
+        int gold = _host.Player.Gold;
+        int got = Palace.TakeFunds(vm.Memory, nation, ref gold);
+        _host.Player.SetGold(gold);
+        Note(got switch
+        {
+            0 => " · 지금 내어 줄 자금은 없다고 합니다",
+            < 0 => " · 더는 가질 수 없습니다",
+            _ => $" · 자금 {got}을 받았습니다",
+        });
     }
 
     /// <summary>ITEM 「구입」 — 이 항구 가게의 셋(밤 6 ~ 8 시각이면 넷, <see cref="ItemShop"/>).</summary>
