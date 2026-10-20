@@ -203,6 +203,12 @@ public sealed class SeaMapWindow : Window
         if (b == PubBuilding && pick == 3) { TalkToNavigator(pub: true); return; }
         if (b == InnBuilding && pick == 0) { TalkToNavigator(pub: false); return; }
         if (b == InnBuilding && pick == 1) { ShowSupport(); return; }
+        if (b == InnBuilding && pick == 2 && _host.Fleet is { } f)
+        {
+            f.SleepUntilMorning();
+            Note($" · 하룻밤 묵었습니다 — {f.Date} {Fleet.Clock(f.TimeOfDay)}");
+            return;
+        }
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == ChurchBuilding) { AtChurch(pick); return; }
         if (b == PalaceBuilding) { AtPalace(pick); return; }

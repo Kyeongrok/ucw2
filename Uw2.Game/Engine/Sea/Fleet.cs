@@ -95,6 +95,18 @@ public sealed class Fleet
     /// <summary>뭍에 막혀 뱃머리대로 못 간 틱이면 참.</summary>
     public bool Blocked { get; private set; }
 
+    /// <summary>
+    /// 여관 「숙박」 — 시각을 하루 끝(0x48)으로 밀어 다음 날 아침이 되게 한다(<c>0x0041F2A0</c> → <c>0x0041A2F2</c>).
+    /// 항구라 물 · 식량은 줄지 않는다. 달이 바뀌면 달마다 셈을 부른다.
+    /// </summary>
+    public void SleepUntilMorning()
+    {
+        TimeOfDay = MorningTick;
+        Date.NextDay();
+        Weather.NewDay();
+        if (Date.Day == 0) NewMonth?.Invoke();
+    }
+
     /// <summary>세이브에 담을 자리 · 날짜.</summary>
     public SaveGame.FleetState Export() => new()
     {
