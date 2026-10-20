@@ -642,6 +642,7 @@ public sealed class SeaMapWindow : Window
             Note($" · {name}의 사람이 되었습니다");
             return;
         }
+        if (pick == 0) { Audience(ours); return; }
         if (!ours) { Note(" · 이 나라의 왕궁은 당신을 맞지 않습니다"); return; }
         if (pick == 3)
         {
@@ -666,6 +667,46 @@ public sealed class SeaMapWindow : Window
             < 0 => " · 더는 가질 수 없습니다",
             _ => $" · 자금 {got}을 받았습니다",
         });
+    }
+
+    /// <summary>왕궁 「알현」 이 시나리오에 넘기는 건물 번호(<c>0x0042785A</c> 의 0x15).</summary>
+    private const int AudienceBuilding = 0x15;
+
+    /// <summary>
+    /// 왕궁 「알현」(<c>0x00427800</c>) — 작위 · 임무는 시나리오가 한다. 건물 0x15 의 이벤트를 함께 쓰는 것(SNR0)과 주인공 것 차례로 돌리고,
+    /// 이벤트가 볼일을 대신하지 않았으면 목록 55(세력상황 · 사략허가서 · 면세증)를 띄운다. 제 나라가 아니면 사략허가서 · 면세증은 못 고른다.
+    /// </summary>
+    private void Audience(bool ours)
+    {
+        var (name, family) = _host.HeroName;
+        bool menu = true;
+        foreach (var vm in new[] { _host.Common, _host.Scenario })
+        {
+            if (vm?.Enter(_host.CurrentPort, AudienceBuilding, _host.Player.Gold, name, family) is not { } run) continue;
+            if (run.Pending.Count > 0) ScenarioDialog.Play(this, _host.Faces, run.Pending);
+            _host.Apply(run);
+            _host.WriteShipSide();
+            if (run.Stopped) menu = false;
+        }
+        if (!menu) { Note($" · 작위 {_host.HeroRank}"); return; }
+        string[] items = ["세력상황", ours ? "사략허가서" : "사략허가서 (안 됨)", ours ? "면세증" : "면세증 (안 됨)"];
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, "알현", items);
+            if (pick < 0) return;
+            if (pick == 0) ShowInfluence();
+            else if (ours) Note($" · 「{items[pick]}」은 아직 없습니다");
+        }
+    }
+
+    /// <summary>「세력상황」 — 나라마다 몇 항구가 그 나라 것인지(항구 표 +0x15).</summary>
+    private void ShowInfluence()
+    {
+        if (_host.Ports is not { } ports) return;
+        var sb = new System.Text.StringBuilder();
+        foreach (var g in ports.Ports.GroupBy(p => Palace.NationOf(p)).OrderBy(g => g.Key))
+            sb.AppendLine($"{(g.Key < NationNames.Length ? NationNames[g.Key] : "그 밖")}  {g.Count()}항");
+        MessageBox.Show(this, sb.ToString(), "세력상황");
     }
 
     /// <summary>ITEM 「구입」 — 이 항구 가게의 셋(밤 6 ~ 8 시각이면 넷, <see cref="ItemShop"/>).</summary>
