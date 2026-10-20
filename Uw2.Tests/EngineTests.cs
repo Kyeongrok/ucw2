@@ -575,4 +575,20 @@ public class EngineTests
         Assert.Equal((5, false), Uw2.Game.Engine.Town.Shipyard.GunChoices(500, 400, 99, _ => 0));
         Assert.Equal((7, true), Uw2.Game.Engine.Town.Shipyard.GunChoices(1000, 1000, 99, _ => 0));
     }
+
+    [Fact]
+    public void BlackJackSettlesLikeTheOriginal()
+    {
+        static List<int> H(params int[] c) => [.. c];
+        Assert.Equal(21, Uw2.Game.Engine.Town.BlackJack.Total(H(0, 12)));                 // A + K
+        Assert.Equal(12, Uw2.Game.Engine.Town.BlackJack.Total(H(0, 13, 10)));             // A A J — 12 는 11 을 넘어 에이스를 11 로 치지 않는다
+        Assert.Equal((6, 0, 0x3C6), Uw2.Game.Engine.Town.BlackJack.Settle(H(0, 10), H(4, 5)));
+        Assert.Equal((2, 0, 0x3C8), Uw2.Game.Engine.Town.BlackJack.Settle(H(13, 9), H(4, 5)));   // 하트 A + 스페이드 10
+        Assert.Equal((3, 0, 0x3C7), Uw2.Game.Engine.Town.BlackJack.Settle(H(13, 11), H(4, 5)));  // 하트 A + 스페이드 Q
+        Assert.Equal((4, 0, 0x3C9), Uw2.Game.Engine.Town.BlackJack.Settle(H(6, 19, 32), H(9, 7)));
+        Assert.Equal((0, 0, 0x3CE), Uw2.Game.Engine.Town.BlackJack.Settle(H(9, 7), H(9, 20)));   // 비기면 딜러
+        Assert.Equal((0, 4, 0x3CC), Uw2.Game.Engine.Town.BlackJack.Settle(H(9, 7), H(10, 0)));
+        Assert.Equal(0, Uw2.Game.Engine.Town.BlackJack.Pay(100, 50, 0, 4));
+        Assert.Equal(400, Uw2.Game.Engine.Town.BlackJack.Pay(100, 50, 6, 0));
+    }
 }

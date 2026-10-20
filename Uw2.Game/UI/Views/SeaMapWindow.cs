@@ -215,6 +215,7 @@ public sealed class SeaMapWindow : Window
         if (b == PubBuilding && pick == 2) { TreatBar(); return; }
         if (b == PubBuilding && pick == 3) { TalkToNavigator(pub: true); return; }
         if (b == PubBuilding && pick == 4) { TalkToBarmaid(); return; }
+        if (b == PubBuilding && pick == 5) { Gamble(); return; }
         if (b == InnBuilding && pick == 0) { TalkToNavigator(pub: false); return; }
         if (b == InnBuilding && pick == 1) { ShowSupport(); return; }
         if (b == InnBuilding && pick == 2 && _host.Fleet is { } f)
@@ -1399,6 +1400,53 @@ public sealed class SeaMapWindow : Window
             ? MsgOr(0x83, $"그 곳은 {eco.GoodsNames[good]}(가) 유명하지.", eco.GoodsNames[good])
             : MsgOr(0x2E6, "마음이 끌리면 가 봐.");
         ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", head), new ScenarioVm.Line("", tail)]);
+    }
+
+    /// <summary>주점 「도박」(<c>0x00426B20</c>) — 블랙잭 · 다이스. 돈이 없으면 0x3F2. 다이스는 아직이다.</summary>
+    private void Gamble()
+    {
+        var p = _host.Player;
+        if (p.Gold <= 0) { Say(0x3F2, "금화도 없는 놈을 상대할 순 없지."); return; }
+        int game = BuildingMenu.Ask(this, "도박", ["Black Jack", "Dice"]);
+        if (game == 0) PlayBlackJack();
+        else if (game == 1) Note(" · 다이스는 아직 없습니다");
+    }
+
+    /// <summary>
+    /// 블랙잭 한 자리(<see cref="BlackJack"/>) — 「하겠소？」(0x3D3) 뒤 판마다 걸고 뽑고 가르며, 「한판 더」(0x3D5)를 묻는다.
+    /// 끝에 처음보다 500 넘게 땄으면 0x3D6, 500 넘게 잃었으면 0x3D7(<c>0x00406E9B</c>).
+    /// </summary>
+    private void PlayBlackJack()
+    {
+        var p = _host.Player;
+        int start = p.Gold;
+        if (p.Gold < BlackJack.MinBet) { Say(0x3F2, "금화도 없는 놈을 상대할 순 없지."); return; }
+        if (MessageBox.Show(this, MsgOr(0x3D3, "당신, 나하고 블랙잭을 하겠소？"), "블랙잭", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        while (true)
+        {
+            int most = BlackJack.MostBet(p.Gold);
+            int bet = AmountDialog.Ask(this, MsgOr(0x3C2, "도박금은 얼마요？") + $" ({BlackJack.MinBet}-{most})", most);
+            if (bet <= 0) break;
+            if (bet < BlackJack.MinBet) { Say(0x3C3, "뭐야 이거！ 애들 장난도 아니구."); continue; }
+            p.SetGold(p.Gold - bet);
+            var deck = BlackJack.Shuffle(Random.Shared.Next);
+            int next = 4;
+            List<int> mine = [deck[0], deck[2]], his = [deck[1], deck[3]];
+            string Hand(List<int> h) => string.Join(" ", h.Select(BlackJack.Name));
+            while (BlackJack.Total(mine) <= 21 && mine.Count < BlackJack.MaxPlayerCards
+                   && MessageBox.Show(this, $"딜러  {BlackJack.Name(his[0])} ??\n당신  {Hand(mine)}\n" + MsgOr(0x3D2, $"합계 {BlackJack.Total(mine)}", BlackJack.Total(mine))
+                                      + "\n\n한 장 더 받겠습니까？", "블랙잭", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                mine.Add(deck[next++]);
+            while (BlackJack.Total(his) < BlackJack.DealerStands && his.Count < BlackJack.MaxDealerCards) his.Add(deck[next++]);
+            var (win, loss, msg) = BlackJack.Settle(mine, his);
+            SayText($"딜러  {Hand(his)}  ({BlackJack.Total(his)})\n당신  {Hand(mine)}  ({BlackJack.Total(mine)})\n\n" + MsgOr(msg, win > 0 ? "네가 이겼다." : "그럼 도박금을 가지겠어. 미안！"));
+            p.SetGold(BlackJack.Pay(p.Gold, bet, win, loss));
+            if (p.Gold < BlackJack.MinBet) { Say(0x3D4, "살다 보면 이런일 저런일이 다 있지.\n너무 풀죽지 말게."); return; }
+            if (MessageBox.Show(this, MsgOr(0x3D5, "한판 더 안 하겠소？"), "블랙잭", MessageBoxButton.YesNo) != MessageBoxResult.Yes) break;
+        }
+        if (p.Gold > start + 500) Say(0x3D6, "앗！ 벌써 돌아가는 거냐？\n이기고 도망가는 건 너무한데！");
+        else if (p.Gold + 500 < start) Say(0x3D7, "하하하！ 덕분에 횡재했어. 그럼 또 오시오！");
+        Note($" · 소지금 {start} → {p.Gold}");
     }
 
     /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>
