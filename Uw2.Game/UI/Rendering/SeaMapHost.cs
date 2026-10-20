@@ -353,6 +353,7 @@ public sealed class SeaMapHost : HwndHost
             if (StartTables is { FleetBytes.Length: > 0 } st) Scenario.Memory.Fill(ScenarioMemory.FleetTable, st.FleetBytes);
             if (StartTables is { PeopleBytes.Length: > 0 } sp) Scenario.Memory.Fill(ScenarioMemory.PeopleTable, sp.PeopleBytes);
             if (StartTables is { NationBytes.Length: > 0 } sn) Scenario.Memory.Fill(ScenarioMemory.NationTable, sn.NationBytes);
+            if (StartTables is { HeroBytes.Length: > 0 } sh) Scenario.Memory.Fill(ScenarioMemory.HeroTable, sh.HeroBytes);
             Scenario.Memory.Write(new ScenarioMemory.Pointer(ScenarioMemory.GoldTable, ScenarioMemory.HeroField), person, false);
             if (Economy is { } eco)
             {
