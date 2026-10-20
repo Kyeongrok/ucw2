@@ -35,6 +35,7 @@ namespace Uw2.Support.Local.Formats;
 ///     snr/SNR0~6.DAT · .MES       시나리오 바이트코드 · 글(그대로 옮겨 둔 것)
 ///     snr/MESSAGE.DAT             게임 말 1179(그대로)
 ///     snr/COLONY.DAT              발견물 이름 · 풀이 백(그대로)
+///     snr/ITEM.MES                아이템 풀이 백(그대로)
 ///     start-ships.json            선종 본보기 스물다섯(이름 · 노 · 대포 · 자리)과 주인공 첫 선종(SNR1~6.DAT)
 ///     markets.png        128x13   시장 열셋(값 = 날바이트, SDATA.DAT 0x605A)
 ///     portstate.png      37x100   항구 형편 백(값 = 날바이트, SDATA.DAT 0x66DA)
@@ -366,6 +367,8 @@ public sealed class AssetPack
         if (File.Exists(msg)) File.Copy(msg, Path.Combine(outDir, "snr", "MESSAGE.DAT"), true);
         string colony = Path.Combine(gameDirectory, "COLONY.DAT");
         if (File.Exists(colony)) File.Copy(colony, Path.Combine(outDir, "snr", "COLONY.DAT"), true);
+        string itemMes = Path.Combine(gameDirectory, "ITEM.MES");
+        if (File.Exists(itemMes)) File.Copy(itemMes, Path.Combine(outDir, "snr", "ITEM.MES"), true);
     }
 
     /// <summary><c>MENU.DAT</c> 목록을 굽는다.</summary>

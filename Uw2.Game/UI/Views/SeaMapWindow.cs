@@ -719,6 +719,10 @@ public sealed class SeaMapWindow : Window
         var items = stock.Select(i => ItemShop.Get(vm.Memory, i)).ToList();
         int pick = BuildingMenu.Ask(this, $"구입 — 돈 {p.Gold}", items.Select(it => $"{it.Name,-10} {it.Price,7}").ToList());
         if (pick < 0) return;
+        // 고른 것의 풀이와 그림을 보이고 살지 묻는다(0x0041F450).
+        ShowItem(items[pick].Index);
+        if (MessageBox.Show(this, $"{items[pick].Name} — 금화 {items[pick].Price}. 사겠습니까?", "구입", MessageBoxButton.YesNo)
+            != MessageBoxResult.Yes) return;
         int gold = p.Gold;
         var result = ItemShop.Buy(vm.Memory, items[pick].Index, ref gold);
         p.SetGold(gold);
@@ -1273,6 +1277,7 @@ public sealed class SeaMapWindow : Window
         if (pick < 0) return;
         int item = owned[pick];
         var it = ItemShop.Get(m, item);
+        ShowItem(item);
         int how = BuildingMenu.Ask(this, it.Name, ["장  비", "사  용"]);
         if (how < 0) return;
         if (how == 0)
@@ -1317,6 +1322,15 @@ public sealed class SeaMapWindow : Window
         }
         if (usedUp) { int none = 0; ItemShop.Sell(m, item, 0, ref none); }
         ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(it.Name, said)]);
+    }
+
+    /// <summary>아이템 하나의 풀이(<c>ITEM.MES</c>)와 그림(KAO 발견물 판 0x55 + 아이템 +0x0F, <c>0x0041F4F4</c>).</summary>
+    private void ShowItem(int item)
+    {
+        if (_host.Scenario is not { } vm || _host.ItemNotes?[item] is not { Length: > 0 } note) return;
+        int pic = vm.Memory.Read(ScenarioMemory.At(ItemShop.Table, item, 0x0F), false);
+        ScenarioDialog.Play(this, _host.Faces,
+            [new ScenarioVm.Line(ItemShop.Get(vm.Memory, item).Name, note, Face: pic > 0 ? FaceSheet.FindFirst + 0x55 + pic : -1)]);
     }
 
     /// <summary>탐색 덤(<c>0x0049A164</c>) — 부락에 내릴 때마다 0 에서 시작하고 「환대」 가 5 씩 올린다.</summary>

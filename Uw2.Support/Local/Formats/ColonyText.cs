@@ -39,3 +39,26 @@ public sealed class ColonyText
         return new ColonyText(records);
     }
 }
+
+/// <summary>
+/// 아이템 풀이 <c>ITEM.MES</c> — 145바이트 x 100, cp949 끝 0(<c>0x0041F450</c> 이 번호 x 0x91 자리를 읽는다).
+/// </summary>
+public sealed class ItemText
+{
+    public const int RecordSize = 0x91;
+
+    private readonly string[] _lines;
+
+    private ItemText(string[] lines) => _lines = lines;
+
+    public string this[int i] => i >= 0 && i < _lines.Length ? _lines[i] : "";
+
+    public static ItemText Load(string path)
+    {
+        var d = File.ReadAllBytes(path);
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var cp949 = Encoding.GetEncoding(949);
+        return new ItemText([.. Enumerable.Range(0, d.Length / RecordSize)
+            .Select(i => cp949.GetString(d, i * RecordSize, RecordSize).Split('\0')[0])]);
+    }
+}

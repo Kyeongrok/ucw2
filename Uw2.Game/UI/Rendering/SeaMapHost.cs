@@ -361,6 +361,9 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>발견물 이름 · 풀이(<c>COLONY.DAT</c>). 없으면 null.</summary>
     public ColonyText? Colony { get; private set; }
 
+    /// <summary>아이템 풀이(<c>ITEM.MES</c>). 없으면 null.</summary>
+    public ItemText? ItemNotes { get; private set; }
+
     /// <summary>주인공의 시나리오 기계. 파일이 없으면 null.</summary>
     public ScenarioVm? Scenario { get; private set; }
 
@@ -376,6 +379,8 @@ public sealed class SeaMapHost : HwndHost
         Messages = File.Exists(msgPath) ? GameMessages.Load(msgPath) : null;
         string colonyPath = Path.Combine(_scenarioDir, "COLONY.DAT");
         Colony = File.Exists(colonyPath) ? ColonyText.Load(colonyPath) : null;
+        string itemPath = Path.Combine(_scenarioDir, "ITEM.MES");
+        ItemNotes = File.Exists(itemPath) ? ItemText.Load(itemPath) : null;
         for (int n = 1; n <= 6; n++)
         {
             string dat = Path.Combine(_scenarioDir, $"SNR{n}.DAT"), mes = Path.Combine(_scenarioDir, $"SNR{n}.MES");
