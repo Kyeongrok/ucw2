@@ -359,6 +359,13 @@ public sealed class SeaMapHost : HwndHost
             if (StartTables is { PeopleBytes.Length: > 0 } sp) Scenario.Memory.Fill(ScenarioMemory.PeopleTable, sp.PeopleBytes);
             if (StartTables is { NationBytes.Length: > 0 } sn) Scenario.Memory.Fill(ScenarioMemory.NationTable, sn.NationBytes);
             if (StartTables is { HeroBytes.Length: > 0 } sh) Scenario.Memory.Fill(ScenarioMemory.HeroTable, sh.HeroBytes);
+            if (StartTables is { MiscBytes.Length: > 0 } sm)
+            {
+                Scenario.Memory.Fill(ScenarioMemory.MiscTable, sm.MiscBytes);
+            }
+            else
+                for (int i = 0; i < Navigators.MateSlots; i++)
+                    Scenario.Memory.Write(new ScenarioMemory.Pointer(ScenarioMemory.MiscTable, Navigators.MateFirst + i), 0xFF, false);
             Scenario.Memory.Write(new ScenarioMemory.Pointer(ScenarioMemory.GoldTable, ScenarioMemory.HeroField), person, false);
             if (Economy is { } eco)
             {
@@ -494,6 +501,16 @@ public sealed class SeaMapHost : HwndHost
             Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load, Crew = Player.Ships[i].Crew };
     }
 
+    /// <summary>주인공의 사람 번호.</summary>
+    public int HeroPersonNumber => HeroPerson[Hero];
+
+    /// <summary>게임 주사위 — 0 이상 n 미만(<c>0x0044E0D2</c> 자리).</summary>
+    public int Roll(int n) => n < 2 ? 0 : _npcRng.Next(n);
+
+    /// <summary>사람 이름 — 「이름 성」.</summary>
+    public string PersonName(int person) =>
+        StartTables is { } st && person >= 0 && person < st.People.Count ? $"{st.People[person].Name} {st.People[person].Family}".Trim() : $"#{person}";
+
     /// <summary>주인공 작위 — 시나리오 기억 표 1 +0x0D. 새 게임은 0 이고 시나리오가 올린다.</summary>
     public int HeroRank =>
         Scenario?.Memory.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, HeroPerson[Hero], ScenarioMemory.RankField), false) ?? 0;
@@ -546,6 +563,11 @@ public sealed class SeaMapHost : HwndHost
         int gold = person < start.HeroGold.Count ? start.HeroGold[person] : 0;
         Player = new PlayerState(gold);
         Player.Ships.Add(NewShip(start, type, first.Crew));
+        if (start.MiscBytes.Length > 2)
+        {
+            Player.WaterRate = start.MiscBytes[1];
+            Player.FoodRate = start.MiscBytes[2];
+        }
     }
 
     /// <summary>어디서 읽었는지 — 게임 폴더 아니면 「구운 자산」.</summary>

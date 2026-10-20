@@ -25,6 +25,7 @@ namespace Uw2.Support.Local.Formats;
 ///     people-raw.png     50x120   사람 백스물 날바이트(SDATA.DAT 0xCAF) — 시나리오 기억
 ///     nations.png        32x7     나라 일곱 날바이트(SDATA.DAT 0x7DD) — 서울 항구 · 시나리오 기억
 ///     heroes.png         14x6     주인공 여섯 날바이트(SDATA.DAT 0x2427) — 시나리오 기억
+///     misc.png           93x1     함대 뒤 덩이(SDATA.DAT 0x48D9) — 물 · 식량 비율 · 동료 칸
 ///     goods.json                  교역품 이름 마흔여섯 (KOUKAI2-han8.exe)
 ///     menus.json                  고르기 목록 예순하나 (MENU.DAT)
 ///     snr/SNR0~6.DAT · .MES       시나리오 바이트코드 · 글(그대로 옮겨 둔 것)
@@ -384,6 +385,7 @@ public sealed class AssetPack
                          StartData.NationSize, StartData.NationCount, DataPalette());
         IndexedPng.Write(Path.Combine(outDir, "heroes.png"), start.HeroBytes,
                          StartData.HeroSize, StartData.HeroCount, DataPalette());
+        IndexedPng.Write(Path.Combine(outDir, "misc.png"), start.MiscBytes, StartData.MiscSize, 1, DataPalette());
         string? game = Path.GetDirectoryName(sdataPath);
         var heroShips = game != null ? Scenario.HeroShips(game) : [];
         var heroGold = game != null ? Scenario.HeroGold(game) : [];
@@ -463,10 +465,12 @@ public sealed class AssetPack
             byte[]? nationBytes = File.Exists(nationsPath) ? IndexedPng.Read(nationsPath).Pixels : null;
             string heroesPath = Path.Combine(dir, "heroes.png");
             byte[]? heroBytes = File.Exists(heroesPath) ? IndexedPng.Read(heroesPath).Pixels : null;
+            string miscPath = Path.Combine(dir, "misc.png");
+            byte[]? miscBytes = File.Exists(miscPath) ? IndexedPng.Read(miscPath).Pixels : null;
             var startShips = ReadJson<StartShipsJson>(Path.Combine(dir, "start-ships.json"));
             var start = shipTypes != null && people != null
                 ? StartData.FromTables([.. shipTypes.Select(t => t.To())], [.. people.Select(p => p.To())], fleetBytes,
-                                       startShips?.Templates, startShips?.HeroShips, startShips?.HeroGold, peopleBytes, nationBytes, heroBytes)
+                                       startShips?.Templates, startShips?.HeroShips, startShips?.HeroGold, peopleBytes, nationBytes, heroBytes, miscBytes)
                 : null;
 
             return new AssetPack

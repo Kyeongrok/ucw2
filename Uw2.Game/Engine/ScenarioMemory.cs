@@ -13,14 +13,14 @@ namespace Uw2.Game.Engine;
 ///    3  0x0045A240  50  사람(+0x2C 함대)        10  0x00461560  22  배 기록          17  0x004608E0  20
 ///    4  0x0045B9B0  22                         11  0x00461AF8  12               18  0x0049F5B8   0  (불러 온 기록)
 ///    5  0x0045BB68  19                         12  0x0045E5E0  22               19  0x0046EDE8   4
-///    6  0x0045BDA8   0                         13  0x0045F110  37  항구 형편(SDATA 0x66DA)
+///    6  0x0045BDA8   0  비율 · 동료(SDATA 0x48D9) 13  0x0045F110  37  항구 형편(SDATA 0x66DA)
 /// </code>
 /// 여기서는 표마다 바이트 배열 하나를 두고 아는 표(돈 · 주인공 · 사람 · 함대 · 제 배 · 시장 · 항구 형편)만 채운다. 나머지는 0 으로 읽힌다.
 /// 낱말은 원본처럼 작은 끝(little endian)이다.
 /// </remarks>
 public sealed class ScenarioMemory
 {
-    public const int TableCount = 20, NationTable = 0, GoldTable = 2, PeopleTable = 3, FleetTable = 8, PlayerShipTable = 9,
+    public const int TableCount = 20, NationTable = 0, GoldTable = 2, MiscTable = 6, PeopleTable = 3, FleetTable = 8, PlayerShipTable = 9,
                      MarketTable = 14, PortStateTable = 13;
 
     /// <summary>표 2 +7 — 주인공 사람 번호(<c>0x0049F5AF</c>). 원본은 이것 + 1 로 <c>SNRn</c> 을 고른다(<c>0x00415AD9</c>).</summary>

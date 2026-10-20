@@ -149,6 +149,7 @@ public sealed class SeaMapWindow : Window
         if (b == ShipyardBuilding && pick == 2) { RepairShips(); return; }
         if (b == ShipyardBuilding && pick == 3) { SellShip(); return; }
         if (b == PubBuilding && pick == 0) { HireCrew(); return; }
+        if (b == PubBuilding && pick == 3) { TalkToNavigator(); return; }
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
@@ -208,6 +209,63 @@ public sealed class SeaMapWindow : Window
         p.SetGold(p.Gold - n);
         string share = nation < Economy.NoNation ? $" · 우리 몫 {eco.States[port].Shares[nation]}%(+{gain})" : "";
         Note($" · {what} {n}{share}");
+    }
+
+    /// <summary>
+    /// 주점 「항해자와 대화」 — 주점에 있는 항해자를 골라 목록 12(한턱내기 · 항해자정보 · 고용 · 결투)로(<see cref="Navigators"/>).
+    /// 결투는 아직이다.
+    /// </summary>
+    private void TalkToNavigator()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        int hero = _host.HeroPersonNumber, port = _host.CurrentPort;
+        var here = Navigators.InTown(m, port, hero);
+        if (here.Count == 0) { Note(" · 지금 주점에 항해자가 없습니다"); return; }
+        int who = here.Count == 1 ? 0 : BuildingMenu.Ask(this, "누구와 이야기할까요", here.Select(_host.PersonName).ToList());
+        if (who < 0) return;
+        int nav = here[who];
+        string name = _host.PersonName(nav);
+        var items = _host.Menus?.Lists is { Count: > 12 } lists ? lists[12].ToList() : ["한턱내기", "항해자정보", "고용", "결투"];
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, $"{name} — 호감 {Navigators.Get(m, nav, Navigators.Liking)}", items);
+            if (pick < 0) return;
+            if (pick == 0)
+            {
+                int cls = _host.Economy is { } eco && port * Economy.StateSize + 0x24 < eco.StateBytes.Length
+                    ? eco.StateBytes[port * Economy.StateSize + 0x24] : 0;
+                int price = cls < Navigators.TreatPrice.Length ? Navigators.TreatPrice[cls] : 1;
+                if (_host.Player.Gold < price) { Note(" · 돈이 모자랍니다"); return; }
+                _host.Player.SetGold(_host.Player.Gold - price);
+                int gain = Navigators.Treat(m, nav, hero);
+                Note($" · {name}에게 한턱냈습니다({price}) · 호감 +{gain}");
+            }
+            else if (pick == 1)
+            {
+                var stats = Enumerable.Range(0, 7).Select(k => Navigators.Get(m, nav, Navigators.Stats + k));
+                MessageBox.Show(this,
+                    $"{name}\n능력치 {string.Join(" · ", stats)}\n항해 레벨 {Navigators.Get(m, nav, Navigators.NavLevel)} · " +
+                    $"전투 레벨 {Navigators.Get(m, nav, Navigators.BattleLevel)}\n호감 {Navigators.Get(m, nav, Navigators.Liking)}",
+                    "항해자정보");
+            }
+            else if (pick == 2)
+            {
+                var answer = Navigators.Ask(m, nav, hero, _host.HeroRank, _host.Roll, out int wage);
+                switch (answer)
+                {
+                    case Navigators.Answer.AlreadyBound: Note($" · {name}은(는) 이미 매인 몸입니다"); return;
+                    case Navigators.Answer.NoRoom: Note(" · 동료 칸이 다 찼습니다"); return;
+                    case Navigators.Answer.NotFriendly: Note($" · {name}은(는) 아직 마음을 열지 않았습니다"); continue;
+                    case Navigators.Answer.Refused: Note($" · {name}이(가) 거절했습니다"); return;
+                }
+                if (MessageBox.Show(this, $"{name}: 한 달에 {wage}씩 주신다면 따르겠습니다.", "고용", MessageBoxButton.YesNo)
+                    != MessageBoxResult.Yes) { Note(" · 고용하지 않았습니다"); return; }
+                if (Navigators.Join(m, nav, hero, wage)) Note($" · {name}이(가) 동료가 되었습니다(급여 {wage})");
+                return;
+            }
+            else { Note(" · 결투는 아직 없습니다"); return; }
+        }
     }
 
     /// <summary>주점 「선원 고용」 — 올 사람 · 값은 원본 셈(<see cref="Pub"/>), 앞 배부터 빈 자리를 채운다.</summary>

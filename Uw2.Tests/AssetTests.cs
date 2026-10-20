@@ -193,4 +193,31 @@ public class AssetTests
         // 리스본 · 세빌리아 · 2 · 29(옷토) · 8(피에트로) · 33(에르네스트), 일곱째는 4
         Assert.Equal([0, 1, 2, 29, 8, 33, 4], start.Capitals.ToArray());
     }
+
+    [Fact]
+    public void NavigatorsWaitInPubsAndJoinWhenFriendlyAndOutmatched()
+    {
+        var start = Load().Start!;
+        Assert.Equal((0, 100, 100), (start.MiscBytes[0], start.MiscBytes[1], start.MiscBytes[2]));
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, start.PeopleBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, start.MiscBytes);
+        Assert.Empty(Uw2.Game.Engine.Town.Navigators.Mates(m));
+        // 새 게임 제노바(8) 주점에는 84 가 있다(+0x2F 0x91).
+        var here = Uw2.Game.Engine.Town.Navigators.InTown(m, 8, hero: 4);
+        Assert.Contains(84, here);
+        Assert.Equal(Uw2.Game.Engine.Town.Navigators.Answer.NotFriendly,
+                     Uw2.Game.Engine.Town.Navigators.Ask(m, 84, 4, 0, _ => 0, out _));
+        while (Uw2.Game.Engine.Town.Navigators.Get(m, 84, Uw2.Game.Engine.Town.Navigators.Liking) <= 30)
+            Uw2.Game.Engine.Town.Navigators.Treat(m, 84, 4);
+        var answer = Uw2.Game.Engine.Town.Navigators.Ask(m, 84, 4, 0, _ => 0, out int wage);
+        if (answer == Uw2.Game.Engine.Town.Navigators.Answer.Hired)
+        {
+            Assert.InRange(wage, 10, 200);
+            Assert.True(Uw2.Game.Engine.Town.Navigators.Join(m, 84, 4, wage));
+            Assert.Equal([(0, 84, wage)], Uw2.Game.Engine.Town.Navigators.Mates(m).ToArray());
+            Assert.Equal(6, Uw2.Game.Engine.Town.Navigators.Get(m, 84, Uw2.Game.Engine.Town.Navigators.Status));
+        }
+        else Assert.Equal(Uw2.Game.Engine.Town.Navigators.Answer.Refused, answer);
+    }
 }
