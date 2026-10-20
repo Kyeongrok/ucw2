@@ -60,6 +60,20 @@ public sealed class PlayerState
         public int GunKind { get; set; }
         public int Mounted { get; set; }
 
+        /// <summary>
+        /// 승무원비율 — 칸 곁 +9 돛에 붙은 몫 · +8 대포에 붙은 몫(%), 나머지(100 − 둘)가 셋째 몫이다. 새 배는 50 · 25(<c>0x0043DF83</c>).
+        /// 돛 몫은 빠르기 셈에 든다(<see cref="Sea.ShipSailing.SailingShare"/>).
+        /// </summary>
+        public int SailShare { get; set; } = 50;
+        public int GunShare { get; set; } = 25;
+
+        /// <summary>몫을 고친다 — 둘 다 0 ~ 100 이고 합이 100 을 넘지 않게 자른다.</summary>
+        public void SetShares(int sail, int gun)
+        {
+            SailShare = Math.Clamp(sail, 0, 100);
+            GunShare = Math.Clamp(gun, 0, 100 - SailShare);
+        }
+
         /// <summary>선수상 1 ~ 10 — 함대 칸 곁 +0x1D(0 은 없음, <see cref="Town.Shipyard.Figureheads"/>).</summary>
         public int Figurehead { get; set; }
 

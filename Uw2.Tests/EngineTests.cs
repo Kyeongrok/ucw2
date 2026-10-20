@@ -612,4 +612,15 @@ public class EngineTests
         Assert.Equal(0x33D, Uw2.Game.Engine.Sea.Encounter.Surrender(p, pirate: true));
         Assert.Equal(5000, p.Gold);
     }
+
+    [Fact]
+    public void CrewSharesStartAtFiftyAndTwentyFiveAndNeverPassAHundred()
+    {
+        var ship = new PlayerState.Ship { Type = 0, Name = "a", Room = 10 };
+        Assert.Equal((50, 25), (ship.SailShare, ship.GunShare));
+        ship.SetShares(80, 40);
+        Assert.Equal((80, 20), (ship.SailShare, ship.GunShare));
+        ship.SetShares(120, 5);
+        Assert.Equal((100, 0), (ship.SailShare, ship.GunShare));
+    }
 }

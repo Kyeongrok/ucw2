@@ -2126,12 +2126,33 @@ public sealed class SeaMapWindow : Window
     /// <summary>「편성」 — 목록 27(선장변경 · 인사변경 · 승무원편성 · 승무원비율 · 함선처분 · 적하편성, <c>0x00445372</c>) 가운데 된 것.</summary>
     private void Organize()
     {
-        int pick = BuildingMenu.Ask(this, "편성", ["선장변경", "승무원편성", "함선처분", "적하편성", "인사변경"]);
+        int pick = BuildingMenu.Ask(this, "편성", ["선장변경", "승무원편성", "함선처분", "적하편성", "인사변경", "승무원비율"]);
         if (pick == 4) { AppointMates(); return; }
+        if (pick == 5) { SetCrewShares(); return; }
         if (pick == 0) ChangeCaptain();
         else if (pick == 1) RedistributeCrew();
         else if (pick == 2) ScuttleShip();
         else if (pick == 3) MoveCargo();
+    }
+
+    /// <summary>
+    /// 「승무원비율」(<c>0x00446590</c>) — 배마다 선원을 돛 · 대포 · 나머지로 나눈다(합 100%). 원본은 단추로 한 칸씩 옮기는 창이고,
+    /// 우리는 돛 몫과 대포 몫을 차례로 묻는다(<see cref="PlayerState.Ship.SetShares"/>).
+    /// </summary>
+    private void SetCrewShares()
+    {
+        var p = _host.Player;
+        int which = BuildingMenu.Ask(this, "승무원비율",
+            p.Ships.Select(s => $"{s.Name}  돛 {s.SailShare}% · 대포 {s.GunShare}% · 나머지 {100 - s.SailShare - s.GunShare}%").ToList());
+        if (which < 0) return;
+        var ship = p.Ships[which];
+        int sail = AmountDialog.Ask(this, $"{ship.Name} — 돛에 붙일 선원 몫(%, 지금 {ship.SailShare})", 100);
+        if (sail < 0) return;
+        int gun = AmountDialog.Ask(this, $"{ship.Name} — 대포에 붙일 선원 몫(%, {100 - Math.Clamp(sail, 0, 100)} 까지)", 100 - Math.Clamp(sail, 0, 100));
+        if (gun < 0) return;
+        ship.SetShares(sail, gun);
+        _host.SyncLoad();
+        Note($" · {ship.Name} — 돛 {ship.SailShare}% · 대포 {ship.GunShare}% · 나머지 {100 - ship.SailShare - ship.GunShare}%");
     }
 
     /// <summary>「적하편성」 — 배에서 배로 보급 · 교역품을 옮긴다(<see cref="PlayerState.Transship"/>).</summary>
