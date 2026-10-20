@@ -621,6 +621,10 @@ public sealed class SeaMapWindow : Window
             int battle = Need(Navigators.Get(vm.Memory, hero, Navigators.BattleLevel)) - Word(0x28);
             Say(0x221, $"항해 레벨까지 경험 {nav}", nav);
             Say(0x222, $"전투 레벨까지 경험 {battle}", battle);
+            // 나라가 있으면(+0x31 & 0xF ≠ 6) 다음 작위까지의 명성도 말한다(0x223).
+            if ((Navigators.Get(vm.Memory, hero, 0x31) & 0xF) != 6
+                && Palace.FameToNextRank(vm.Memory, _host.Hero, _host.HeroRank) is > 0 and var fame)
+                Say(0x223, $"한 단계 위의 작위를 얻기 위해선 {fame} 정도의 명성이 필요하겠지요.", fame);
             return;
         }
         if (pick == 2)

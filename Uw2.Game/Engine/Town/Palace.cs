@@ -41,6 +41,17 @@ public static class Palace
 
     public static int LetterOf(int nation) => LetterFirst + nation;
 
+    /// <summary>작위마다 다음 작위에 드는 명성(<c>0x00458B98</c>) — 명성 셋 가운데 가장 큰 것과 견준다(<c>0x00428237</c>).</summary>
+    public static readonly int[] RankFame = [500, 2000, 4500, 8000, 12500, 18000, 24500, 32000, 40000, 0];
+
+    /// <summary>다음 작위까지 모자란 명성 — 다 찼거나 맨 위면 0.</summary>
+    public static int FameToNextRank(ScenarioMemory m, int hero, int rank)
+    {
+        var (t, p, a) = Fames(m, hero);
+        int need = rank >= 0 && rank < RankFame.Length ? RankFame[rank] : 0;
+        return Math.Max(0, need - Math.Max(t, Math.Max(p, a)));
+    }
+
     /// <summary>주인공 표 명성 셋 — +0 교역 · +2 해적 · +4 모험(<c>0x00427563</c>).</summary>
     public static (int Trade, int Pirate, int Adventure) Fames(ScenarioMemory m, int hero) =>
         (m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 0), true),
