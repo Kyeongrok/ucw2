@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Uw2.Game.Engine;
 using Uw2.Game.Engine.Sea;
 using Uw2.Game.Engine.Town;
 using Uw2.Support.Local.Formats;
@@ -311,6 +312,17 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>제 함대 배의 이름 — 본보기(선종 이름)를 그대로 쓴다. 명명은 아직이다.</summary>
     public string ShipName { get; private set; } = "";
 
+    /// <summary>돈과 짐. 주인공을 정하면 새로 만든다.</summary>
+    public PlayerState Player { get; private set; } = new(0);
+
+    /// <summary>짐이 바뀌면 부른다 — 배의 빠르기 셈에 짐 몫(180 - 짐%)을 넣는다.</summary>
+    public void SyncLoad()
+    {
+        if (Fleet == null) return;
+        for (int i = 0; i < Fleet.Ships.Count && i < Player.Ships.Count; i++)
+            Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load };
+    }
+
     /// <summary>주인공을 정하고 그 사람을 선장으로 배를 다시 태운다.</summary>
     public void SetHero(int hero)
     {
@@ -338,6 +350,14 @@ public sealed class SeaMapHost : HwndHost
         bool oars = type < start.Templates.Count && start.Templates[type].Oars;
         ShipName = type < start.Templates.Count ? start.Templates[type].Name : "";
         fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], captain, oars));
+        int gold = person < start.HeroGold.Count ? start.HeroGold[person] : 0;
+        Player = new PlayerState(gold);
+        Player.Ships.Add(new PlayerState.Ship
+        {
+            Type = type,
+            Name = ShipName,
+            Room = type < start.Templates.Count ? start.Templates[type].CargoRoom : start.ShipTypes[type].Capacity,
+        });
     }
 
     /// <summary>어디서 읽었는지 — 게임 폴더 아니면 「구운 자산」.</summary>

@@ -113,4 +113,28 @@ public class EngineTests
         var w = new Weather();
         Assert.Equal(5, w.Apply(5));
     }
+
+    [Fact]
+    public void PlayerBuysWithinGoldAndRoomThenSells()
+    {
+        var p = new PlayerState(1000);
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "카라벨 라티나", Room = 80 });
+        Assert.Equal(27, p.Buy(15, 100, 36));          // 돈 1000 / 36 = 27통
+        Assert.Equal(1000 - 27 * 36, p.Gold);
+        Assert.Equal(80 - 27, p.Free);
+        Assert.Equal(27, p.SellAll(15, 50));
+        Assert.Equal(1000 - 27 * 36 + 27 * 50, p.Gold);
+        Assert.Equal(80, p.Free);
+        Assert.Equal(3, p.BuySupply(0, 3, 0));         // 물은 공짜, 한 단 열 통
+        Assert.Equal(30, p.Ships[0].Supplies[0]);
+    }
+
+    [Fact]
+    public void CargoUsesAtMostFiveSlots()
+    {
+        var p = new PlayerState(100000);
+        p.Ships.Add(new PlayerState.Ship { Type = 10, Name = "갤리온", Room = 1000 });
+        for (int g = 0; g < 6; g++) p.Buy(g, 10, 1);
+        Assert.Equal(5, p.CargoTotals().Count);         // 여섯째 교역품은 칸이 없다
+    }
 }

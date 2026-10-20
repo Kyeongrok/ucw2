@@ -105,6 +105,9 @@ public sealed class StartData
     /// </summary>
     public IReadOnlyList<int> HeroShips { get; init; } = [];
 
+    /// <summary>주인공 첫 돈 — <see cref="Scenario.FirstGold"/>(어림).</summary>
+    public IReadOnlyList<int> HeroGold { get; init; } = [];
+
     /// <summary>함대 표 날바이트(70 x 0x85) — 구워 둘 때 쓴다.</summary>
     public byte[] FleetBytes { get; }
 
@@ -115,8 +118,9 @@ public sealed class StartData
 
     /// <summary>구워 둔 표로 만든다(<see cref="AssetPack"/>).</summary>
     public static StartData FromTables(IReadOnlyList<ShipType> types, IReadOnlyList<Person> people, byte[]? fleets = null,
-                                       IReadOnlyList<ShipTemplate>? templates = null, IReadOnlyList<int>? heroShips = null) =>
-        new(types, people, fleets ?? []) { Templates = templates ?? [], HeroShips = heroShips ?? [] };
+                                       IReadOnlyList<ShipTemplate>? templates = null, IReadOnlyList<int>? heroShips = null,
+                                       IReadOnlyList<int>? heroGold = null) =>
+        new(types, people, fleets ?? []) { Templates = templates ?? [], HeroShips = heroShips ?? [], HeroGold = heroGold ?? [] };
 
     private static Fleet[] ParseFleets(byte[] raw)
     {
@@ -158,6 +162,7 @@ public sealed class StartData
         {
             Templates = s.Templates,
             HeroShips = Scenario.HeroShips(game),
+            HeroGold = Scenario.HeroGold(game),
         };
     }
 

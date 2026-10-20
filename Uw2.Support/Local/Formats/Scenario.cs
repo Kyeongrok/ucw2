@@ -37,6 +37,34 @@ public static class Scenario
         return -1;
     }
 
+    /// <summary>
+    /// 첫 이벤트에서 처음 만나는 돈 명령의 값 — <c>0C v hh ll</c>(변수[v] = hhll) 바로 뒤 <c>E4 v</c>(돈 =) · <c>E6 v</c>(돈 +=).
+    /// <b>어림이다</b> — 조안 · 옷토 · 알은 더하기가 여러 번(대사 갈래)이라 첫 것만 쓴다. 없으면 0.
+    /// </summary>
+    public static int FirstGold(byte[] d)
+    {
+        var (start, end) = FirstEvent(d);
+        for (int i = start; i + 5 < end; i++)
+            if (d[i] == 0x0C && (d[i + 4] == 0xE4 || d[i + 4] == 0xE6) && d[i + 5] == d[i + 1])
+                return d[i + 2] << 8 | d[i + 3];
+        return 0;
+    }
+
+    /// <summary>게임 폴더의 SNR1~6 을 읽어 사람 번호마다 첫 돈을 낸다.</summary>
+    public static int[] HeroGold(string gameDirectory)
+    {
+        var gold = new int[6];
+        for (int n = 1; n <= 6; n++)
+        {
+            string path = Path.Combine(gameDirectory, $"SNR{n}.DAT");
+            if (!File.Exists(path)) continue;
+            var d = File.ReadAllBytes(path);
+            int who = OwnerOf(d);
+            if (who is >= 0 and < 6) gold[who] = FirstGold(d);
+        }
+        return gold;
+    }
+
     /// <summary>게임 폴더의 SNR1~6 을 읽어 사람 번호마다 첫 배를 낸다.</summary>
     public static int[] HeroShips(string gameDirectory)
     {

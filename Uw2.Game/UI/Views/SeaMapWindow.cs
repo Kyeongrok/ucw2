@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Uw2.Game.Engine;
 using Uw2.Game.Engine.Sea;
 using Uw2.Game.UI.Rendering;
 using Uw2.Support.Local.Formats;
@@ -32,12 +33,22 @@ public sealed class SeaMapWindow : Window
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
     private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2;
 
-    /// <summary>항구 「보급」 — 넷의 한 단(열 통) 값(<see cref="Economy.SupplyPrice"/>). 싣기는 아직이다.</summary>
+    /// <summary>항구 「보급」 — 넷 가운데 하나를 단(열 통)으로 싣는다(<see cref="Economy.SupplyPrice"/>).</summary>
     private void ShowSupplies()
     {
         if (_host.Economy is not { } eco) return;
-        BuildingMenu.Ask(this, "보급 — 열 통 값", Enumerable.Range(0, 4)
-            .Select(k => $"{Economy.SupplyNames[k],-4} {(k == 0 ? "공짜" : eco.SupplyPrice(_host.CurrentPort, k).ToString()),6}").ToList());
+        var p = _host.Player;
+        int pick = BuildingMenu.Ask(this, $"보급 — 열 통 값 · 돈 {p.Gold} · 빈 자리 {p.Free}", Enumerable.Range(0, 4)
+            .Select(k => $"{Economy.SupplyNames[k],-4} {(k == 0 ? "공짜" : eco.SupplyPrice(_host.CurrentPort, k).ToString()),6}"
+                         + $"  (실은 것 {p.Ships.Sum(s => s.Supplies[k])})").ToList());
+        if (pick < 0) return;
+        int price = eco.SupplyPrice(_host.CurrentPort, pick);
+        int most = Math.Min(p.Free / PlayerState.Lot, price > 0 ? p.Gold / price : int.MaxValue);
+        int lots = AmountDialog.Ask(this, $"{Economy.SupplyNames[pick]} 몇 단(열 통)", most);
+        if (lots <= 0) return;
+        int bought = p.BuySupply(pick, lots, price);
+        _host.SyncLoad();
+        Note($" · {Economy.SupplyNames[pick]} {bought * PlayerState.Lot}통을 실었습니다");
     }
 
     /// <summary>조선소 「함선 건조」 — 지을 수 있는 선종과 값(선종 +10)을 늘어놓는다. 짓기는 아직이다.</summary>
@@ -51,8 +62,8 @@ public sealed class SeaMapWindow : Window
     }
 
     /// <summary>
-    /// 건물 고르기 — 목록은 <c>MENU.DAT</c> 그대로(<see cref="MenuTable.BuildingList"/>). 된 것은 항구 「출항」 ·
-    /// 교역소 「구입」(값 보기)뿐이고, 나머지는 고르면 「아직」이라고 적는다.
+    /// 건물 고르기 — 목록은 <c>MENU.DAT</c> 그대로(<see cref="MenuTable.BuildingList"/>). 된 것은 항구 「출항 · 보급」 ·
+    /// 교역소 「구입 · 매각」 · 조선소 「함선 건조」(값 보기)이고, 나머지는 고르면 「아직」이라고 적는다.
     /// </summary>
     private void EnterBuilding(int b)
     {
@@ -62,20 +73,51 @@ public sealed class SeaMapWindow : Window
         if (pick < 0) return;
         if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
-        if (b == TradeBuilding && pick == 1) { _doorNote = " · 팔 짐이 없습니다(짐칸은 아직 없습니다)"; UpdateStatus(); return; }
+        if (b == TradeBuilding && pick == 1) { SellGoods(); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
     }
 
-    /// <summary>교역소 「구입」 — 이 항구에서 파는 것과 값(<see cref="Economy.ForSale"/>)을 늘어놓는다. 사고팔기는 아직이다.</summary>
+    /// <summary>교역소 「구입」 — 고른 교역품을 수만큼 산다(<see cref="Economy.ForSale"/> 값, <see cref="PlayerState.Buy"/>).</summary>
     private void ShowGoods()
     {
         if (_host.Economy is not { } eco) return;
         var goods = eco.ForSale(_host.CurrentPort);
-        if (goods.Count == 0) { _doorNote = " · 이 항구 교역소에는 파는 것이 없습니다"; UpdateStatus(); return; }
-        BuildingMenu.Ask(this, "구입 — 한 통 값", goods.Select(g => $"{eco.GoodsNames[g.Good],-6}  {g.Price,5}").ToList());
+        if (goods.Count == 0) { Note(" · 이 항구 교역소에는 파는 것이 없습니다"); return; }
+        var p = _host.Player;
+        int pick = BuildingMenu.Ask(this, $"구입 — 돈 {p.Gold} · 빈 자리 {p.Free}",
+                                    goods.Select(g => $"{eco.GoodsNames[g.Good],-6}  {g.Price,5}").ToList());
+        if (pick < 0) return;
+        var (good, price) = goods[pick];
+        int most = Math.Min(p.Free, price > 0 ? p.Gold / price : 0);
+        int amount = AmountDialog.Ask(this, $"{eco.GoodsNames[good]} 몇 통", most);
+        if (amount <= 0) return;
+        int bought = p.Buy(good, amount, price);
+        _host.SyncLoad();
+        Note($" · {eco.GoodsNames[good]} {bought}통을 {bought * price}에 샀습니다");
+    }
+
+    /// <summary>교역소 「매각」 — 실은 교역품을 골라 다 판다(<see cref="Economy.SellPrice"/>).</summary>
+    private void SellGoods()
+    {
+        if (_host.Economy is not { } eco) return;
+        var cargo = _host.Player.CargoTotals().ToList();
+        if (cargo.Count == 0) { Note(" · 팔 교역품이 없습니다"); return; }
+        int pick = BuildingMenu.Ask(this, "매각 — 이 항구가 쳐 주는 값",
+            cargo.Select(c => $"{eco.GoodsNames[c.Key],-6} {c.Value,4}통  {eco.SellPrice(_host.CurrentPort, c.Key),5}").ToList());
+        if (pick < 0) return;
+        int good = cargo[pick].Key, price = eco.SellPrice(_host.CurrentPort, good);
+        int sold = _host.Player.SellAll(good, price);
+        _host.SyncLoad();
+        Note($" · {eco.GoodsNames[good]} {sold}통을 {sold * price}에 팔았습니다");
+    }
+
+    private void Note(string text)
+    {
+        _doorNote = text;
+        UpdateStatus();
     }
 
     /// <summary>항해사가 마지막으로 한 말(날씨) — 상태줄에 적는다.</summary>
@@ -318,7 +360,7 @@ public sealed class SeaMapWindow : Window
                 ? $" · 사람 ({wk.X:F1}, {wk.Y:F1}) {wk.Face}" + (wk.Blocked ? " · 막힘" : "")
                 : " · 걸을 데를 못 찾았습니다";
             _status.Text = $"{_host.SceneName} ({_host.CurrentPort}번) · {PortMap.Size}x{PortMap.Size} 칸"
-                         + who + _doorNote + $" · {_host.Source}";
+                         + who + $" · 돈 {_host.Player.Gold} · 빈 자리 {_host.Player.Free}" + _doorNote + $" · {_host.Source}";
             return;
         }
         // 커서 자리는 칩 눈금이다. 칸은 그 절반이다.
@@ -340,7 +382,7 @@ public sealed class SeaMapWindow : Window
         string sail = "";
         if (f != null && _host.CurrentPort < 0)
         {
-            sail = $" | {f.Date} {Fleet.Clock(f.TimeOfDay)} · {f.DaysAtSea}일째 · 「{_host.ShipName}」 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
+            sail = $" | {f.Date} {Fleet.Clock(f.TimeOfDay)} · {f.DaysAtSea}일째 · 돈 {_host.Player.Gold} · 「{_host.ShipName}」 ({f.X:F0},{f.Y:F0}) 뱃머리 {Fleet.DirName(f.Heading)}"
                  + $" · 바람 {Fleet.DirName(f.LastWind.Dir)} {f.LastWind.Speed}"
                  + $" · 해류 {Fleet.DirName(f.LastCurrent.Dir)} {f.LastCurrent.Speed}"
                  + $" · {Sailing.Knots(f.LastSpeed)}노트({f.LastSpeed})"

@@ -363,7 +363,8 @@ public sealed class AssetPack
                          StartData.FleetSize, StartData.FleetCount, DataPalette());
         string? game = Path.GetDirectoryName(sdataPath);
         var heroShips = game != null ? Scenario.HeroShips(game) : [];
-        WriteJson(Path.Combine(outDir, "start-ships.json"), new StartShipsJson([.. start.Templates], heroShips));
+        var heroGold = game != null ? Scenario.HeroGold(game) : [];
+        WriteJson(Path.Combine(outDir, "start-ships.json"), new StartShipsJson([.. start.Templates], heroShips, heroGold));
     }
 
     // ------------------------------------------------------------------ 읽기
@@ -436,7 +437,7 @@ public sealed class AssetPack
             var startShips = ReadJson<StartShipsJson>(Path.Combine(dir, "start-ships.json"));
             var start = shipTypes != null && people != null
                 ? StartData.FromTables([.. shipTypes.Select(t => t.To())], [.. people.Select(p => p.To())], fleetBytes,
-                                       startShips?.Templates, startShips?.HeroShips)
+                                       startShips?.Templates, startShips?.HeroShips, startShips?.HeroGold)
                 : null;
 
             return new AssetPack
@@ -660,7 +661,8 @@ public sealed class AssetPack
 
     private record StartShipsJson(
         [property: JsonPropertyName("본보기")] StartData.ShipTemplate[] Templates,
-        [property: JsonPropertyName("주인공첫배")] int[] HeroShips);
+        [property: JsonPropertyName("주인공첫배")] int[] HeroShips,
+        [property: JsonPropertyName("주인공첫돈")] int[]? HeroGold = null);
 
     private record ShipTypeJson(
         [property: JsonPropertyName("번호")] int Index,

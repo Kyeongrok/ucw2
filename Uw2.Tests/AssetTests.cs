@@ -36,6 +36,8 @@ public class AssetTests
         Assert.Equal("카라벨 라티나", start.Templates[5].Name);
         Assert.True(start.Templates[18].Oars);            // 경갤리는 노를 젓는다
         Assert.False(start.Templates[5].Oars);
+        Assert.Equal(5000, start.HeroGold[3]);            // 에르네스트 · 피에트로 첫 돈 5000
+        Assert.Equal(5000, start.HeroGold[4]);
     }
 
     [Fact]
