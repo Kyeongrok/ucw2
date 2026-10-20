@@ -543,4 +543,12 @@ public class EngineTests
         Assert.Equal((-1, -1), Uw2.Game.Engine.Town.Pub.CargoTip([[-1, -1, -1, -1, -1]], pays, _ => 0));
         Assert.True(Uw2.Game.Engine.Town.Pub.PortRumourFirst(50, 100, _ => 101));
     }
+
+    [Fact]
+    public void PubHunterRumourNeedsLuckAndAHostileNation()
+    {
+        Assert.Equal(-1, Uw2.Game.Engine.Town.Pub.Hunter(50, _ => 3, _ => 50));      // rand(200) = 50 ≥ 운
+        Assert.Equal(2, Uw2.Game.Engine.Town.Pub.Hunter(50, n => n == 2 ? 7 : 0, _ => 1));
+        Assert.Equal(-1, Uw2.Game.Engine.Town.Pub.Hunter(50, _ => 3, r => r == 200 ? 0 : 0)); // rand(3) 이 늘 0
+    }
 }

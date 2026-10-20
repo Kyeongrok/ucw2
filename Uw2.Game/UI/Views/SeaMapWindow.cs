@@ -1261,7 +1261,8 @@ public sealed class SeaMapWindow : Window
 
     /// <summary>
     /// 주점 「한턱내기」(<c>0x00424880</c>) — 술을 내 분위기를 올린다(<see cref="Pub.Treat"/>). 손님이 명성으로 맞은 뒤(<c>0x00424990</c>)
-    /// 맡은 일이 없으면 모르는 항구 소문이나 짐 팔 곳 귀띔을 한다(<see cref="Pub.PortRumourFirst"/>). 원본의 나라 싸움 소문 갈래는 아직이다.
+    /// 맡은 일이 없으면 모르는 항구 소문이나 짐 팔 곳 귀띔을 한다(<see cref="Pub.PortRumourFirst"/>).
+    /// 그 앞에 운이 좋으면 주인공을 노리는 나라를 일러 준다(<see cref="Pub.Hunter"/>).
     /// </summary>
     private void TreatBar()
     {
@@ -1289,7 +1290,14 @@ public sealed class SeaMapWindow : Window
             else Say(0x85, $"야호, {name} {family}(가) 한턱 낸다니 기쁜데.", name, family);
             if (_host.Common is not { Chapter: not 0 })
             {
-                if (Pub.PortRumourFirst(n, eco.States[_host.CurrentPort].Economy, Random.Shared.Next) || !TellCargoTip()) TellPortRumour(vm);
+                int hunter = Pub.Hunter(HeroField(Church.Luck),
+                    k => vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.NationTable, k, 3), false), Random.Shared.Next);
+                if (hunter >= 0)
+                {
+                    string nation = hunter < NationNames.Length ? NationNames[hunter] : "해적";
+                    SayText(MsgOr(0x25, "그건 그렇고, 당신, ") + MsgOr(0x28, $"{nation}(가) 노리고 있어.", nation));
+                }
+                else if (Pub.PortRumourFirst(n, eco.States[_host.CurrentPort].Economy, Random.Shared.Next) || !TellCargoTip()) TellPortRumour(vm);
             }
         }
     }

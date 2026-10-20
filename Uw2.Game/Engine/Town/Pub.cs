@@ -62,6 +62,18 @@ public static class Pub
     }
 
     /// <summary>
+    /// 노리는 나라 소문(<c>0x00424A80</c>) — rand(200) &lt; 주인공 운(+0x23) 이면 나라 0 ~ 6 을 차례로 보며 rand(3) ≠ 0 이고
+    /// 나라 표 +3 이 3 이나 7 인 첫 나라를 「그건 그렇고, 당신, ○○(가) 노리고 있어.」(0x25 · 0x28)로 알린다. 없으면 -1.
+    /// </summary>
+    public static int Hunter(int luck, Func<int, int> nationField3, Func<int, int> rand)
+    {
+        if (rand(200) >= luck) return -1;
+        for (int n = 0; n < 7; n++)
+            if (rand(3) != 0 && nationField3(n) is 3 or 7) return n;
+        return -1;
+    }
+
+    /// <summary>
     /// 소문 갈래(<c>0x00424AD5</c>) — rand(1300 − 12 x 병) 가 항구 경제보다 크면 항구 소문, 아니면 짐 팔 곳 귀띔. 술을 많이 낼수록 귀띔이 잦다.
     /// </summary>
     public static bool PortRumourFirst(int bottles, int economy, Func<int, int> rand) => rand(Math.Max(1, 0x514 - bottles * 12)) > economy;
