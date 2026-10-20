@@ -31,6 +31,7 @@ namespace Uw2.Support.Local.Formats;
 ///       chips-0..6.png   256x240  값 = 색인 0~15  (벌마다 칩 240장)
 ///       chipno.png       100x1    값 = 벌 번호
 ///       walk.png         4x7      벌마다 걸음 경계 [0, a, b, c]
+///       doors.png        24x101   항구마다 문 열둘 (x, y) — ZA_DAT.DAT
 /// </code>
 /// </remarks>
 public sealed class AssetPack
@@ -104,6 +105,7 @@ public sealed class AssetPack
         }
 
         BakeWalk(Find("PORTCHIP.LZW"), outDir);
+        BakeDoors(Find("ZA_DAT.DAT"), outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
         IndexedPng.Write(Path.Combine(outDir, "port", "chipno.png"),
@@ -286,6 +288,14 @@ public sealed class AssetPack
         IndexedPng.Write(Path.Combine(outDir, "port", "walk.png"), walk, 4, PortChipSets.SetCount, DataPalette());
     }
 
+    /// <summary><c>ZA_DAT.DAT</c> 의 문 자리를 굽는다(<c>port/doors.png</c>, 줄 하나가 항구 하나).</summary>
+    public static void BakeDoors(string zaDatPath, string outDir)
+    {
+        var doors = PortDoors.Load(zaDatPath);
+        IndexedPng.Write(Path.Combine(outDir, "port", "doors.png"), doors.Raw[..PortDoors.Bytes],
+                         PortDoors.PerPort * 2, PortDoors.Ports, DataPalette());
+    }
+
     /// <summary><c>SDATA.DAT</c> 의 선종 · 사람 표만 굽는다(<c>ships.json</c> · <c>people.json</c>).</summary>
     public static void BakeStart(string sdataPath, string outDir)
     {
@@ -309,6 +319,8 @@ public sealed class AssetPack
             var quad = IndexedPng.Read(Path.Combine(dir, "world", "quad.png"));
             var maps = IndexedPng.Read(Path.Combine(dir, "port", "maps.png"));
             var chipNo = IndexedPng.Read(Path.Combine(dir, "port", "chipno.png"));
+            string doorsPath = Path.Combine(dir, "port", "doors.png");
+            var doors = File.Exists(doorsPath) ? PortDoors.FromBytes(IndexedPng.Read(doorsPath).Pixels) : null;
             string walkPath = Path.Combine(dir, "port", "walk.png");
             var walkBounds = File.Exists(walkPath)
                 ? IndexedPng.Read(walkPath).Pixels.Chunk(4).Select(b => WalkBounds.FromBytes(b)).ToArray()
@@ -359,6 +371,7 @@ public sealed class AssetPack
                                  PortChipSets.ChipsPerSet / AtlasCols * ChipSheet.Size),
                 PortChipSet = chipNo.Pixels,
                 PortWalkBounds = walkBounds,
+                Doors = doors,
                 Wind = wind.Pixels,
                 Ports = [.. ports.Select(p => new PortTable.Port(p.Index, p.Name, p.X, p.Y, p.Nation))],
                 Ship = ship,
@@ -404,6 +417,9 @@ public sealed class AssetPack
 
     /// <summary>항구마다 쓰는 칩 벌.</summary>
     public byte[] PortChipSet { get; private init; } = [];
+
+    /// <summary>항구마다 문 자리. 구워 두지 않았으면 null.</summary>
+    public PortDoors? Doors { get; private init; }
 
     /// <summary>칩 벌마다 걸음 경계. 구워 두지 않았으면 빈 것.</summary>
     public WalkBounds[] PortWalkBounds { get; private init; } = [];

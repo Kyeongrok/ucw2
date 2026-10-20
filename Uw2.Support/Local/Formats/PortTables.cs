@@ -156,3 +156,50 @@ public readonly record struct WalkBounds(byte A, byte B, byte C)
     public bool CanStand(byte left, byte right) =>
         left < B && (right < A || (right >= B && right < C));
 }
+
+/// <summary>
+/// 항구마다 건물 문 자리 — <c>ZA_DAT.DAT</c>, 2,424바이트 = 항구 101곳 x 문 12개 x (x, y).
+/// </summary>
+/// <remarks>
+/// 항구에 들 때 <c>KOUKAI2.EXE 0x00436500</c> 이 <c>항구 번호 x 24</c> 자리에서 24바이트를 <c>0x00457450</c> 으로 읽는다
+/// (번호가 100 이상이면 100번 줄). 걸을 때마다 <c>0x00432BF0</c> 이 사람 그림 왼위 칸(화면 자리 + 굴림)을
+/// 열두 문과 견주어 같은 문의 차례를 건물 번호로 돌려준다. <c>(255, 255)</c> 는 그 건물이 없는 것이다.
+///
+/// 건물 번호의 이름은 <c>MENU.DAT</c> 의 열두 줄 목록(<c>0x9C7</c> 언저리) 그대로다.
+/// </remarks>
+public sealed class PortDoors
+{
+    public const int Ports = 101, PerPort = 12, Bytes = Ports * PerPort * 2;
+
+    /// <summary>건물 번호 0~11 의 이름 — <c>MENU.DAT</c> 원문 그대로(「항」 · 「ITEM」 · 「NPC」 도 그대로 둔다).</summary>
+    public static readonly string[] Names =
+        ["교역소", "주점", "조선소", "항", "여관", "왕궁", "조합", "NPC", "은행", "ITEM", "교회", "점술가"];
+
+    private readonly byte[] _raw;
+
+    private PortDoors(byte[] raw) => _raw = raw;
+
+    public static PortDoors FromBytes(byte[] raw)
+    {
+        if (raw.Length < Bytes) throw new InvalidDataException($"ZA_DAT.DAT 이 {Bytes}바이트가 아닙니다 ({raw.Length})");
+        return new PortDoors(raw);
+    }
+
+    public static PortDoors Load(string path) => FromBytes(File.ReadAllBytes(path));
+
+    /// <summary>파일 원본.</summary>
+    public byte[] Raw => _raw;
+
+    /// <summary>그 항구의 문 열둘. 없는 건물은 null.</summary>
+    public (int X, int Y)?[] Of(int port)
+    {
+        int row = Math.Clamp(port, 0, Ports - 1) * PerPort * 2;
+        var doors = new (int X, int Y)?[PerPort];
+        for (int i = 0; i < PerPort; i++)
+        {
+            byte x = _raw[row + i * 2], y = _raw[row + i * 2 + 1];
+            doors[i] = x == 0xFF && y == 0xFF ? null : (x, y);
+        }
+        return doors;
+    }
+}

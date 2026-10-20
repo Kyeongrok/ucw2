@@ -25,6 +25,9 @@ public sealed class SeaMapWindow : Window
     private string _gameDir = "";
     private CheckBox _chipToggle = null!;
     private CheckBox _arrows = null!;
+
+    /// <summary>마지막으로 든 건물 — 상태줄에 적는다. 항구를 옮기면 지운다.</summary>
+    private string _doorNote = "";
     private ComboBox _portPick = null!;
 
     public SeaMapWindow()
@@ -74,6 +77,11 @@ public sealed class SeaMapWindow : Window
         Content = grid;
 
         _host.Painted += UpdateStatus;
+        _host.BuildingEntered += b =>
+        {
+            _doorNote = $" · 「{PortDoors.Names[b]}」에 들어갔습니다(안은 아직 없습니다)";
+            UpdateStatus();
+        };
         Loaded += (_, _) => OpenBest();
         KeyDown += OnKey;
     }
@@ -152,6 +160,7 @@ public sealed class SeaMapWindow : Window
     private void Retitle()
     {
         Title = $"대항해시대2 — {_host.SceneName}";
+        _doorNote = "";
         _host.Invalidate();
         UpdateStatus();
     }
@@ -247,7 +256,7 @@ public sealed class SeaMapWindow : Window
                 ? $" · 사람 ({wk.X:F1}, {wk.Y:F1}) {wk.Face}" + (wk.Blocked ? " · 막힘" : "")
                 : " · 걸을 데를 못 찾았습니다";
             _status.Text = $"{_host.SceneName} ({_host.CurrentPort}번) · {PortMap.Size}x{PortMap.Size} 칸"
-                         + who + $" · {_host.Source}";
+                         + who + _doorNote + $" · {_host.Source}";
             return;
         }
         // 커서 자리는 칩 눈금이다. 칸은 그 절반이다.

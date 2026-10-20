@@ -79,6 +79,9 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>한 프레임 그린 뒤에 부른다 — 상태줄을 갱신하라는 뜻이다.</summary>
     public event Action? Painted;
 
+    /// <summary>도시에서 건물 문에 섰을 때 — 건물 번호(<see cref="PortDoors.Names"/>)를 넘긴다.</summary>
+    public event Action<int>? BuildingEntered;
+
     /// <summary>
     /// 구워 둔 자산으로 연다. <b>게임이 없어도 된다</b> — 3편 <c>asset/</c> 과 같은 얼개다.
     /// </summary>
@@ -101,6 +104,7 @@ public sealed class SeaMapHost : HwndHost
         _portMaps = pack.PortMaps.Length > 0 ? PortMap.FromCells(pack.PortMaps) : null;
         _portChipNo = pack.PortChipSet.Length > 0 ? PortChipNumbers.FromBytes(pack.PortChipSet) : null;
         _portBounds = pack.PortWalkBounds.Length > 0 ? pack.PortWalkBounds : null;
+        _doors = pack.Doors;
         _portSets = pack.PortAtlases.Length > 0
             ? [.. pack.PortAtlases.Select(a => ChipSheet.FromAtlas(
                   a, pack.PortAtlasSize.W, pack.PortAtlasSize.H,
@@ -186,6 +190,7 @@ public sealed class SeaMapHost : HwndHost
             _portSets = portChips.All;
             _portBounds = portChips.Bounds;
             _portChipNo = PortChipNumbers.Load(Path.Combine(gameDir, "CHIP_NO.DAT"));
+            try { _doors = PortDoors.Load(Path.Combine(gameDir, "ZA_DAT.DAT")); } catch { _doors = null; }
             Ports = PortTable.Load(gameDir);
         }
         catch
@@ -386,7 +391,7 @@ public sealed class SeaMapHost : HwndHost
         // 부두 언저리에 사람을 세운다. 배가 들어온 자리가 아래쪽 물가다.
         int setNo = Math.Clamp(_portChipNo[port], 0, _portSets.Length - 1);
         var bounds = _portBounds != null && setNo < _portBounds.Length ? _portBounds[setNo] : default;
-        Walker = new Walker(_portMaps[port], bounds);
+        Walker = new Walker(_portMaps[port], bounds, _doors?.Of(port));
         if (!Walker.PlaceNear(PortMap.Size / 2.0, PortMap.Size * 0.72)) Walker = null;
         UseWalkerSprite(Walker != null);
 
@@ -410,6 +415,7 @@ public sealed class SeaMapHost : HwndHost
     private PortMap? _portMaps;
     private ChipSheet[]? _portSets;
     private WalkBounds[]? _portBounds;
+    private PortDoors? _doors;
     private PortChipNumbers? _portChipNo;
 
     /// <summary>온 지도가 창에 들어오게 배율을 맞춘다.</summary>
@@ -561,6 +567,13 @@ public sealed class SeaMapHost : HwndHost
         if (WalkInput != (0, 0)) (ix, iy) = WalkInput;
         bool before = Walker.Moving;
         for (int i = 0; i < Math.Min(ticks, 8); i++) Walker.Step_(ix, iy);
+
+        // 문에 서면 그 건물에 든다. 건물 안은 아직 없어 알리기만 하고 한 칸 물러 나온다.
+        if (Walker.Moving && Walker.Building is int building and >= 0)
+        {
+            BuildingEntered?.Invoke(building);
+            Walker.StepOutOfDoor();
+        }
 
         // 사람이 가장자리에 다가오면 화면을 넘긴다. 자리는 칸 눈금이다.
         double px = Walker.X, py = Walker.Y;

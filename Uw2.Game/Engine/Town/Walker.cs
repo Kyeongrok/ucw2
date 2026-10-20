@@ -29,10 +29,36 @@ public sealed class Walker
 
     private readonly byte[] _cells;
     private readonly WalkBounds _bounds;
+    private readonly (int X, int Y)?[] _doors;
 
-    public Walker(byte[] portCells, WalkBounds bounds)
+    public Walker(byte[] portCells, WalkBounds bounds, (int X, int Y)?[]? doors = null)
     {
-        _cells = portCells; _bounds = bounds;
+        _cells = portCells; _bounds = bounds; _doors = doors ?? [];
+    }
+
+    /// <summary>
+    /// 지금 선 문의 건물 번호, 문이 아니면 -1 — <c>0x00432BF0</c>. 사람 그림 왼위 칸이 문 자리와 같아야 한다.
+    /// 그림 왼위는 <c>(round(X) - 1, floor(Y) - 1)</c> 다(발이 그림 밑줄이다).
+    /// </summary>
+    public int Building
+    {
+        get
+        {
+            int x = (int)Math.Round(X) - 1, y = (int)Math.Floor(Y) - 1;
+            for (int i = 0; i < _doors.Length; i++)
+                if (_doors[i] is { } d && d.X == x && d.Y == y) return i;
+            return -1;
+        }
+    }
+
+    /// <summary>
+    /// 건물에서 나온다 — 한 칸 아래로 물린다. 게임도 건물 창을 닫으면 사람을 한 줄 내린다(<c>0x00431FA0</c>).
+    /// </summary>
+    public void StepOutOfDoor()
+    {
+        if (CanWalk(X, Y + 1)) Y += 1;
+        Face = Facing.Down;
+        Moving = false;
     }
 
     /// <summary>지금 자리(칸).</summary>
