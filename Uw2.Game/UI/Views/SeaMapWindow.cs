@@ -189,6 +189,13 @@ public sealed class SeaMapWindow : Window
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
         if (b == ChurchBuilding) _worshipped = false;
+        // 교역소는 교역 명성이 1000 이상이면 이름으로 맞는다(0x0042174E — 말 1, 아니면 0).
+        if (b == TradeBuilding && _host.Scenario is { } tvm)
+        {
+            bool famous = Palace.Fames(tvm.Memory, _host.Hero).Trade >= 1000;
+            if (famous) Say(1, $"{name} {family}님이 아니십니까？", name, family);
+            else Say(0, "어서 오세요！");
+        }
         int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items);
         if (pick < 0) return;
         if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
