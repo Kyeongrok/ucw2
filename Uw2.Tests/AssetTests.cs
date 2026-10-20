@@ -831,4 +831,19 @@ public class AssetTests
         Assert.Equal([0x5A], Uw2.Game.Engine.Town.ItemShop.Owned(m));                       // 지도가 보물로
         Assert.Equal(-1, Uw2.Game.Engine.Sea.Discoveries.TreasureNear(m, spot.X, spot.Y, [0x50]));   // 한 번만
     }
+
+    [Fact]
+    public void ScholarAppraisesTheFirstMapToFiveDegrees()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Sea.Discoveries.Table, pack.Start!.DiscoveryBytes);
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, pack.Start.ItemBytes);
+        Uw2.Game.Engine.Sea.Discoveries.Seed(m, new Random(3).Next);
+        Assert.Null(Uw2.Game.Engine.Sea.Discoveries.Appraise(m, [0x20], _ => 0));
+        var spot = Uw2.Game.Engine.Sea.Discoveries.Get(m, Uw2.Game.Engine.Sea.Discoveries.MapTarget(m, 0x51));
+        var (north, lat, east, lon) = Uw2.Game.Engine.Town.Pub.Degrees(spot.X, spot.Y);
+        var r = Uw2.Game.Engine.Sea.Discoveries.Appraise(m, [0x20, 0x51, 0x50], _ => 1)!.Value;
+        Assert.Equal((north, (lat / 5 + 1) * 5, east, (lon / 5 + 1) * 5), r);
+    }
 }

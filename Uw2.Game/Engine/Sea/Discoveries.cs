@@ -91,6 +91,24 @@ public static class Discoveries
         return treasure;
     }
 
+    /// <summary>학자 「지도확인」 감정료 — 금괴 둘(소지금이 이것을 넘어야 한다, <c>0x004223CC</c>).</summary>
+    public const int AppraiseFee = 20000;
+
+    /// <summary>
+    /// 학자 「지도확인」(<c>0x004222A0</c>) — 지닌 것 가운데 첫 지도(0x50 ~ 0x59)가 가리키는 발견물 자리를
+    /// 위도 · 경도마다 (도 / 5 + rand(2)) x 5 로 어림한다(말 0x30F · 0x7E/0x7F · 0x80/0x81 · 0x310). 지도가 없으면 null.
+    /// </summary>
+    public static (bool North, int Lat, bool East, int Lon)? Appraise(ScenarioMemory m, IEnumerable<int> owned, Func<int, int> rand)
+    {
+        int map = owned.FirstOrDefault(i => i is >= FirstMap and < FirstMap + Maps, -1);
+        if (map < 0 || MapTarget(m, map) is not (>= 0 and var t)) return null;
+        var s = Get(m, t);
+        var (north, lat, east, lon) = Town.Pub.Degrees(s.X, s.Y);
+        int la = (lat / 5 + rand(2)) * 5;
+        int lo = (lon / 5 + rand(2)) * 5;
+        return (north, la, east, lo);
+    }
+
     /// <summary>그 지도가 가리키는 발견물 — 없으면 -1.</summary>
     public static int MapTarget(ScenarioMemory m, int item) =>
         item is >= FirstMap and < FirstMap + Maps ? m.Read(ScenarioMemory.At(Town.ItemShop.Table, item, MapLink), false) is var i && i < Used ? i : -1 : -1;

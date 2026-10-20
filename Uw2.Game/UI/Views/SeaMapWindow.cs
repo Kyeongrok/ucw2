@@ -471,11 +471,11 @@ public sealed class SeaMapWindow : Window
         if (kind == Patrons.Scholar) Say(0x1ED, "내게 뭔가 용건이 있습니까？");
         else if (Patrons.IsContracted(m, who)) Say(0x1DE, $"오！ {family}님, 어서 들어오세요.", family);
         else Say(0x1DD, "우리 가문에 무슨 용건이 있으십니까？");
-        string[] items = kind == Patrons.Noble ? ["계  약", "발견물 보고", "모험소문"] : ["계  약", "기능 습득", "지리 보고"];
+        string[] items = kind == Patrons.Noble ? ["계  약", "발견물 보고", "모험소문"] : ["계  약", "기능 습득", "지리 보고", "지도확인"];
         while (true)
         {
             bool bound = Patrons.IsContracted(m, who);
-            var lines = items.Select((t, i) => (i == 0) == bound && !(kind == Patrons.Scholar && i == 1) ? t + " (안 됨)" : t).ToList();
+            var lines = items.Select((t, i) => (i == 0) == bound && !(kind == Patrons.Scholar && i is 1 or 3) ? t + " (안 됨)" : t).ToList();
             int pick = BuildingMenu.Ask(this, name, lines);
             if (pick < 0) return;
             if (lines[pick].EndsWith("(안 됨)")) continue;
@@ -489,7 +489,8 @@ public sealed class SeaMapWindow : Window
             {
                 if (pick == 0) ContractScholar(who);
                 else if (pick == 1) LearnCartography();
-                else ReportSurvey(who);
+                else if (pick == 2) ReportSurvey(who);
+                else AppraiseMap();
             }
         }
     }
@@ -505,6 +506,24 @@ public sealed class SeaMapWindow : Window
         }
         string ew = r.East ? "동경" : "서경", ns = r.North ? "북위" : "남위";
         Say(0x1EC, $"{ew}{r.Lon}도, {ns}{r.Lat}도 근처에 부락이 있다고 하는 소문을 들었는데, 신빙성은 어느 정도일까？", ew, r.Lon, ns, r.Lat);
+    }
+
+    /// <summary>학자 「지도확인」 — 감정료 20000 을 내고 지도의 자리를 5 도 단위로 어림해 듣는다(<see cref="Discoveries.Appraise"/>).</summary>
+    private void AppraiseMap()
+    {
+        if (_host.Scenario is not { } vm) return;
+        var r = Discoveries.Appraise(vm.Memory, ItemShop.Owned(vm.Memory), Random.Shared.Next);
+        if (r is not { } at) { Note(" · 감정할 지도가 없습니다"); return; }
+        if (MessageBox.Show(this, MsgOr(0x311, "호오, 보물지도를 감정하시겠습니까？ 감정료는 금괴 ２개입니다만, 좋습니까？"), "지도확인",
+                            MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        var p = _host.Player;
+        if (p.Gold <= Discoveries.AppraiseFee) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
+        p.SetGold(p.Gold - Discoveries.AppraiseFee);
+        Say(0x312, "그럼 지도를 보여 주십시오.\n어디 보자……");
+        SayText(MsgOr(0x30F, "이 지도의 장소는 대략 ")
+                + MsgOr(at.North ? 0x7E : 0x7F, $"{(at.North ? "북위" : "남위")} {at.Lat}도, ", at.Lat)
+                + MsgOr(at.East ? 0x80 : 0x81, $"{(at.East ? "동경" : "서경")} {at.Lon}도", at.Lon)
+                + MsgOr(0x310, "부근이라고 생각합니다."));
     }
 
     /// <summary>주인공이 지도작성술을 지녔는지 — 사람 +0x30 의 8(<c>0x00421F87</c>).</summary>
