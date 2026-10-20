@@ -111,6 +111,9 @@ public sealed class StartData
     /// <summary>함대 표 날바이트(70 x 0x85) — 구워 둘 때 쓴다.</summary>
     public byte[] FleetBytes { get; }
 
+    /// <summary>사람 표 날바이트(120 x 50, 메모리 <c>0x0045A240</c>) — 시나리오 기억 표 3 이 쓴다. +0x2C 가 탄 함대.</summary>
+    public byte[] PeopleBytes { get; init; } = [];
+
     private StartData(IReadOnlyList<ShipType> types, IReadOnlyList<Person> people, byte[] fleets)
     {
         ShipTypes = types; People = people; FleetBytes = fleets; Fleets = ParseFleets(fleets);
@@ -119,8 +122,11 @@ public sealed class StartData
     /// <summary>구워 둔 표로 만든다(<see cref="AssetPack"/>).</summary>
     public static StartData FromTables(IReadOnlyList<ShipType> types, IReadOnlyList<Person> people, byte[]? fleets = null,
                                        IReadOnlyList<ShipTemplate>? templates = null, IReadOnlyList<int>? heroShips = null,
-                                       IReadOnlyList<int>? heroGold = null) =>
-        new(types, people, fleets ?? []) { Templates = templates ?? [], HeroShips = heroShips ?? [], HeroGold = heroGold ?? [] };
+                                       IReadOnlyList<int>? heroGold = null, byte[]? peopleBytes = null) =>
+        new(types, people, fleets ?? [])
+        {
+            Templates = templates ?? [], HeroShips = heroShips ?? [], HeroGold = heroGold ?? [], PeopleBytes = peopleBytes ?? [],
+        };
 
     private static Fleet[] ParseFleets(byte[] raw)
     {
@@ -161,6 +167,7 @@ public sealed class StartData
         return game == null ? s : new StartData(s.ShipTypes, s.People, s.FleetBytes)
         {
             Templates = s.Templates,
+            PeopleBytes = s.PeopleBytes,
             HeroShips = Scenario.HeroShips(game),
             HeroGold = Scenario.HeroGold(game),
         };
@@ -199,6 +206,10 @@ public sealed class StartData
                                             d[o + 0x10], d[o + 0x11], BitConverter.ToUInt16(d, o + 0x12),
                                             BitConverter.ToUInt16(d, o + 0x14));
         }
-        return new StartData(types, people, fleets) { Templates = templates };
+        return new StartData(types, people, fleets)
+        {
+            Templates = templates,
+            PeopleBytes = d.AsSpan(PersonOffset, PersonSize * PersonCount).ToArray(),
+        };
     }
 }
