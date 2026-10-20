@@ -56,6 +56,7 @@ asset/
 ```
 dotnet build
 dotnet run --project Uw2
+dotnet test Uw2.Tests      원본 셈 · 구운 자산을 검산한다
 ```
 
 `asset/` 이 있으면 그것으로 열고, 없으면 게임 폴더를 찾는다(바탕화면 `DH2W95Kor_Win_Test2` 따위).
