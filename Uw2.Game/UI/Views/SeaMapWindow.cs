@@ -495,6 +495,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("세계지도", (_, _) => { _host.ShowWorld(); _portPick.SelectedIndex = -1; Retitle(); }));
         bar.Children.Add(Button("출항", (_, _) => PutToSea()));
         bar.Children.Add(Button("저장", (_, _) => SaveToSlot()));
+        bar.Children.Add(Button("식량할당", (_, _) => SetRations()));
 
         // 항구 고르개. 표를 못 읽으면 번호만 늘어놓는다.
         _portPick = new ComboBox
@@ -641,6 +642,20 @@ public sealed class SeaMapWindow : Window
     }
 
     private int _homePort = PortTable.Lisbon;
+
+    /// <summary>
+    /// 「식량할당」 — 물 · 식량 비율 0 ~ 100(<c>0x00441800</c>, 하나씩 올리고 내린다). 배마다 하루에
+    /// 선원 x 비율 / 100 + 1 을 먹고, 비율이 낮으면 사기가 떨어진다(docs/22).
+    /// </summary>
+    private void SetRations()
+    {
+        var p = _host.Player;
+        int water = AmountDialog.Ask(this, $"물 비율 — 지금 {p.WaterRate}", PlayerState.FullRation);
+        if (water >= 0) p.WaterRate = water;
+        int food = AmountDialog.Ask(this, $"식량 비율 — 지금 {p.FoodRate}", PlayerState.FullRation);
+        if (food >= 0) p.FoodRate = food;
+        Note($" · 물 {p.WaterRate} · 식량 {p.FoodRate}");
+    }
 
     /// <summary>세이브 칸을 골라 지금 게임을 담는다(<see cref="SaveGame"/>).</summary>
     private void SaveToSlot()
