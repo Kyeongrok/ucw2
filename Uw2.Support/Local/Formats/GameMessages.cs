@@ -65,6 +65,7 @@ public sealed class GameMessages
     /// <summary>
     /// 「(가)」 「(는)」 「(을)」 「(를)」 「(은)」 「(이)」 「(와)」 「(과)」 를 앞 글자 받침에 맞춘다. 숫자는 우리말로 읽은 끝소리로 본다
     /// (0 영 · 1 일 · 3 삼 · 6 육 · 7 칠 · 8 팔 · 10 십 은 받침이 있다).
+    /// 「(이라면)」 「(이라고)」 「(라고)」 「(이렸다)」 처럼 「이」 가 붙었다 떨어지는 것도 받침이 없으면 「이」 를 뗀다.
     /// </summary>
     public static string Particles(string s)
     {
@@ -72,16 +73,17 @@ public sealed class GameMessages
         var sb = new StringBuilder();
         for (int i = 0; i < s.Length; i++)
         {
+            if (s[i] == '(' && sb.Length > 0 && Copula(s, i) is { } word)
+            {
+                string bare = word.StartsWith('이') ? word[1..] : word;
+                sb.Append(Batchim(sb[^1]) ? "이" + bare : bare);
+                i += word.Length + 1;
+                continue;
+            }
             if (s[i] == '(' && i + 2 < s.Length && s[i + 2] == ')' && sb.Length > 0
                 && s[i + 1] is '가' or '이' or '는' or '은' or '을' or '를' or '와' or '과')
             {
-                char before = sb[^1];
-                bool batchim = before switch
-                {
-                    >= '가' and <= '힣' => (before - '가') % 28 != 0,
-                    >= '0' and <= '9' => "0136789".Contains(before),
-                    _ => false,
-                };
+                bool batchim = Batchim(sb[^1]);
                 char p = s[i + 1];
                 sb.Append(p switch
                 {
@@ -96,5 +98,22 @@ public sealed class GameMessages
             sb.Append(s[i]);
         }
         return sb.ToString();
+    }
+
+    private static bool Batchim(char before) => before switch
+    {
+        >= '가' and <= '힣' => (before - '가') % 28 != 0,
+        >= '0' and <= '9' => "0136789".Contains(before),
+        _ => false,
+    };
+
+    /// <summary>「(이라면)」 같은 서술격 토씨 — <paramref name="at"/> 의 괄호 안 낱말, 아니면 null.</summary>
+    private static string? Copula(string s, int at)
+    {
+        foreach (string w in (string[])["이라면", "이라고", "라고", "이렸다"])
+            if (at + w.Length + 1 < s.Length + 1 && string.CompareOrdinal(s, at + 1, w, 0, w.Length) == 0
+                && at + w.Length + 1 < s.Length && s[at + w.Length + 1] == ')')
+                return w;
+        return null;
     }
 }

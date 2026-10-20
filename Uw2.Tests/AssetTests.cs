@@ -482,6 +482,9 @@ public class AssetTests
         Assert.Contains("경험이 120 더", m.Format(0x221, 120));
         Assert.Contains("금화 300이 드는데", m.Format(0xCD, 300));                  // %u(가) — 영 은 받침이 있다
         Assert.Contains("금화 25가 드는데", m.Format(0xCD, 25));
+        Assert.Equal("후추라면 ", m.Format(0xCA, "후추"));
+        Assert.Equal("비단이라면 ", m.Format(0xCA, "비단"));
+        Assert.StartsWith("카를로타라고", m.Format(0x146, "카를로타"));
         Assert.Equal("그럼 금화 500닢을 입금시키겠습니다. 이율은 월 3%입니다.", m.Format(0x6A, 500));
     }
 

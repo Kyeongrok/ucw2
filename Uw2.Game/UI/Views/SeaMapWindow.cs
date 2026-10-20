@@ -247,7 +247,7 @@ public sealed class SeaMapWindow : Window
             if (pick < 0) return;
             switch (pick)
             {
-                case 0: Say(0x18F, "죄송해요, 모르겠어요."); break;
+                case 0: JobInfo(maid); break;
                 case 1:
                     if (Barmaids.AskTaste(m, maid, Random.Shared.Next) is { } taste) Say(taste, "당신의 성의가 제일 기뻐요.");
                     else Say(0x193, "후훗！ 그것은 비밀이예요.");
@@ -260,6 +260,67 @@ public sealed class SeaMapWindow : Window
                 default: GiftTo(maid); break;
             }
         }
+    }
+
+    /// <summary>
+    /// 여급 「업무정보」(<c>0x00426410</c>) — 맡은 조합 일(SNR0 변수 6, 대상 항구 변수 17, 교역품 변수 18)의 귀띔.
+    /// <code>
+    ///   1 수송      대상 항구가 여기면 0x249. rand(150) ≤ 호감 + 주인공 +0x22 이면 그 항구의 지방(0x191 · 0x181 + 시장 · 0x192)
+    ///   2 · 6 구입  같은 셈으로 — 그 교역품이 특산품이고 경제 ≥ +0x1B x 10 인 첫 항구(0x190), 없으면 파는 시장의 지방(0xCA · 0xCB)
+    ///   5 0x24D · 9 0x24A · 10 0x24B · 11 0x24C   그 밖은 0x18F 「모르겠어요」
+    /// </code>
+    /// 원본은 주인공 +0x31 의 0x10 이면 늘 알려 준다. 7 · 8(왕궁 · 총독부 편지)과 3 은 아직이다.
+    /// </summary>
+    private void JobInfo(int maid)
+    {
+        if (_host.Common is not { } job || _host.Scenario is not { } vm || _host.Economy is not { } eco || _host.Ports is not { } ports)
+        {
+            Say(0x18F, "죄송해요, 모르겠어요.");
+            return;
+        }
+        int kind = job.GetVar(6), port = job.GetVar(17) & 0xFF, good = job.GetVar(18);
+        bool Told() => Random.Shared.Next(150) <= Barmaids.Get(vm.Memory, maid, Barmaids.Liking) + HeroField(Navigators.Stats + 6)
+                       || (HeroField(0x31) & 0x10) != 0;
+        string Region(int market) => MsgOr(0x181 + market, "");
+        switch (kind)
+        {
+            case 5: Say(0x24D, "주점 손님 중에 아는 사람이 있을지도 모르죠."); return;
+            case 9: Say(0x24A, "그 항구의 교역소나 조선소에 투자하는 것이 좋겠지요."); return;
+            case 10: Say(0x24B, "부락 주민들의 힘을 빌리면 발견할 수 있을 지도 모르겠네요."); return;
+            case 11: Say(0x24C, "조합에 가서 물어 보는 게 어때요"); return;
+            case 1 when port == _host.CurrentPort: Say(0x249, "어머, 이 항구에 일 때문에 왔나요？"); return;
+            case 1 when port < ports.Ports.Count && port < eco.States.Count && Told():
+            {
+                string name = ports.Ports[port].Name;
+                SayText(MsgOr(0x191, $"{name}(는) ", name) + Region(eco.States[port].Zone) + MsgOr(0x192, " 지방의 항구라고 항해자가 말했었어요."));
+                Note($" · {name} — {Region(eco.States[port].Zone)}");
+                return;
+            }
+            case 2 or 6 when good >= 0 && good < eco.GoodsNames.Count && Told():
+            {
+                string goods = eco.GoodsNames[good];
+                var raw = eco.StateBytes;
+                for (int i = 0; i < 40 && i < ports.Ports.Count; i++)
+                {
+                    int o = i * Economy.StateSize;
+                    if (raw[o + 0x1A] == good && BitConverter.ToUInt16(raw, o) >= raw[o + 0x1B] * 10)
+                    {
+                        Say(0x190, $"{goods}(는) {ports.Ports[i].Name}항에서 팔고 있었다고, 언젠가 교역상인이 말했어요.", goods, ports.Ports[i].Name);
+                        return;
+                    }
+                }
+                // 원본은 시장 12 에서 0 으로 훑으며 맞는 것을 덮어써 가장 낮은 번호가 남는다.
+                for (int market = 0; market < eco.Markets.Count; market++)
+                    if (eco.Markets[market].Goods.Contains(good))
+                    {
+                        SayText(MsgOr(0xCA, $"{goods}(이라면) ", goods) + Region(market) + MsgOr(0xCB, " 지역에서 팔고 있었다고, 언젠가 교역상인이 말하던데요."));
+                        Note($" · {goods} — {Region(market)}");
+                        return;
+                    }
+                break;
+            }
+        }
+        Say(0x18F, "죄송해요, 모르겠어요.");
     }
 
     /// <summary>「자랑」 — 찾은 발견물 하나를 골라 그림과 함께 보여 준다(<see cref="Barmaids.Boast"/>).</summary>
@@ -522,6 +583,8 @@ public sealed class SeaMapWindow : Window
         Say(message, $"{name}？ 그럼, 금화 {reward}닢을 받아 주시요.", name, reward);
         Note(M(0x1DC, $"모험가의 명성이 {fame} 높아졌습니다.", fame));
     }
+
+    private void SayText(string text) => ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", text)]);
 
     /// <summary>게임 말 하나를 대사 창에 띄운다 — 말이 없으면 <paramref name="fallback"/>.</summary>
     private void Say(int id, string fallback, params object[] args)
