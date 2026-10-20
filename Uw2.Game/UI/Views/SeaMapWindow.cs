@@ -1068,12 +1068,44 @@ public sealed class SeaMapWindow : Window
                                     goods.Select(g => $"{eco.GoodsNames[g.Good],-6}  {g.Price,5}").ToList());
         if (pick < 0) return;
         var (good, price) = goods[pick];
+        // 시세를 말하고(0x96) 마다하면 값을 깎는다(0x00420B70).
+        if (MessageBox.Show(this, MsgOr(0x96, $"{eco.GoodsNames[good]} 시세는 금화 {price}닢입니다. 좋습니까？", eco.GoodsNames[good], price),
+                            "구입", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        {
+            price = Haggle(price);
+            if (price <= 0) return;
+        }
         int most = Math.Min(p.Free, price > 0 ? p.Gold / price : 0);
         int amount = AmountDialog.Ask(this, $"{eco.GoodsNames[good]} 몇 통", most);
         if (amount <= 0) return;
         int bought = p.Buy(good, amount, price);
         _host.SyncLoad();
         Note($" · {eco.GoodsNames[good]} {bought}통을 {bought * price}에 샀습니다");
+    }
+
+    /// <summary>값 깎기 — 받아들인 한 통 값, 그만두면 0(<see cref="Palace.HaggleFloor"/>).</summary>
+    private int Haggle(int price)
+    {
+        if (_host.Scenario is not { } vm || _host.Ports is not { } ports) return price;
+        var m = vm.Memory;
+        bool ours = Palace.NationOf(ports.Ports[_host.CurrentPort]) == (_host.HeroNation & 7);
+        int floor = Palace.HaggleFloor(price, _host.HeroRank, ours);
+        int accept = Palace.HaggleAccept(price, floor);
+        bool clerk = (HeroField(SkillField) & 1) != 0
+                     || (Navigators.InPost(m, 1) is >= 0 and var c && (Navigators.Get(m, c, SkillField) & 2) != 0);
+        while (true)
+        {
+            int offer = AmountDialog.Ask(this, MsgOr(6, "그럼, 얼마로 하면 사시겠습니까？"), price);
+            if (offer <= 0) return 0;
+            if (offer >= accept) { Say(0xA, "그럼 그 값에 타협합시다."); return offer; }
+            if (accept - floor <= 1) { Say(0xB, "그 값엔 팔 수 없어요. 더이상 값을 깎지 말아 주세요."); continue; }
+            int counter = Palace.HaggleCounter(price, floor);
+            Say(0xC, $"그 값엔 팔 수 없어요. 금화 {counter}닢에 사주세요.", counter);
+            if (!clerk) continue;
+            Say(0x353, $"그건 아니겠지. 금화 {floor}닢이라면 꽤 괜찮은 벌이가 아니오？", floor);
+            Say(0x354, $"손님에겐 못 당하겠네요. 좋아요, 금화 {floor}닢으로 타협합시다.", floor);
+            return floor;
+        }
     }
 
     /// <summary>교역소 「매각」 — 실은 교역품을 골라 다 판다(<see cref="Economy.SellPrice"/>).</summary>

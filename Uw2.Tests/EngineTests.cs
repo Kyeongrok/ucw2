@@ -473,4 +473,14 @@ public class EngineTests
         Assert.Equal(((7, 30), (7, 10)), (a.Cargo[0], b.Cargo[0]));
         Assert.Equal(0, PlayerState.Transship(a, b, PlayerState.SupplyKinds, 5));             // 다 찼다
     }
+
+    [Fact]
+    public void HagglingMeetsHalfwayToARankFloor()
+    {
+        int floor = Uw2.Game.Engine.Town.Palace.HaggleFloor(200, rank: 3, ours: true);           // 200 x 16 / 20
+        Assert.Equal(160, floor);
+        Assert.Equal(190, Uw2.Game.Engine.Town.Palace.HaggleFloor(200, rank: 3, ours: false));   // 남의 나라는 작위를 안 친다
+        Assert.Equal(180, Uw2.Game.Engine.Town.Palace.HaggleAccept(200, floor));
+        Assert.Equal(190, Uw2.Game.Engine.Town.Palace.HaggleCounter(200, floor));
+    }
 }

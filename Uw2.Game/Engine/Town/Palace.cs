@@ -36,6 +36,17 @@ public static class Palace
     /// <summary>그 항구를 다스리는 나라 — 항구 표 나라 바이트(0x0043AED0 +0x15)의 아래 세 비트.</summary>
     public static int NationOf(PortTable.Port port) => port.Nation & 7;
 
+    /// <summary>
+    /// 교역소 값 깎기(<c>0x00420B70</c>) — 값 P 의 바닥은 P x (19 − 작위) / 20(제 나라 항구에서만 작위를 친다),
+    /// 부른 값이 (P + 바닥) / 2 이상이면 받아들인다(말 0xA). 모자라고 그 틈이 1 이하면 0xB, 아니면 max(바닥, P − 틈 / 2)를 부른다(0xC).
+    /// 주인공(+0x30 의 1)이나 경리주임의 회계(+0x30 의 2)가 있으면 0x353 · 0x354 로 바닥 값에 타협한다.
+    /// </summary>
+    public static int HaggleFloor(int price, int rank, bool ours) => price * (19 - (ours ? rank : 0)) / 20;
+
+    public static int HaggleAccept(int price, int floor) => price - (price - floor) / 2;
+
+    public static int HaggleCounter(int price, int floor) => Math.Max(floor, price - (HaggleAccept(price, floor) - floor) / 2);
+
     /// <summary>사략허가서 — 아이템 0x1D + 나라(29 ~ 34, <c>0x004274EE</c>).</summary>
     public const int LetterFirst = 0x1D, MinPirateFame = 1000;
 
