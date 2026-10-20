@@ -446,4 +446,18 @@ public class EngineTests
         Assert.Equal((148, 18), (back.Total, back.SinceReport));
         Assert.True(back[41, 31] && back[89, 1]);
     }
+
+    [Fact]
+    public void RecrewMovesSailorsThroughThePoolAndMixesMorale()
+    {
+        var p = new PlayerState(0);
+        var a = new PlayerState.Ship { Type = 5, Name = "가", Room = 80, Crew = 30, MaxCrew = 40, Morale = 80 };
+        var b = new PlayerState.Ship { Type = 5, Name = "나", Room = 80, Crew = 10, MaxCrew = 40, Morale = 40 };
+        p.Ships.Add(a); p.Ships.Add(b);
+        var (pool, morale) = p.Recrew(a, 10, 0, 60);
+        Assert.Equal((10, 20, 80), (a.Crew, pool, morale));
+        (pool, morale) = p.Recrew(b, 50, pool, morale);                    // 지금 10 + 공용 20 까지
+        Assert.Equal((30, 0), (b.Crew, pool));
+        Assert.Equal((10 * 40 + 20 * 80) / 30, b.Morale);                // 66
+    }
 }

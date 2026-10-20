@@ -1068,6 +1068,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("식량할당", (_, _) => SetRations()));
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
         bar.Children.Add(Button("급여설정", (_, _) => SetWages()));
+        bar.Children.Add(Button("승무원편성", (_, _) => RedistributeCrew()));
         bar.Children.Add(Button("상륙", (_, _) => Land()));
         bar.Children.Add(Button("아이템", (_, _) => UseItem()));
 
@@ -1582,6 +1583,36 @@ public sealed class SeaMapWindow : Window
         Say(0x1AA, "깨끗한 물을 발견했습니다.");
         if (filled == 0) Say(0x1A6, "더이상 실을 수 없습니다.");
         else Note($" · 물 {filled}통을 실었습니다");
+    }
+
+    /// <summary>
+    /// 「승무원편성」 — 목록 27 의 셋째(<c>0x00446310</c>). 배를 골라 선원 수를 정하면 남는 이는 공용으로 모이고, 모자라면 공용에서 태운다.
+    /// 끝낼 때 공용에 남은 이가 있으면 0xE7 로 묻고, 예면 내린다.
+    /// </summary>
+    private void RedistributeCrew()
+    {
+        var p = _host.Player;
+        if (p.Ships.Count <= 1) { Say(0xD9, "함선이 １척밖에 없습니다."); return; }
+        int pool = 0, morale = PlayerState.DefaultMorale;
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, $"승무원편성 — 남은 선원 {pool}",
+                p.Ships.Select(s => $"{s.Name}  선원 {s.Crew}/{s.MaxCrew} · 사기 {s.Morale}").ToList());
+            if (pick < 0)
+            {
+                // 남은 이가 있으면 0xE7 「선원이 남아 있습니다. 좋습니까？」 — 예면 내린다.
+                if (pool == 0 || MessageBox.Show(this, MsgOr(0xE7, "선원이 남아 있습니다. 좋습니까？"), "승무원편성", MessageBoxButton.YesNo) == MessageBoxResult.Yes) break;
+                continue;
+            }
+            var ship = p.Ships[pick];
+            int most = Math.Min(ship.MaxCrew, ship.Crew + pool);
+            string ask = _host.Messages is { } m && m[0xE6].Length > 0 ? m.Format(0xE6, ship.Name, most) : $"{ship.Name} 선원 수(0-{most})";
+            int crew = AmountDialog.Ask(this, ask, most);
+            if (crew < 0) continue;
+            (pool, morale) = p.Recrew(ship, crew, pool, morale);
+        }
+        _host.SyncLoad();
+        Note(pool > 0 ? $" · 선원 {pool}명을 내렸습니다" : " · 승무원을 다시 짰습니다");
     }
 
     /// <summary>「급여설정」 — 바다 명령 목록 28 의 여섯째(<c>0x00441B10</c>). 동료를 골라 급여를 정한다(<see cref="Navigators.SetWage"/>).</summary>

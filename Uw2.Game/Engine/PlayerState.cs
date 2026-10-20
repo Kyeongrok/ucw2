@@ -273,6 +273,29 @@ public sealed class PlayerState
     }
 
     /// <summary>
+    /// 「승무원편성」(<c>0x00446310</c>) — 배에서 내린 선원은 함대 공용(<c>0x0049FAEC</c>)으로 모인다. 배 하나의 선원을
+    /// <paramref name="crew"/> 로 맞추고(그 배 최대 · 지금 + 공용까지), 더 태우면 사기는 사람 수로 섞는다. 공용에 남은 수를 돌려준다.
+    /// </summary>
+    public (int Pool, int PoolMorale) Recrew(Ship ship, int crew, int pool, int poolMorale)
+    {
+        crew = Math.Clamp(crew, 0, Math.Min(ship.MaxCrew, ship.Crew + pool));
+        int diff = crew - ship.Crew;
+        if (diff > 0)
+        {
+            ship.Morale = (ship.Crew * ship.Morale + diff * poolMorale) / crew;
+            pool -= diff;
+        }
+        else if (diff < 0)
+        {
+            int off = -diff;
+            poolMorale = pool + off > 0 ? (pool * poolMorale + off * ship.Morale) / (pool + off) : ship.Morale;
+            pool += off;
+        }
+        ship.Crew = crew;
+        return (pool, poolMorale);
+    }
+
+    /// <summary>
     /// 뭍 「응급수리」(<c>0x0041B670</c>) — 자재 하나가 5 를 고친다. <paramref name="part"/> 는 0 내구 · 1 역풍 · 2 돛,
     /// 쓸 수 있는 자재는 min(함대 자재, (상한 − 지금 + 4) / 5). 쓴 자재는 앞 배부터 덜어 낸다(<c>0x0041B810</c>).
     /// </summary>
