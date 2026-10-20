@@ -30,7 +30,17 @@ public sealed class SeaMapWindow : Window
     private string _doorNote = "";
 
     /// <summary>건물 번호 3 — 항구, 0 — 교역소(<see cref="PortDoors.Names"/>).</summary>
-    private const int HarborBuilding = 3, TradeBuilding = 0;
+    private const int HarborBuilding = 3, TradeBuilding = 0, ShipyardBuilding = 2;
+
+    /// <summary>조선소 「함선 건조」 — 지을 수 있는 선종과 값(선종 +10)을 늘어놓는다. 짓기는 아직이다.</summary>
+    private void ShowShipyard()
+    {
+        if (_host.Economy is not { } eco || _host.StartTables is not { } start) return;
+        var types = eco.Buildable(_host.CurrentPort, start.ShipTypes);
+        if (types.Count == 0) { _doorNote = " · 이 조선소는 배를 지을 수 없습니다"; UpdateStatus(); return; }
+        BuildingMenu.Ask(this, "함선 건조 — 값",
+            types.Select(t => $"{(t < start.Templates.Count ? start.Templates[t].Name : t.ToString()),-10} {start.ShipTypes[t].Price,6}").ToList());
+    }
 
     /// <summary>
     /// 건물 고르기 — 목록은 <c>MENU.DAT</c> 그대로(<see cref="MenuTable.BuildingList"/>). 된 것은 항구 「출항」 ·
@@ -45,6 +55,7 @@ public sealed class SeaMapWindow : Window
         if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
         if (b == TradeBuilding && pick == 1) { _doorNote = " · 팔 짐이 없습니다(짐칸은 아직 없습니다)"; UpdateStatus(); return; }
+        if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
     }

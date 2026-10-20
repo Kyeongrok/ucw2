@@ -41,8 +41,29 @@ public sealed class Economy
 
     public readonly record struct Market(int[] Pays, int[] BuyBase, int[] Goods, int[] Need);
 
+    /// <param name="Yard">+0x22 조선소 갈래(<see cref="ShipyardTypes"/> 의 줄).</param>
+    /// <param name="Building">+0x23 짓고 있는 배(0xFF 없음).</param>
     public readonly record struct PortState(int Economy, int Industry, int[] Shares, int[] PriceIndex,
-                                            int SpecialBase, int Special, int Zone);
+                                            int SpecialBase, int Special, int Zone, int Yard = 0, int Building = -1);
+
+    /// <summary>
+    /// 조선소 갈래마다 지을 수 있는 선종 — <c>KOUKAI2.EXE 0x00458BD0</c>, 8바이트 x 11 (0xFF 빈 칸).
+    /// 리스본 · 세빌리아는 0, 런던 1, 암스테르담 · 함부르크 2, 제노바 4, 이스탄불 5, 나가사키 9(관선 · 안택선 · 철갑선) …
+    /// </summary>
+    public static readonly int[][] ShipyardTypes =
+    [
+        [0, 18, 5, 7, 19, 8, 9, 10],
+        [6, 8, 9, 10, 13, 14, 15],
+        [1, 5, 8, 9, 10, 14, 16],
+        [1, 18, 6, 19, 8, 12, 21, 10],
+        [18, 4, 5, 3, 19, 8, 20, 9],
+        [18, 5, 19, 8, 11, 20, 9],
+        [18, 2, 11],
+        [18, 6, 8, 9],
+        [17],
+        [24, 23, 22],
+        [7, 12, 8, 9, 10],
+    ];
 
     public IReadOnlyList<string> GoodsNames { get; }
     public IReadOnlyList<Market> Markets { get; }
@@ -92,7 +113,23 @@ public sealed class Economy
         BitConverter.ToUInt16(r, o), BitConverter.ToUInt16(r, o + 4),
         [.. r.AsSpan(o + 8, 6).ToArray().Select(b => (int)b)],
         [.. r.AsSpan(o + 0x0E, 10).ToArray().Select(b => (int)b)],
-        BitConverter.ToUInt16(r, o + 0x18), r[o + 0x1A] == 0xFF ? -1 : r[o + 0x1A], r[o + 0x21]);
+        BitConverter.ToUInt16(r, o + 0x18), r[o + 0x1A] == 0xFF ? -1 : r[o + 0x1A], r[o + 0x21],
+        r[o + 0x22], r[o + 0x23] == 0xFF ? -1 : r[o + 0x23]);
+
+    /// <summary>
+    /// 그 항구 조선소가 지을 수 있는 선종 — 갈래 줄 가운데 공업이 <c>선종 +0 x 10</c> 이상인 것
+    /// (<c>0x00428958</c> 이 첫 선종으로 「못 짓는다」(말 0xFB)를 가른다 — 우리는 줄마다 같은 셈으로 거른다).
+    /// </summary>
+    public List<int> Buildable(int port, IReadOnlyList<StartData.ShipType> types)
+    {
+        var list = new List<int>();
+        if (port < 0 || port >= States.Count) return list;
+        var s = States[port];
+        if (s.Yard < 0 || s.Yard >= ShipyardTypes.Length) return list;
+        foreach (int t in ShipyardTypes[s.Yard])
+            if (t < types.Count && types[t].Field0 * 10 <= s.Industry) list.Add(t);
+        return list;
+    }
 
     /// <summary>교역품의 갈래 — <c>0x004202E0</c>(경계를 넘는 값은 0 갈래로 떨어진다).</summary>
     public static int CategoryOf(int good)

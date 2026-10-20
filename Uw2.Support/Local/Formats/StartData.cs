@@ -80,7 +80,7 @@ public sealed class StartData
     /// <param name="MaxCrew">+8 태울 수 있는 선원 수(로 보인다).</param>
     /// <param name="SailKind">+9 돛 갈래 0~7. 돛 효율 표의 칸을 고른다.</param>
     /// <param name="Price">+10 값(낱말).</param>
-    /// <param name="Field0">+0 뜻 미확정.</param>
+    /// <param name="Field0">+0 드는 공업 / 10 — 조선소가 짓는 데 항구 공업이 이것 x 10 이상이어야 한다(0x00428958).</param>
     /// <param name="Field4">+4 뜻 미확정(대포 수로 보인다).</param>
     public readonly record struct ShipType(int Index, int Field0, int Durability, int Upwind, int Sail, int Field4,
                                            int RequiredCrew, int Capacity, int MaxCrew, int SailKind, int Price);

@@ -92,4 +92,16 @@ public class AssetTests
         Assert.Equal("함선 건조", m.ForBuilding(2)[0]);                                // 조선소 — 목록 22
         Assert.Empty(m.ForBuilding(7));                                                // NPC 는 목록이 없다
     }
+
+    [Fact]
+    public void ShipyardsFollowTheIndustryRule()
+    {
+        var eco = Pack.Economy!;
+        var types = Pack.Start!.ShipTypes;
+        Assert.Equal(0, eco.States[0].Yard);                                  // 리스본
+        var lisbon = eco.Buildable(0, types);
+        Assert.Contains(5, lisbon);                                           // 카라벨 라티나
+        Assert.All(lisbon, t => Assert.True(types[t].Field0 * 10 <= eco.States[0].Industry));
+        Assert.Equal([24, 23, 22], Economy.ShipyardTypes[9]);                 // 나가사키 갈래
+    }
 }
