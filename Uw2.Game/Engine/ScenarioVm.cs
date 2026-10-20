@@ -52,7 +52,10 @@ public sealed class ScenarioVm
     private readonly bool[] _flags = new bool[2048];
     private readonly ScenarioMemory.Pointer[] _ptrs = new ScenarioMemory.Pointer[256];
 
-    public ScenarioVm(byte[] code, ScenarioText text) { _code = code; _text = text; }
+    public ScenarioVm(byte[] code, ScenarioText text, ScenarioMemory? memory = null)
+    {
+        _code = code; _text = text; Memory = memory ?? new ScenarioMemory();
+    }
 
     /// <summary>
     /// 게임 값 여덟(<c>0x0043E8DA</c> 의 표 <c>0x0043EB60</c>) — <c>00 0x 11 a b</c>(W 3)가 변수 a 에 b 번을 넣는다. 부르는 쪽이 채운다.
@@ -80,7 +83,7 @@ public sealed class ScenarioVm
     public const int ValueArea = 1, ValueYear = 2, ValueMonth = 3, ValueDay = 4, ValuePort = 5, ValueTime = 7;
 
     /// <summary>시나리오가 들여다보는 게임 기억 — 부르는 쪽이 아는 표를 채운다.</summary>
-    public ScenarioMemory Memory { get; } = new();
+    public ScenarioMemory Memory { get; }
 
     /// <summary>장 · 절 — 새 게임은 0 · 0.</summary>
     public int Chapter { get; set; }
@@ -105,8 +108,8 @@ public sealed class ScenarioVm
         public int Gold { get; set; }
 
         /// <summary>
-        /// 그침(F2 · F4)으로 끝났는지 — 원본은 그때 손이 0 을 돌려 건물 목록을 띄우지 않는다(<c>0x0043F652</c> → <c>0x00431FF9</c>).
-        /// 끝(FF)이면 이벤트 다음에 그 건물 목록이 뜬다.
+        /// 건물 볼일을 대신했는지 — <c>F8</c> 이 기계 고리의 값을 0 으로 만들면(<c>0x0043F53F</c>) 원본은 건물 목록을 띄우지 않는다
+        /// (<c>0x00431FF9</c>). 그침 <c>F2</c> 는 고리만 멈추고 값은 1 로 둬 목록이 이어서 뜬다. <c>FF</c> 는 아무것도 아니다.
         /// </summary>
         public bool Stopped { get; set; }
 
@@ -374,8 +377,8 @@ public sealed class ScenarioVm
                             continue;
                         case 0xF0: nextSection = true; break;
                         case 0xF1: nextChapter = true; break;
-                        case 0xF2 or 0xF4 or 0xFF:
-                            run.Stopped = op != 0xFF;
+                        case 0xF8: run.Stopped = true; break;
+                        case 0xF2 or 0xF4:
                             run.Gold = Memory.Gold;
                             return run;
                     }

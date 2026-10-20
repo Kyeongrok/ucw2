@@ -292,4 +292,32 @@ public class AssetTests
         var st = vm.Export();
         Assert.InRange(st.Vars[2], 0, 4);
     }
+
+    [Fact]
+    public void SharedScenarioRunsEverywhereWithoutRunningAway()
+    {
+        var pack = Load();
+        string dir = Path.Combine(AssetDir, "snr");
+        var code = File.ReadAllBytes(Path.Combine(dir, "SNR0.DAT"));
+        var text = ScenarioText.Load(Path.Combine(dir, "SNR0.MES"));
+        var lines = new List<string>();
+        for (int port = 0; port < 100; port += 7)
+            for (int b = 0; b < 12; b++)
+            {
+                var m = new Uw2.Game.Engine.ScenarioMemory();
+                m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, pack.Start!.PeopleBytes);
+                m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+                m.Fill(Uw2.Game.Engine.ScenarioMemory.NationTable, pack.Start.NationBytes);
+                m.Fill(Uw2.Game.Engine.ScenarioMemory.HeroTable, pack.Start.HeroBytes);
+                var vm = new Uw2.Game.Engine.ScenarioVm(code, text, m);
+                if (vm.Enter(port, b, 1000, "조안", "페레로") is { } run)
+                {
+                    Assert.True(run.Lines.Count < 200);
+                    lines.Add($"{port,3} {b,2} {run.Lines.Count,3} {(run.Stopped ? "그침" : "끝")} " +
+                              string.Join(" / ", run.Lines.Take(2).Select(l => l.Body.Replace('\n', ' '))));
+                }
+            }
+        string? dump = Environment.GetEnvironmentVariable("UW2_SURVEY");
+        if (dump != null) File.WriteAllLines(dump, lines);
+    }
 }

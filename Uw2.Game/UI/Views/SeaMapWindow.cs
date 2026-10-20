@@ -167,7 +167,7 @@ public sealed class SeaMapWindow : Window
             _host.Apply(run);
             Note($" · 「{PortDoors.Names[b]}」 이벤트"
                  + string.Concat(run.Joined.Select(p => $" · {Josa(_host.PersonName(p), "이", "가")} 동료가 되었습니다")));
-            // 그침(F2)으로 끝난 이벤트는 건물 볼일을 대신한다. 끝(FF)이거나 여관이면 목록이 이어서 뜬다(0x00431FF9).
+            // F8 이 선 이벤트는 건물 볼일을 대신한다. 아니면, 또 여관이면 늘 목록이 이어서 뜬다(0x00431FF9).
             if (run.Stopped && b != InnBuilding) return;
         }
         var items = _host.Menus?.ForBuilding(b) ?? [];
