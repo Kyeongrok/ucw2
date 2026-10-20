@@ -597,6 +597,8 @@ public sealed class SeaMapHost : HwndHost
     {
         get
         {
+            if (Scenario != null)
+                return Math.Min(Economy.NoNation, Uw2.Game.Engine.Town.Navigators.Get(Scenario.Memory, HeroPerson[Hero], 0x31) & 0x0F);
             int o = HeroPerson[Hero] * StartData.PersonSize + 0x31;
             return StartTables is { } st && o < st.PeopleBytes.Length ? Math.Min(Economy.NoNation, st.PeopleBytes[o] & 0x0F) : Economy.NoNation;
         }

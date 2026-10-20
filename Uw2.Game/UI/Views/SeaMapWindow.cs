@@ -203,7 +203,19 @@ public sealed class SeaMapWindow : Window
         if (_host.Scenario is not { } vm || _host.Ports is not { } ports || _host.CurrentPort < 0
             || _host.CurrentPort >= ports.Ports.Count) return;
         int nation = Palace.NationOf(ports.Ports[_host.CurrentPort]);
-        if (nation != (_host.HeroNation & 7)) { Note(" · 이 나라의 왕궁은 당신을 맞지 않습니다"); return; }
+        bool ours = nation == (_host.HeroNation & 7);
+        if (pick == 1)
+        {
+            // 망명 — 다른 나라 왕궁에서만 뜻이 있다.
+            if (ours) { Note(" · 이미 이 나라를 섬기고 있습니다"); return; }
+            string name = nation < NationNames.Length ? NationNames[nation] : "이 나라";
+            if (MessageBox.Show(this, $"{name}에 망명하시겠습니까?", "망명", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+            Palace.Defect(vm.Memory, _host.HeroPersonNumber, nation);
+            _homePort = _host.CurrentPort;
+            Note($" · {name}의 사람이 되었습니다");
+            return;
+        }
+        if (!ours) { Note(" · 이 나라의 왕궁은 당신을 맞지 않습니다"); return; }
         if (pick != 2) { Note(" · 그것은 아직 없습니다"); return; }
         int gold = _host.Player.Gold;
         int got = Palace.TakeFunds(vm.Memory, nation, ref gold);

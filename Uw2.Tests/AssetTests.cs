@@ -261,4 +261,17 @@ public class AssetTests
         // 서울 일곱이 나라 표 차례 0 ~ 6 으로 — 리스본 · 세빌리아 · 이스탄불 · 런던 · 제노바 · 암스테르담 · 알제
         Assert.Equal([0, 1, 2, 3, 4, 5, 6], new[] { 0, 1, 2, 29, 8, 33, 4 }.Select(i => ports[i].Nation & 7).ToArray());
     }
+
+    [Fact]
+    public void DefectingMovesTheHeroToTheNewNationAndShiftsFavor()
+    {
+        var start = Load().Start!;
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, start.PeopleBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.HeroTable, start.HeroBytes);
+        Uw2.Game.Engine.Town.Palace.Defect(m, 0, 3);                              // 조안이 잉글랜드로
+        Assert.Equal(0x63, Uw2.Game.Engine.Town.Navigators.Get(m, 0, 0x31));       // 위 네 비트는 그대로
+        int Favor(int n) => m.Read(Uw2.Game.Engine.ScenarioMemory.At(1, 0, 6 + n), false);
+        Assert.Equal((70, 110), (Favor(0), Favor(3)));                             // 100 − 30 · 100 + 10
+    }
 }
