@@ -518,4 +518,16 @@ public class EngineTests
         back.Restore(mon.Slots, mon.Next);
         Assert.Equal(mon.Slots, back.Slots);
     }
+
+    [Fact]
+    public void PubRumourNamesANearbyUnknownPortInDegrees()
+    {
+        var seq = new Queue<int>([2, 0, 3, 1]);                                       // 뒤로 둘(알던 곳) → 앞으로 셋
+        int port = Uw2.Game.Engine.Town.Pub.RumourPort(10, p => p == 8, _ => seq.Dequeue());
+        Assert.Equal(13, port);
+        Assert.Equal(-1, Uw2.Game.Engine.Town.Pub.RumourPort(0, _ => true, _ => 0));
+        var (north, lat, east, lon) = Uw2.Game.Engine.Town.Pub.Degrees(120, 358);   // 리스본
+        Assert.True(north); Assert.Equal(39, lat);
+        Assert.False(east); Assert.Equal(9, lon);
+    }
 }

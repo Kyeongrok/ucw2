@@ -44,6 +44,33 @@ public static class Pub
     /// <summary>술 이름 — 갈래마다(<c>0x00457148</c>, 11바이트씩).</summary>
     public static readonly string[] Drinks = ["럼주", "와인", "위스키", "브랜디", "진", "맥주", "보드카", "테킬라", "야자주", "유주"];
 
+    /// <summary>
+    /// 한턱낸 뒤의 항구 소문(<c>0x00424B70</c>) — 지금 항구 번호에서 rand(5) 만큼 앞이나 뒤(rand(2))의 항구가 0 ~ 99 안에 있고
+    /// 아직 모르는 곳(표 12 +0x15 &amp; 0x10 이 0)이면 그 항구를 고른다. 열 번 해서 못 고르면 -1.
+    /// </summary>
+    public static int RumourPort(int current, Func<int, bool> known, Func<int, int> rand)
+    {
+        for (int tries = 0; tries < 10; tries++)
+        {
+            int off = rand(5);
+            bool ahead = rand(2) != 0;
+            int port = ahead ? current + off : current - off;
+            if (port < 0 || port > 0x63) continue;
+            if (!known(port)) return port;
+        }
+        return -1;
+    }
+
+    /// <summary>항구 자리를 도 단위 경위도로(<c>0x00424120</c>) — 말 0x7E/0x7F(북위 · 남위) 와 0x80/0x81(동경 · 서경).</summary>
+    public static (bool North, int Lat, bool East, int Lon) Degrees(int x, int y)
+    {
+        int lon = (x + 0x7BD) % 0x870;
+        bool west = lon > 0x438;
+        if (west) lon = 0x870 - lon;
+        int lat = 0x280 - y;
+        return (lat >= 0, Math.Abs(lat) * 8 / 57, !west, lon / 6);
+    }
+
     /// <summary>쓸 수 있는 수 — 올 사람 · 돈 · 빈 자리 가운데 작은 것.</summary>
     public static int MostHirable(int available, int gold, int price, int vacancy) =>
         Math.Max(0, Math.Min(available, Math.Min(price > 0 ? gold / price : 0, vacancy)));

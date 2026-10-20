@@ -1259,7 +1259,10 @@ public sealed class SeaMapWindow : Window
     /// <summary>주점 분위기 S(<c>0x0049A1B0</c>) — 주점에 들 때 매력 / 3 으로 정한다.</summary>
     private int _pubMood;
 
-    /// <summary>주점 「한턱내기」(<c>0x00424880</c>) — 술을 내 분위기를 올린다(<see cref="Pub.Treat"/>). 소문 이야기(<c>0x00424990</c>)는 아직이다.</summary>
+    /// <summary>
+    /// 주점 「한턱내기」(<c>0x00424880</c>) — 술을 내 분위기를 올린다(<see cref="Pub.Treat"/>). 손님이 명성으로 맞은 뒤(<c>0x00424990</c>)
+    /// 맡은 일이 없으면 모르는 항구 소문을 한다(<see cref="Pub.RumourPort"/>). 원본의 나라 싸움 · 항해자 소문 갈래는 아직이다.
+    /// </summary>
     private void TreatBar()
     {
         if (_host.Economy is not { } eco || _host.CurrentPort < 0 || _host.CurrentPort >= eco.States.Count) return;
@@ -1284,7 +1287,28 @@ public sealed class SeaMapWindow : Window
             if (best < 1000) Say(0x24, "한턱 써 줘서 고맙소！");
             else if (best < 5000) Say(0x84, $"아, 당신 꽤 유명한 {title} {name} {family}(가) 아니오！", title, name, family);
             else Say(0x85, $"야호, {name} {family}(가) 한턱 낸다니 기쁜데.", name, family);
+            if (_host.Common is not { Chapter: not 0 }) TellPortRumour(vm);
         }
+    }
+
+    /// <summary>모르는 항구 소문 — 「그건 그렇고, 당신, 북위 ○도, 서경 ○도에 있는 ○○항에 가본 적 있소？」 뒤에 특산품(<c>0x00424C10</c>).</summary>
+    private void TellPortRumour(ScenarioVm vm)
+    {
+        if (_host.Ports is not { } pt || _host.Economy is not { } eco) return;
+        bool Known(int port) => port >= pt.Ports.Count || port >= eco.States.Count
+            || (vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PortTable, port, 0x15), false) & 0x10) != 0;
+        int to = Pub.RumourPort(_host.CurrentPort, Known, Random.Shared.Next);
+        if (to < 0) return;
+        var (north, lat, east, lon) = Pub.Degrees(pt.Ports[to].X, pt.Ports[to].Y);
+        string head = MsgOr(0x25, "그건 그렇고, 당신, ")
+            + MsgOr(north ? 0x7E : 0x7F, $"{(north ? "북위" : "남위")} {lat}도, ", lat)
+            + MsgOr(east ? 0x80 : 0x81, $"{(east ? "동경" : "서경")} {lon}도", lon)
+            + MsgOr(0x82, $"에 있는 {pt.Ports[to].Name}항에 가본 적 있소？", pt.Ports[to].Name);
+        int good = eco.StateBytes[to * Economy.StateSize + 0x1A];
+        string tail = good != 0xFF && good < eco.GoodsNames.Count
+            ? MsgOr(0x83, $"그 곳은 {eco.GoodsNames[good]}(가) 유명하지.", eco.GoodsNames[good])
+            : MsgOr(0x2E6, "마음이 끌리면 가 봐.");
+        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", head), new ScenarioVm.Line("", tail)]);
     }
 
     /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>
