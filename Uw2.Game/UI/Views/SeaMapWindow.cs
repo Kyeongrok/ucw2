@@ -1726,6 +1726,7 @@ public sealed class SeaMapWindow : Window
                 string tn = _host.StartTables is { } t0 && sh.Type < t0.Templates.Count ? t0.Templates[sh.Type].Name ?? "" : "";
                 info.AppendLine($"{sh.Name} — {tn} · 등급 {sh.Grade}");
                 info.AppendLine($"    내구 {sh.Hull}/{sh.MaxHull} · 역풍 {sh.Upwind} · 돛 {sh.Sail} · 대포 {sh.Guns} · 선원 자리 {sh.MaxCrew} · 짐칸 {sh.Room}");
+                info.AppendLine($"    승무원비율 돛 {sh.SailShare}% · 대포 {sh.GunShare}% · 나머지 {100 - sh.SailShare - sh.GunShare}%");
             }
             MessageBox.Show(this, info.ToString(), "함선정보");
             return;
