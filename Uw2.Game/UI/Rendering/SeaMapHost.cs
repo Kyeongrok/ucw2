@@ -343,7 +343,7 @@ public sealed class SeaMapHost : HwndHost
     public const int StandInShipType = 5;
 
     /// <summary>제 함대 배의 이름 — 본보기(선종 이름)를 그대로 쓴다. 명명은 아직이다.</summary>
-    public string ShipName { get; private set; } = "";
+    public string ShipName { get; set; } = "";
 
     /// <summary>시나리오 파일이 있는 폴더 — 구운 자산이면 <c>asset/snr</c>, 게임 폴더면 그 폴더.</summary>
     private string? _scenarioDir;

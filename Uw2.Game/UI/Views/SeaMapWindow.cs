@@ -204,6 +204,7 @@ public sealed class SeaMapWindow : Window
         if (b == TradeBuilding && pick == 2) { Invest(industry: false); return; }
         if (b == TradeBuilding && pick == 3) { ShowPriceIndex(); return; }
         if (b == ShipyardBuilding && pick == 5) { Invest(industry: true); return; }
+        if (b == ShipyardBuilding && pick == 4) { Refit(); return; }
         if (b == ShipyardBuilding && pick == 0) { ShowShipyard(); return; }
         if (b == ShipyardBuilding && pick == 1) { BuyUsedShip(); return; }
         if (b == ShipyardBuilding && pick == 2) { RepairShips(); return; }
@@ -1146,6 +1147,23 @@ public sealed class SeaMapWindow : Window
         }
     }
 
+    /// <summary>조선소 「개조」 — 목록 23(선수상 · 무장 · 적재비율변경 · 이름변경, 손표 <c>0x00458CA0</c>) 가운데 된 것.</summary>
+    private void Refit()
+    {
+        int pick = BuildingMenu.Ask(this, "개조", ["이름변경"]);
+        if (pick != 0) return;
+        // 이름변경(<c>0x0042A470</c>) — 배를 고르고(0x111) 0x113 뒤 일곱 자까지 받는다. 값은 받지 않는다.
+        var p = _host.Player;
+        int which = BuildingMenu.Ask(this, MsgOr(0x111, "어느 부대요？"), p.Ships.Select(sh => sh.Name).ToList());
+        if (which < 0) return;
+        var ship = p.Ships[which];
+        string? name = TextDialog.Ask(this, MsgOr(0x113, "그럼, 배에 새 이름을 붙여 주시오."), ship.Name, 7);
+        if (name == null) return;
+        ship.Name = name;
+        if (which == 0) _host.ShipName = name;
+        Note($" · 배 이름을 「{name}」{(KoreanBatchim(name) ? "으로" : "로")} 바꿨습니다");
+    }
+
     /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>
     private void FireCrew()
     {
@@ -1842,7 +1860,8 @@ public sealed class SeaMapWindow : Window
         ship.Captain = free[who];
         Navigators.Command(vm.Memory, ship.Captain, aboard: true);
         _host.Recaptain(pick + 1);
-        Note($" · {ship.Name}의 선장을 {_host.PersonName(ship.Captain)}(으)로 바꿨습니다");
+        string skipper = _host.PersonName(ship.Captain);
+        Note($" · {ship.Name}의 선장을 {skipper}{(KoreanBatchim(skipper) ? "으로" : "로")} 바꿨습니다");
     }
 
     /// <summary>「함선처분」 — 배를 버린다. 기함은 안 된다(0xE9). 짐 · 선원도 함께 잃는다.</summary>
