@@ -61,6 +61,31 @@ public static class Pub
         return -1;
     }
 
+    /// <summary>
+    /// 소문 갈래(<c>0x00424AD5</c>) — rand(1300 − 12 x 병) 가 항구 경제보다 크면 항구 소문, 아니면 짐 팔 곳 귀띔. 술을 많이 낼수록 귀띔이 잦다.
+    /// </summary>
+    public static bool PortRumourFirst(int bottles, int economy, Func<int, int> rand) => rand(Math.Max(1, 0x514 - bottles * 12)) > economy;
+
+    /// <summary>
+    /// 짐 팔 곳 귀띔(<c>0x00424CB0</c>) — 제 배 칸 열(rand(10)) 가운데 하나의 짐 칸 다섯(rand(5)) 하나를 쉰 번까지 뽑아 빈 칸이 아닌 짐을 고른다.
+    /// 고르면 시장 0 ~ 7 가운데 그 짐 값(+0 낱말)이 가장 비싼 곳 — 더 비싼 곳을 만날 때마다 rand(8) ≠ 0 이어야 바꾼다(<c>0x00424D30</c>).
+    /// 짐이 없으면 (-1, -1) 로 항구 소문에 넘긴다.
+    /// </summary>
+    public static (int Good, int Market) CargoTip(IReadOnlyList<int[]> cargo, IReadOnlyList<int[]> pays, Func<int, int> rand)
+    {
+        int good = -1;
+        for (int tries = 0; tries < 50 && good < 0; tries++)
+        {
+            int ship = rand(10), slot = rand(5);
+            if (ship < cargo.Count && slot < cargo[ship].Length && cargo[ship][slot] >= 0) good = cargo[ship][slot];
+        }
+        if (good < 0) return (-1, -1);
+        int best = 0, market = 0;
+        for (int m = 0; m < 8 && m < pays.Count; m++)
+            if (good < pays[m].Length && pays[m][good] > best && rand(8) != 0) { best = pays[m][good]; market = m; }
+        return (good, market);
+    }
+
     /// <summary>항구 자리를 도 단위 경위도로(<c>0x00424120</c>) — 말 0x7E/0x7F(북위 · 남위) 와 0x80/0x81(동경 · 서경).</summary>
     public static (bool North, int Lat, bool East, int Lon) Degrees(int x, int y)
     {

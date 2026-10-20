@@ -530,4 +530,17 @@ public class EngineTests
         Assert.True(north); Assert.Equal(39, lat);
         Assert.False(east); Assert.Equal(9, lon);
     }
+
+    [Fact]
+    public void PubCargoTipPicksTheBestPayingMarketForACarriedGood()
+    {
+        int[][] cargo = [[-1, 7, -1, -1, -1]];
+        int[][] pays = [.. Enumerable.Range(0, 9).Select(m => Enumerable.Range(0, 46).Select(g => g == 7 ? (m == 3 ? 900 : m == 8 ? 2000 : 100) : 0).ToArray())];
+        var seq = new Queue<int>([4, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]);                // 없는 배 → 첫 배 칸 1, 시장 여덟마다 rand(8) = 1
+        var (good, market) = Uw2.Game.Engine.Town.Pub.CargoTip(cargo, pays, _ => seq.Count > 0 ? seq.Dequeue() : 1);
+        Assert.Equal(7, good);
+        Assert.Equal(3, market);                                                        // 시장 8 은 보지 않는다
+        Assert.Equal((-1, -1), Uw2.Game.Engine.Town.Pub.CargoTip([[-1, -1, -1, -1, -1]], pays, _ => 0));
+        Assert.True(Uw2.Game.Engine.Town.Pub.PortRumourFirst(50, 100, _ => 101));
+    }
 }

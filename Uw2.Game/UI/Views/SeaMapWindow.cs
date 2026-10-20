@@ -1261,7 +1261,7 @@ public sealed class SeaMapWindow : Window
 
     /// <summary>
     /// 주점 「한턱내기」(<c>0x00424880</c>) — 술을 내 분위기를 올린다(<see cref="Pub.Treat"/>). 손님이 명성으로 맞은 뒤(<c>0x00424990</c>)
-    /// 맡은 일이 없으면 모르는 항구 소문을 한다(<see cref="Pub.RumourPort"/>). 원본의 나라 싸움 · 항해자 소문 갈래는 아직이다.
+    /// 맡은 일이 없으면 모르는 항구 소문이나 짐 팔 곳 귀띔을 한다(<see cref="Pub.PortRumourFirst"/>). 원본의 나라 싸움 소문 갈래는 아직이다.
     /// </summary>
     private void TreatBar()
     {
@@ -1287,8 +1287,23 @@ public sealed class SeaMapWindow : Window
             if (best < 1000) Say(0x24, "한턱 써 줘서 고맙소！");
             else if (best < 5000) Say(0x84, $"아, 당신 꽤 유명한 {title} {name} {family}(가) 아니오！", title, name, family);
             else Say(0x85, $"야호, {name} {family}(가) 한턱 낸다니 기쁜데.", name, family);
-            if (_host.Common is not { Chapter: not 0 }) TellPortRumour(vm);
+            if (_host.Common is not { Chapter: not 0 })
+            {
+                if (Pub.PortRumourFirst(n, eco.States[_host.CurrentPort].Economy, Random.Shared.Next) || !TellCargoTip()) TellPortRumour(vm);
+            }
         }
+    }
+
+    /// <summary>짐 팔 곳 귀띔 — 「○○(라면) ○○ 지방에서 팔면 좋지 않을까？」(<see cref="Pub.CargoTip"/>). 짐이 없으면 false.</summary>
+    private bool TellCargoTip()
+    {
+        if (_host.Economy is not { } eco) return false;
+        var cargo = _host.Player.Ships.Select(s => s.Cargo.Select(c => c.Good).ToArray()).ToList();
+        var (good, market) = Pub.CargoTip(cargo, [.. eco.Markets.Select(m => m.Pays)], Random.Shared.Next);
+        if (good < 0 || good >= eco.GoodsNames.Count) return false;
+        SayText(MsgOr(0x34E, $"{eco.GoodsNames[good]}(라면) ", eco.GoodsNames[good]) + MsgOr(0x181 + market, "")
+                + MsgOr(0x34F, "지방에서 팔면 좋지 않을까？"));
+        return true;
     }
 
     /// <summary>모르는 항구 소문 — 「그건 그렇고, 당신, 북위 ○도, 서경 ○도에 있는 ○○항에 가본 적 있소？」 뒤에 특산품(<c>0x00424C10</c>).</summary>
