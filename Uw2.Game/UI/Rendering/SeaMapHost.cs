@@ -350,12 +350,22 @@ public sealed class SeaMapHost : HwndHost
         Player.SetGold(run.Gold);
         if (StartTables is not { } start || Fleet == null) return;
         foreach (int type in run.Ships)
-        {
-            if (type < 0 || type >= start.ShipTypes.Count || Player.Ships.Any(s => s.Type == type)) continue;
-            var t = start.Templates.Count > type ? start.Templates[type] : default;
-            Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], start.People[HeroPerson[Hero]], t.Oars));
-            Player.Ships.Add(new PlayerState.Ship { Type = type, Name = t.Name ?? "", Room = t.CargoRoom });
-        }
+            if (!Player.Ships.Any(s => s.Type == type)) AddShip(type);
+    }
+
+    /// <summary>함대 한 벌의 배 칸 — 열(<see cref="StartData.SlotCount"/>).</summary>
+    public const int MaxShips = StartData.SlotCount;
+
+    /// <summary>그 선종의 새 배를 함대 끝에 넣는다. 칸이 다 찼거나 선종이 없으면 false.</summary>
+    public bool AddShip(int type)
+    {
+        if (StartTables is not { } start || Fleet == null) return false;
+        if (type < 0 || type >= start.ShipTypes.Count || Player.Ships.Count >= MaxShips) return false;
+        var t = start.Templates.Count > type ? start.Templates[type] : default;
+        Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[type], start.People[HeroPerson[Hero]], t.Oars));
+        Player.Ships.Add(new PlayerState.Ship { Type = type, Name = t.Name ?? "", Room = t.CargoRoom });
+        SyncLoad();
+        return true;
     }
 
     /// <summary>돈과 짐. 주인공을 정하면 새로 만든다.</summary>

@@ -57,13 +57,25 @@ public sealed class SeaMapWindow : Window
         if (_host.Economy is not { } eco || _host.StartTables is not { } start) return;
         var types = eco.Buildable(_host.CurrentPort, start.ShipTypes);
         if (types.Count == 0) { _doorNote = " · 이 조선소는 배를 지을 수 없습니다"; UpdateStatus(); return; }
-        BuildingMenu.Ask(this, "함선 건조 — 값",
-            types.Select(t => $"{(t < start.Templates.Count ? start.Templates[t].Name : t.ToString()),-10} {start.ShipTypes[t].Price,6}").ToList());
+        string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
+        var p = _host.Player;
+        int pick = BuildingMenu.Ask(this, $"함선 건조 — 돈 {p.Gold} · 배 {p.Ships.Count}/{SeaMapHost.MaxShips}",
+            types.Select(t => $"{NameOf(t),-10} {start.ShipTypes[t].Price,6}").ToList());
+        if (pick < 0) return;
+        int type = types[pick], price = start.ShipTypes[type].Price;
+        if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
+        if (p.Gold < price) { Note($" · 돈이 모자랍니다({NameOf(type)} {price})"); return; }
+        if (!_host.AddShip(type)) return;
+        p.SetGold(p.Gold - price);
+        Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 지었습니다");
     }
+
+    private static bool KoreanBatchim(string s) =>
+        s.Length > 0 && s[^1] is >= '가' and <= '힣' && (s[^1] - '가') % 28 != 0;
 
     /// <summary>
     /// 건물 고르기 — 목록은 <c>MENU.DAT</c> 그대로(<see cref="MenuTable.BuildingList"/>). 된 것은 항구 「출항 · 보급」 ·
-    /// 교역소 「구입 · 매각」 · 조선소 「함선 건조」(값 보기)이고, 나머지는 고르면 「아직」이라고 적는다.
+    /// 교역소 「구입 · 매각」 · 조선소 「함선 건조」(돈을 내고 짓기, 열 척까지)이고, 나머지는 고르면 「아직」이라고 적는다.
     /// </summary>
     private void EnterBuilding(int b)
     {
