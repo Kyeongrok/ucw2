@@ -616,6 +616,11 @@ public sealed class SeaMapWindow : Window
         Content = grid;
 
         _host.Painted += UpdateStatus;
+        _host.DiseaseCaught += name =>
+        {
+            _seaNote = $" · {name}이 돌기 시작했습니다";
+            UpdateStatus();
+        };
         _host.FleetReady += f => f.Weather.Said += line =>
         {
             _seaNote = $" · 「{line}」";

@@ -48,6 +48,8 @@ public sealed class SaveGame
         public int Balance { get; set; }
         public int WaterRate { get; set; } = PlayerState.FullRation;
         public int FoodRate { get; set; } = PlayerState.FullRation;
+        public bool Scurvy { get; set; }
+        public bool Fever { get; set; }
         public List<ShipData> Ships { get; set; } = [];
     }
 
@@ -72,7 +74,7 @@ public sealed class SaveGame
 
     public static PlayerData From(PlayerState p) => new()
     {
-        Gold = p.Gold, Balance = p.Balance, WaterRate = p.WaterRate, FoodRate = p.FoodRate,
+        Gold = p.Gold, Balance = p.Balance, WaterRate = p.WaterRate, FoodRate = p.FoodRate, Scurvy = p.Scurvy, Fever = p.Fever,
         Ships = [.. p.Ships.Select(s => new ShipData
         {
             Type = s.Type, Name = s.Name, Room = s.Room, Supplies = [.. s.Supplies],
@@ -84,7 +86,7 @@ public sealed class SaveGame
 
     public static PlayerState ToPlayer(PlayerData d)
     {
-        var p = new PlayerState(d.Gold) { WaterRate = d.WaterRate, FoodRate = d.FoodRate };
+        var p = new PlayerState(d.Gold) { WaterRate = d.WaterRate, FoodRate = d.FoodRate, Scurvy = d.Scurvy, Fever = d.Fever };
         p.Transfer(d.Balance);          // 돈 → 잔고로 옮긴 꼴이라 돈은 다시 매긴다
         p.SetGold(d.Gold);
         foreach (var s in d.Ships)

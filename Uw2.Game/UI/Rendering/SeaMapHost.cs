@@ -247,6 +247,10 @@ public sealed class SeaMapHost : HwndHost
             Fleet.NewDay += () =>
             {
                 Player.ConsumeDay(i => CaptainLead(i));
+                int hero = HeroPersonNumber;
+                int luck = HeroStat(hero, 0x23), nav = HeroStat(hero, 0x24);
+                if (Player.DiseaseDay(Fleet.DaysAtSea, luck, nav, i => CaptainStat(i, 2), Roll) is { } caught)
+                    DiseaseCaught?.Invoke(caught);
                 SyncLoad();
             };
             Fleet.NewMonth += () =>
@@ -595,6 +599,25 @@ public sealed class SeaMapHost : HwndHost
             Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Load, Crew = Player.Ships[i].Crew };
     }
 
+    /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
+    public event Action<string>? DiseaseCaught;
+
+    /// <summary>사람 기록 한 바이트 — 시나리오 기억이 있으면 거기서, 없으면 처음 표에서.</summary>
+    private int HeroStat(int person, int field)
+    {
+        if (Scenario != null) return Uw2.Game.Engine.Town.Navigators.Get(Scenario.Memory, person, field);
+        int o = person * StartData.PersonSize + field;
+        return StartTables is { } st && o < st.PeopleBytes.Length ? st.PeopleBytes[o] : 0;
+    }
+
+    /// <summary>그 배 선장의 능력치 k(+0x1C + k).</summary>
+    private int CaptainStat(int ship, int k)
+    {
+        if (ship >= Player.Ships.Count) return 0;
+        int who = Player.Ships[ship].Captain is >= 0 and var c ? c : HeroPersonNumber;
+        return HeroStat(who, 0x1C + k);
+    }
+
     /// <summary>그 배 선장의 능력치 +0x1C — 사기 셈에 든다.</summary>
     private int CaptainLead(int ship)
     {
@@ -713,6 +736,7 @@ public sealed class SeaMapHost : HwndHost
         if (Fleet == null || Ports == null || port < 0 || port >= Ports.Ports.Count) return false;
         var p = Ports.Ports[port];
         if (!Fleet.PlaceNearSea(p.X, p.Y)) return false;
+        Fleet.ResetDaysAtSea();
 
         Fleet.Heading = 0;
         Fleet.UnderSail = true;
@@ -779,6 +803,8 @@ public sealed class SeaMapHost : HwndHost
         if (port < 0 || port >= _portMaps.Ports) return false;
 
         CurrentPort = port;
+        // 항구에 들면 병이 낫는다(0x0041A588).
+        Player.Scurvy = Player.Fever = false;
         if (Scenario != null && Economy is { } eco && StartTables is { } st && port < eco.States.Count)
         {
             var ps = eco.States[port];

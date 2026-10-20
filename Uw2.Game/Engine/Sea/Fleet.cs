@@ -45,8 +45,10 @@ public sealed class Fleet
     /// <summary>하루 안 시각(0~71). 새 게임은 24(아침 8시)에서 시작한다(<c>SDATA.DAT</c> 머리 +7).</summary>
     public int TimeOfDay { get; private set; } = MorningTick;
 
-    /// <summary>바다에서 보낸 날 수.</summary>
+    /// <summary>바다에서 보낸 날 수(<c>0x0045BDA8</c>) — 항에서 나갈 때 0 으로(<c>0x00422C36</c>).</summary>
     public int DaysAtSea { get; private set; }
+
+    public void ResetDaysAtSea() => DaysAtSea = 0;
 
     /// <summary>방위 가짓수.</summary>
     public const int DirCount = Sailing.DirCount;

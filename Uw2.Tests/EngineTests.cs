@@ -376,4 +376,18 @@ public class EngineTests
         Assert.Equal(30, p.SellAll(4, 0));
         Assert.Equal(7, p.Gold);
     }
+
+    [Fact]
+    public void ScurvySpoilsFoodAndFeverTakesCrewAfterLongVoyages()
+    {
+        var p = new PlayerState(0);
+        p.Ships.Add(new PlayerState.Ship { Type = 5, Name = "배", Room = 100, Crew = 30 });
+        p.Ships[0].Supplies[PlayerState.Food] = 25;
+        Assert.Null(p.DiseaseDay(30, 50, 10, _ => 60, _ => 0));          // 30 일까지는 안 걸린다
+        Assert.Equal("괴혈병", p.DiseaseDay(31, 50, 10, _ => 60, n => n == 105 ? 104 : 0));
+        Assert.Equal(15, p.Ships[0].Supplies[PlayerState.Food]);
+        Assert.Equal("열병", p.DiseaseDay(61, 50, 10, _ => 60, n => n == 105 ? 104 : 1));
+        // 식량 15 − 10, 선원 30 − ((100 − 60) / 5 + 1)
+        Assert.Equal((5, 21), (p.Ships[0].Supplies[PlayerState.Food], p.Ships[0].Crew));
+    }
 }
