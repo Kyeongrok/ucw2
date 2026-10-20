@@ -158,9 +158,20 @@ public sealed class SeaMapWindow : Window
     {
         // 그 항구 · 건물에 시나리오 이벤트가 걸려 있으면 그것이 먼저다(0x00431FD9 → 0x0043F8C0).
         var (name, family) = _host.HeroName;
-        if (_host.Scenario is { } vm)
-            vm.Choose = (before, options) => ScenarioDialog.Ask(this, _host.Faces, before, options);
+        ScenarioVm.Chooser ask = (before, options) => ScenarioDialog.Ask(this, _host.Faces, before, options);
+        if (_host.Scenario is { } vm) vm.Choose = ask;
+        if (_host.Common is { } common) common.Choose = ask;
         _host.WriteShipSide();
+        // 함께 쓰는 시나리오가 먼저다(0x00431FB5). 그것이 F8 로 볼일을 대신하면 목록은 뜨지 않지만 주인공 시나리오는 돈다.
+        bool menu = true;
+        if (_host.Common?.Enter(_host.CurrentPort, b, _host.Player.Gold, name, family) is { } shared)
+        {
+            if (shared.Pending.Count > 0) ScenarioDialog.Play(this, _host.Faces, shared.Pending);
+            _host.Apply(shared);
+            _host.WriteShipSide();
+            menu = !shared.Stopped;
+        }
+        if (!menu && b != InnBuilding) { Note($" · 「{PortDoors.Names[b]}」 이벤트"); }
         if (_host.Scenario?.Enter(_host.CurrentPort, b, _host.Player.Gold, name, family) is { Lines.Count: > 0 } run)
         {
             ScenarioDialog.Play(this, _host.Faces, run.Pending);
@@ -170,6 +181,7 @@ public sealed class SeaMapWindow : Window
             // F8 이 선 이벤트는 건물 볼일을 대신한다. 아니면, 또 여관이면 늘 목록이 이어서 뜬다(0x00431FF9).
             if (run.Stopped && b != InnBuilding) return;
         }
+        if (!menu && b != InnBuilding) return;
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
         if (b == ChurchBuilding) _worshipped = false;

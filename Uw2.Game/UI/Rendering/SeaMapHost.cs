@@ -345,6 +345,12 @@ public sealed class SeaMapHost : HwndHost
     /// <summary>얼굴 판 — 시나리오 대사 창이 쓴다. 구워 두지 않았으면 null.</summary>
     public FaceSheet? Faces { get; private set; }
 
+    /// <summary>
+    /// 함께 쓰는 시나리오(SNR0) — 주인공 시나리오보다 먼저 건물마다 돈다(<c>0x0043F8C0</c>). 깃발 · 변수 · 장 · 절은 따로,
+    /// 게임 기억은 주인공 시나리오와 함께 쓴다.
+    /// </summary>
+    public ScenarioVm? Common { get; private set; }
+
     /// <summary>주인공의 시나리오 기계. 파일이 없으면 null.</summary>
     public ScenarioVm? Scenario { get; private set; }
 
@@ -354,6 +360,7 @@ public sealed class SeaMapHost : HwndHost
     private void LoadScenario(int person)
     {
         Scenario = null;
+        Common = null;
         if (_scenarioDir == null) return;
         for (int n = 1; n <= 6; n++)
         {
@@ -362,6 +369,9 @@ public sealed class SeaMapHost : HwndHost
             var code = File.ReadAllBytes(dat);
             if (Uw2.Support.Local.Formats.Scenario.OwnerOf(code) != person) continue;
             Scenario = new ScenarioVm(code, ScenarioText.Load(mes));
+            string dat0 = Path.Combine(_scenarioDir, "SNR0.DAT"), mes0 = Path.Combine(_scenarioDir, "SNR0.MES");
+            Common = File.Exists(dat0) && File.Exists(mes0)
+                ? new ScenarioVm(File.ReadAllBytes(dat0), ScenarioText.Load(mes0), Scenario.Memory) : null;
             Scenario.Cargo = (good, amount) =>
             {
                 int moved = amount == int.MinValue ? Player.SellAll(good, 0) : Player.Stow(good, amount);
@@ -422,6 +432,12 @@ public sealed class SeaMapHost : HwndHost
         }
         Scenario.GameValues[ScenarioVm.ValuePort] = CurrentPort < 0 ? 255 : CurrentPort;
         Scenario.ShipCount = Player.Ships.Count;
+        if (Common != null)
+        {
+            Scenario.GameValues.CopyTo(Common.GameValues, 0);
+            Common.ShipCount = Scenario.ShipCount;
+            Common.Cargo = Scenario.Cargo;
+        }
         if (Economy != null) Scenario.Memory.Fill(ScenarioMemory.PortStateTable, Economy.StateBytes);
         // 은행 잔고 — 표 2 +4 낱말 x 100 + +6 바이트(0x0049F5AC · 0x0049F5AE).
         int hundreds = Player.Balance / 100, rest = Player.Balance - hundreds * 100;
@@ -465,7 +481,7 @@ public sealed class SeaMapHost : HwndHost
         var save = new SaveGame
         {
             Hero = Hero, Port = CurrentPort, HomePort = homePort, SavedAt = DateTime.Now,
-            Fleet = Fleet?.Export() ?? new(), Player = SaveGame.From(Player), Scenario = Scenario?.Export(),
+            Fleet = Fleet?.Export() ?? new(), Player = SaveGame.From(Player), Scenario = Scenario?.Export(), Common = Common?.Export(),
             PortStates = Economy is { } eco ? (byte[])eco.StateBytes.Clone() : [],
         };
         string where = CurrentPort >= 0 ? SceneName : "바다";
@@ -492,6 +508,7 @@ public sealed class SeaMapHost : HwndHost
         ShipName = Player.Ships.Count > 0 ? Player.Ships[0].Name : "";
         SyncLoad();
         if (save.Scenario != null) Scenario?.Import(save.Scenario);
+        if (save.Common != null) Common?.Import(save.Common);
         if (save.PortStates.Length > 0) Economy?.RestoreStates(save.PortStates);
         Fleet.Import(save.Fleet);
         if (save.Port >= 0) ShowPort(save.Port);

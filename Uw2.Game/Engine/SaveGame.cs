@@ -23,6 +23,9 @@ public sealed class SaveGame
     public FleetState Fleet { get; set; } = new();
     public PlayerData Player { get; set; } = new();
     public ScenarioVm.State? Scenario { get; set; }
+
+    /// <summary>함께 쓰는 시나리오(SNR0)의 기계 상태 — 기억은 주인공 것과 같다.</summary>
+    public ScenarioVm.State? Common { get; set; }
     public byte[] PortStates { get; set; } = [];
 
     public sealed class FleetState
