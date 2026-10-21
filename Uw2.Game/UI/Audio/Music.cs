@@ -66,4 +66,13 @@ public static class Music
         _player?.Stop();
         _now = -1;
     }
+
+    /// <summary>켜고 끈다 — 끄면 멈추고, 켜면 <paramref name="resume"/> 곡을 다시 튼다.</summary>
+    public static void Toggle(int resume)
+    {
+        int was = _now;
+        Enabled = !Enabled;
+        if (!Enabled) Stop();
+        else Play(was >= 0 ? was : resume);
+    }
 }

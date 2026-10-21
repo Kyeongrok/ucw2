@@ -2574,6 +2574,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("출항", (_, _) => PutToSea()));
         bar.Children.Add(Button("저장", (_, _) => SaveToSlot()));
         bar.Children.Add(Button("로드", (_, _) => LoadFromSlot()));
+        bar.Children.Add(Button("환경", (_, _) => Environment_()));
         bar.Children.Add(Button("중단", (_, _) => QuitToTitle()));
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
         bar.Children.Add(Button("편성", (_, _) => Organize()));
@@ -4218,6 +4219,29 @@ public sealed class SeaMapWindow : Window
         _host.Sailing = false;
         Ended?.Invoke();
         Close();
+    }
+
+    /// <summary>목록 20 「환경」 — 목록 30 의 ＢＧＭ 처럼 음악 · 효과음을 켜고 끈다(표시 · 이동 속도 · 빛깔은 아직).</summary>
+    private void Environment_()
+    {
+        while (true)
+        {
+            string[] items =
+            [
+                $"ＢＧＭ        {(Uw2.Game.UI.Audio.Music.Enabled ? "켜짐" : "꺼짐")}",
+                $"효과음        {(Uw2.Game.UI.Audio.Sound.Enabled ? "켜짐" : "꺼짐")}",
+            ];
+            int pick = BuildingMenu.Ask(this, "환경", items);
+            if (pick < 0) return;
+            if (pick == 0)
+            {
+                Uw2.Game.UI.Audio.Music.Toggle(Uw2.Game.UI.Audio.Music.Sea);
+                _forceSceneMusic = true;
+                PlaySceneMusic();
+            }
+            else Uw2.Game.UI.Audio.Sound.Enabled = !Uw2.Game.UI.Audio.Sound.Enabled;
+            Uw2.Game.UI.Audio.AudioSettings.Save();
+        }
     }
 
     /// <summary>목록 20 「중단」(<c>0x00416C7B</c>) — 「게임을 끝내겠습니다.」(0x3BE)에 그러면 끝 깃발 0x80 으로 제목에 돌아간다.</summary>
