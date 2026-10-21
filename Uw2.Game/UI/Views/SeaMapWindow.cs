@@ -188,6 +188,7 @@ public sealed class SeaMapWindow : Window
         if (b == NpcBuilding) { AtPatron(); return; }
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
+        if (b == PalaceBuilding) items = items.Take(4).ToList();   // 다섯째 「밀회」는 원본도 안 보인다(0x00427F13 push 4)
         if (b == ChurchBuilding) _worshipped = false;
         if (b == PubBuilding) _pubMood = Pub.Mood(HeroField(Navigators.Stats + 6));
         // 교역소는 교역 명성이 1000 이상이면 이름으로 맞는다(0x0042174E — 말 1, 아니면 0).
@@ -850,7 +851,7 @@ public sealed class SeaMapWindow : Window
         Note(job.Chapter != 0 ? $" · 「{taken}」을 맡았습니다" : " · 일을 맡지 않았습니다");
     }
 
-    /// <summary>왕궁 — 망명은 다른 나라에서, 자금 · 선박원조는 제 나라에서(<see cref="Palace"/>). 알현 · 밀회는 시나리오 몫이다.</summary>
+    /// <summary>왕궁 — 망명은 다른 나라에서, 자금 · 선박원조는 제 나라에서(<see cref="Palace"/>). 알현은 시나리오 몫이다.</summary>
     private void AtPalace(int pick)
     {
         if (_host.Scenario is not { } vm || _host.Ports is not { } ports || _host.CurrentPort < 0
@@ -1146,7 +1147,7 @@ public sealed class SeaMapWindow : Window
         if (who < 0) return;
         int nav = here[who];
         string name = _host.PersonName(nav);
-        var items = _host.Menus?.Lists is { Count: > 12 } lists ? lists[12].ToList() : ["한턱내기", "항해자정보", "고용", "결투"];
+        var items = _host.Menus?.Lists is { Count: > 12 } lists ? lists[12].Take(3).ToList() : ["한턱내기", "항해자정보", "고용"];   // 넷째 「결투」는 원본도 안 보인다(0x00425919 push 3)
         if (!pub) items = items.Skip(1).Take(2).ToList();
         while (true)
         {
