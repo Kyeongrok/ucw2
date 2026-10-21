@@ -123,12 +123,15 @@ public class AssetTests
         bytes[0x0E + Economy.CategoryOf(16)] = Economy.SpecialIndexLimit;
         high.RestoreStates(bytes);
         Assert.DoesNotContain(high.ForSale(0), g => g.Good == 16);
+        Assert.Equal(0, high.SpecialStatus(0));                                // 품절(말 4)
         // 경제가 +0x1B x 10 에 못 미쳐도 안 판다
         var poor = eco.Clone();
         bytes = (byte[])poor.StateBytes.Clone();
         bytes[0x1B] = (byte)(lisbon.Economy / 10 + 1);
         poor.RestoreStates(bytes);
         Assert.DoesNotContain(poor.ForSale(0), g => g.Good == 16);
+        Assert.Equal(-1, poor.SpecialStatus(0));                               // 없음(말 3)
+        Assert.Equal(1, eco.SpecialStatus(0));                                 // 판다(말 5)
     }
 
     [Fact]

@@ -1995,6 +1995,14 @@ public sealed class SeaMapWindow : Window
         // 살 수 있으면 주인이 세금을 일러 준다(0x00420300) — 면세증이 있으면 0x2FA, 없으면 「２０％의 구입세」(0x2FB).
         if (permit) Say(0x2FA, "면세증을 가지고 계신 모양이군요. 그럼 면세해 드리겠습니다.");
         else Say(0x2FB, "면세증을 안 가지고 계신 분은, 상품을 구입하실 때 ２０％의 구입세가 붙습니다.");
+        // 주인 말(0x00420529) — 특산품이 없으면 3, 지수가 높아 품절이면 4, 팔면 5(특산품 이름).
+        int special = eco.States[_host.CurrentPort].Special;
+        switch (eco.SpecialStatus(_host.CurrentPort))
+        {
+            case 1: Say(5, $"이 항구의 특산물은 {eco.GoodsNames[special]}입니다.", eco.GoodsNames[special]); break;
+            case 0: Say(4, $"{eco.GoodsNames[special]}(는) 현재 품절되어 있습니다.", eco.GoodsNames[special]); break;
+            default: Say(3, "어느 상품을 구하고 계십니까？"); break;
+        }
         var p = _host.Player;
         int pick = BuildingMenu.Ask(this, $"구입 — 돈 {p.Gold} · 빈 자리 {p.Free}",
                                     goods.Select(g => $"{eco.GoodsNames[g.Good],-6}  {g.Price,5}").ToList());

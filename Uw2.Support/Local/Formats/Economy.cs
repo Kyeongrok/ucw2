@@ -364,10 +364,21 @@ public sealed class Economy
             if (m.Need[i] * 10 > s.Economy) continue;
             list.Add((g, Price(m.BuyBase[i], s.PriceIndex[CategoryOf(g)], permit)));
         }
-        if (s.Special >= 0 && s.Special < GoodsCount && s.SpecialNeed * 10 <= s.Economy
-            && s.PriceIndex[CategoryOf(s.Special)] < SpecialIndexLimit)
+        if (SpecialStatus(port) > 0)
             list.Add((s.Special, Price(s.SpecialBase, s.PriceIndex[CategoryOf(s.Special)], permit)));
         return list;
+    }
+
+    /// <summary>
+    /// 그 항구 특산품 형편(<c>0x00420460</c>) — −1 없음(특산품이 없거나 경제 &lt; +0x1B x 10, 주인 말 3),
+    /// 0 품절(그 갈래 지수 ≥ 90, 말 4), 1 판다(말 5).
+    /// </summary>
+    public int SpecialStatus(int port)
+    {
+        if (port < 0 || port >= States.Count) return -1;
+        var s = States[port];
+        if (s.Special < 0 || s.Special >= GoodsCount || s.SpecialNeed * 10 > s.Economy) return -1;
+        return s.PriceIndex[CategoryOf(s.Special)] < SpecialIndexLimit ? 1 : 0;
     }
 
     /// <summary>
