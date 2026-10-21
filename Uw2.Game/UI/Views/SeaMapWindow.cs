@@ -2785,6 +2785,19 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     public void AskHeroName()
     {
+        // 먼저 주인공 칸(0x00416770) — 얼굴 · 이름(0x3A6) · 나이 · 통솔력 · 항해술 · 지식 · 직감 · 기능 · 용기 · 검술 · 매력(0x3A7 ~ 0x3AB).
+        if (!_devQuiet && _host.Scenario is { } vm)
+        {
+            int hero = _host.HeroPersonNumber;
+            int S(int k) => Navigators.Get(vm.Memory, hero, Navigators.Stats + k);
+            string skills = PersonDetail(vm.Memory, hero).Split(" · 기능 ").Last();
+            string card = $"{_host.HeroName.Name} {_host.HeroName.Family}\n"
+                          + $"연령 {Navigators.Get(vm.Memory, hero, 0x2A)}세\n"
+                          + $"통솔력 {S(0)} · 항해술 {S(1)} · 지식 {S(2)} · 직감 {S(3)}\n"
+                          + $"용기 {S(4)} · 검술 {S(5)} · 매력 {S(6)}\n"
+                          + $"기술 {skills}";
+            ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", card)], _host.PersonFace(hero));
+        }
         while (true)
         {
             string? name = TextDialog.Ask(this, MsgOr(0x3AC, "이름을 바꿔 주세요."), _host.HeroName.Name, 6);
