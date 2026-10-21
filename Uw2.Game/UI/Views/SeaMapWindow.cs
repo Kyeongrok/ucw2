@@ -1794,6 +1794,13 @@ public sealed class SeaMapWindow : Window
             Say(0x11, $"어머！ {name}씨.\n{drink}(는) 좀 어떠세요？", name, drink);
         }
         else Say(0x12, $"여어, 뱃사람！\n우리집 {drink}(는) 최고요.", drink);
+        // 이어서 이 항구 여급이 인사한다(0x00426EA0, 주인공 +0x31 의 0x10 일 때) — 맡긴 조사가 끝났으면
+        // 「요전번 부탁하신 건은 조사해 두었답니다.」(0x133), 아니면 「어머나, 어서 오셔요.」(0x134).
+        if (heroFlag && Barmaids.InPort(vm.Memory, _host.CurrentPort) is >= 0 and var maid)
+        {
+            bool ready = Barmaids.Get(vm.Memory, maid, Barmaids.Probe) != Barmaids.NoProbe && Barmaids.Get(vm.Memory, maid, Barmaids.ProbeDays) == 0;
+            Say(ready ? 0x133 : 0x134, ready ? "요전번 부탁하신 건은 조사해 두었답니다." : "어머나, 어서 오셔요.");
+        }
     }
 
     /// <summary>항구 형편 +0x24 갈래마다 주점 술(<c>0x00457148</c>, 11 바이트씩).</summary>
