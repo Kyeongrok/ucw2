@@ -294,6 +294,41 @@ public static class Navigators
         return true;
     }
 
+    /// <summary>항해 경험(<c>0x0041A4C0</c> 에 +0x24 레벨 · +0x26 경험 낱말을 넘긴다).</summary>
+    public const int NavExp = 0x26;
+
+    /// <summary>
+    /// 항해 경험을 더한다(<c>0x0041A4C0</c>) — 경험이 min(레벨, 18)² x 30 을 넘을 때마다 레벨이 오른다(100 이면 경험 0). 한 번이라도 오르면
+    /// 능력치 0 ~ 3 에 min(rand(3), 100 − 값). 이어 알리는 손(<c>0x0041A7C0</c>)이 능력치 0 ~ 2 에 한 번 더 min(rand(3), 100 − 값)을 더하고
+    /// 그 이름들을 적는다. 오른 레벨 수와 그 둘째로 오른 능력치 번호들을 돌려준다.
+    /// </summary>
+    public static (int Ups, List<int> Raised) SailExperience(ScenarioMemory m, int person, int amount, Func<int, int> rand)
+    {
+        var at = ScenarioMemory.At(PersonTable, person, NavExp);
+        int exp = (short)(m.Read(at, true) + amount), level = Get(m, person, NavLevel), ups = 0;
+        static int Need(int l) { int k = Math.Min(l, 18); return k * k * 30; }
+        while (exp >= Need(level))
+        {
+            if (level == 100) { exp = 0; break; }
+            exp -= Need(level);
+            level++;
+            ups++;
+        }
+        m.Write(at, exp & 0xFFFF, true);
+        Set(m, person, NavLevel, level);
+        var raised = new List<int>();
+        if (ups == 0) return (0, raised);
+        for (int k = 0; k < 4; k++) Set(m, person, Stats + k, Get(m, person, Stats + k) + Math.Min(rand(3), 100 - Get(m, person, Stats + k)));
+        for (int k = 0; k < 3; k++)
+        {
+            int up = Math.Min(rand(3), 100 - Get(m, person, Stats + k));
+            if (up <= 0) continue;
+            Set(m, person, Stats + k, Get(m, person, Stats + k) + up);
+            raised.Add(k);
+        }
+        return (ups, raised);
+    }
+
     /// <summary>
     /// 동료가 떠난다(<c>0x00412ED0</c>) — 동료 칸에서 지우고, 처지 0 · 함대 없음 · 항구 rand(0x36) + 3 으로 둔다. 배는 부르는 쪽이 뺀다.
     /// </summary>

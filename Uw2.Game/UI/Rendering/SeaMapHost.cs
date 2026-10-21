@@ -1198,6 +1198,7 @@ public sealed partial class SeaMapHost : HwndHost
     public void ShowWorld()
     {
         if (Map == null || _worldCells == null) return;
+        if (CurrentPort >= 0) _portAsked = CurrentPort;   // 막 떠난 항구는 다시 묻지 않는다
         CurrentPort = -1;
         Walker = null;
         UseWalkerSprite(false);
@@ -1411,6 +1412,7 @@ public sealed partial class SeaMapHost : HwndHost
             // 틱마다 남 함대도 다 한 걸음 간다(0x0041A362). 바람 · 해류는 제 함대 자리의 것을 같이 쓴다.
             foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);
             if (CheckAmbush()) break;
+            if (CheckPortAhead()) break;
             if (Fleet.DaysAtSea != day)
             {
                 foreach (var npc in Others) npc.NewDay();

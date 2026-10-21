@@ -1856,6 +1856,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
         bar.Children.Add(Button("편성", (_, _) => Organize()));
         bar.Children.Add(Button("지휘", (_, _) => Command()));
+        bar.Children.Add(Button("입항", (_, _) => EnterPortFromSea(-1)));
         bar.Children.Add(Button("상륙", (_, _) => Land()));
         bar.Children.Add(Button("공격", (_, _) => Attack()));
         bar.Children.Add(Button("아이템", (_, _) => UseItem()));
@@ -1904,6 +1905,7 @@ public sealed class SeaMapWindow : Window
             _seaNote = name == "쥐 떼" ? M(0x1D9, "쥐 떼가 일었습니다") : M(0x1DA, $"{name}에 걸린 자가 있습니다");
             UpdateStatus();
         };
+        _host.PortAhead += port => EnterPortFromSea(port);
         // 마을 사람과 부딪치면 말을 건다(0x004335F0).
         _host.FolkMet += kind =>
         {
@@ -2352,6 +2354,40 @@ public sealed class SeaMapWindow : Window
         if (spot is { } s) AtVillage(s.Index);
         else OnShore();
         f.UnderSail = true;
+    }
+
+    /// <summary>
+    /// 바다에서 항구에 든다(<c>0x0041A8D0</c>) — 함대 둘레 열두 칸에 항구가 있으면 「%s항에 기항하겠습니다.」(0x16D)를 묻고, 그러면 기항 셈
+    /// (<c>0x0041A560</c>, 항해 경험)을 하고 항구를 띄운 뒤 남고 싶은 동료를 묻는다(<c>0x00423DC1</c>). <paramref name="port"/> 가 -1 이면 옆 항구를 찾는다.
+    /// </summary>
+    private void EnterPortFromSea(int port)
+    {
+        if (_host.Fleet is not { } f || _host.CurrentPort >= 0) return;
+        if (port < 0) port = _host.PortBeside();
+        if (port < 0) { Note(" · 바로 옆에 항구가 없습니다"); return; }
+        string name = _host.Ports is { } pt && port < pt.Ports.Count ? pt.Ports[port].Name : $"#{port}";
+        if (MessageBox.Show(this, MsgOr(0x16D, $"{name}항에 기항하겠습니다.", name), "입항", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        {
+            f.UnderSail = true;
+            return;
+        }
+        var notes = _host.Arrive(port);
+        _portPick.SelectedIndex = port;
+        Retitle();
+        foreach (var line in notes) Say(-1, line);
+        foreach (var (mate, wage) in _host.MatesWantingToStay())
+        {
+            string who = _host.PersonName(mate);
+            Say(0x31E, "제독님, 나는 이 항구에 남고 싶습니다만.");
+            bool keep = MessageBox.Show(this, MsgOr(0x31F, $"제독님, {who}(를) 붙들겠습니까？", who), who, MessageBoxButton.YesNo) == MessageBoxResult.Yes
+                        && MessageBox.Show(this, MsgOr(0x321, $"그럼, 급료를 금화 {wage + 10}닢으로 올려 주십시오.", wage + 10), who, MessageBoxButton.YesNo) == MessageBoxResult.Yes;
+            if (keep) _host.KeepMate(mate);
+            else
+            {
+                _host.MateStays(mate);
+                Note($" · {Josa(who, "이", "가")} {name}에 남았습니다");
+            }
+        }
     }
 
     /// <summary>
