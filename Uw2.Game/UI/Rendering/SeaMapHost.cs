@@ -768,6 +768,30 @@ public sealed partial class SeaMapHost : HwndHost
         Fleet.Ships[index] = Fleet.Ships[index] with { NavLevel = start.People[who].NavLevel, Seamanship = start.People[who].Seamanship };
     }
 
+    /// <summary>
+    /// 「대열변경」(<c>0x00441730</c>) — 배를 <paramref name="order"/>(옛 자리 번호들) 차례로 다시 늘어놓는다. 원본은 배 기록(9 바이트, 선장 포함)과
+    /// 짐(0x1E 바이트)을 통째로 맞바꾼다. 우리 기함 선장은 늘 주인공(-1)이라, 새 기함의 선장은 옛 기함으로 옮겨 탄다.
+    /// </summary>
+    public bool Reorder(IReadOnlyList<int> order)
+    {
+        if (Fleet == null || order.Count != Player.Ships.Count || order.Distinct().Count() != order.Count
+            || order.Any(i => i < 0 || i >= Player.Ships.Count) || Fleet.Ships.Count != Player.Ships.Count) return false;
+        if (order[0] != 0)
+        {
+            var oldFlag = Player.Ships[0];
+            var newFlag = Player.Ships[order[0]];
+            oldFlag.Captain = newFlag.Captain;
+            newFlag.Captain = -1;
+        }
+        var ships = order.Select(i => Player.Ships[i]).ToList();
+        var sailing = order.Select(i => Fleet.Ships[i]).ToList();
+        Player.Ships.Clear(); Player.Ships.AddRange(ships);
+        Fleet.Ships.Clear(); Fleet.Ships.AddRange(sailing);
+        for (int i = 0; i < ships.Count; i++) Recaptain(i);
+        SyncLoad();
+        return true;
+    }
+
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;
 

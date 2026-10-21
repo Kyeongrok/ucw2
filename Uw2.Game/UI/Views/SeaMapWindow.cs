@@ -2643,12 +2643,123 @@ public sealed class SeaMapWindow : Window
         if (_host.RemoveShip(pick + 1)) Note($" · {ship.Name}{(KoreanBatchim(ship.Name) ? "을" : "를")} 처분했습니다");
     }
 
-    /// <summary>「지휘」 — 목록 28(감시 · 교섭 · 전투 · 대열변경 · 식량할당 · 급여설정, <c>0x004454A2</c>) 가운데 된 것.</summary>
+    /// <summary>「지휘」 — 목록 28(감시 · 교섭 · 전투 · 대열변경 · 식량할당 · 급여설정, <c>0x004454A2</c>, 손표 <c>0x00445564</c>).</summary>
     private void Command()
     {
-        int pick = BuildingMenu.Ask(this, "지휘", ["식량할당", "급여설정"]);
-        if (pick == 0) SetRations();
-        else if (pick == 1) SetWages();
+        var names = _host.Menus?.Lists is { Count: > 28 } lists ? lists[28].ToList() : ["감  시", "교  섭", "전  투", "대열변경", "식량할당", "급여설정"];
+        int pick = BuildingMenu.Ask(this, "지휘", names);
+        switch (pick)
+        {
+            case 0: Watch(); break;
+            case 1: Negotiate(); break;
+            case 2: Attack(); break;
+            case 3: Formation(); break;
+            case 4: SetRations(); break;
+            case 5: SetWages(); break;
+        }
+    }
+
+    /// <summary>
+    /// 「대열변경」(<c>0x004413C0</c>) — 한 척이면 0xD9. 1번부터 차례로 「%d번 함선은 어느 것으로 하겠습니까？」(0xDA)를 묻고, 취소하면 바로 앞 고른 것을 무른다.
+    /// 다 고르면 「좋습니까？」(0xDB) — 아니면 처음부터. 기함(1번)이 바뀌면 주인공이 새 기함에 옮겨 탄다.
+    /// </summary>
+    private void Formation()
+    {
+        var ships = _host.Player.Ships;
+        if (ships.Count == 0) return;
+        if (ships.Count == 1) { Say(0xD9, "함선이 １척밖에 없습니다."); return; }
+        while (true)
+        {
+            var order = new List<int>();
+            while (order.Count < ships.Count)
+            {
+                var left = Enumerable.Range(0, ships.Count).Where(i => !order.Contains(i)).ToList();
+                int no = order.Count + 1;
+                int pick = BuildingMenu.Ask(this, MsgOr(0xDA, $"{no}번 함선은 어느 것으로 하겠습니까？").Replace("%d", no.ToString()),
+                    [.. left.Select(i => ships[i].Name)]);
+                if (pick >= 0) order.Add(left[pick]);
+                else if (order.Count == 0) return;
+                else order.RemoveAt(order.Count - 1);
+            }
+            string list = string.Join("\n", order.Select((i, k) => $"{k + 1}. {ships[i].Name}"));
+            if (MessageBox.Show(this, list + "\n\n" + MsgOr(0xDB, "좋습니까？"), "대열변경", MessageBoxButton.YesNo) != MessageBoxResult.Yes) continue;
+            if (_host.Reorder(order)) Note(" · 대열을 바꿨습니다");
+            return;
+        }
+    }
+
+    /// <summary>
+    /// 「감시」(<c>0x00440CA0</c>) — 보이는 함대 하나를 골라 제독 · 나라 · 함대 갈래(목록 39) · 빠르기(<c>0x00418020</c> / 2) ·
+    /// 뱃머리(목록 40) · 배들을 보인다. 해적 함대(번호 / 10 = 6, 60 말고)면 동료 가운데 가장 높은 직감(+0x1E)이 rand(90) 보다 크면
+    /// 「아무래도 해적 같다」(0x2FE)고 귀띔한다. 원본은 화면의 함대를 누른다 — 우리는 보이는 거리 안의 함대를 늘어놓는다.
+    /// </summary>
+    private void Watch()
+    {
+        if (_host.Fleet is not { } f || _host.StartTables is not { } st) return;
+        int reach = Math.Max(2, Sighting.Reach(_host.Player.Ships.Select(s => (s.WatchShare, s.Crew)), false));
+        var seen = _host.FleetsInReach(reach);
+        if (seen.Count == 0) { Note(" · 보이는 함대가 없습니다"); return; }
+        int pick = BuildingMenu.Ask(this, "감시", [.. seen.Select(n => $"{_host.PersonName(n.Admiral)} 함대")]);
+        if (pick < 0) return;
+        var fleet = seen[pick];
+        string[] kinds = _host.Menus?.Lists is { Count: > 39 } l39 ? [.. l39[39]] : ["함대", "상선대", "전함대"];
+        string[] dirs = _host.Menus?.Lists is { Count: > 40 } l40 ? [.. l40[40]] : ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
+        int k = fleet.Index % 10 == 0 ? 0 : (fleet.Index % 10 - 1) / 5 + 1;
+        string nation = NationNames7[Math.Min(6, fleet.Nation)];
+        var ships = fleet.Slots.Select(s => st.GuessType(s) is var t && t < st.Templates.Count ? st.Templates[t].Name ?? "?" : "?").ToList();
+        SayText($"{_host.PersonName(fleet.Admiral)}\n{nation} {kinds[Math.Min(k, kinds.Length - 1)]} · 뱃머리 {dirs[fleet.Heading & 7]}\n"
+                + string.Join("\n", ships.Chunk(2).Select(c => string.Join(" · ", c))));
+        if (fleet.Pirate && fleet.Index != 60 && _host.Scenario is { } vm)
+        {
+            int eye = Navigators.Mates(vm.Memory).Select(t => Navigators.Get(vm.Memory, t.Person, Navigators.Stats + 2)).DefaultIfEmpty(0).Max();
+            if (eye > _host.Roll(90))
+                Say(0x2FE, $"제독님, 저 함대는 {nation} {kinds[Math.Min(k, kinds.Length - 1)]}(를) 장비하고 있습니다만, 아무래도 해적 같습니다.",
+                    nation, kinds[Math.Min(k, kinds.Length - 1)]);
+        }
+    }
+
+    /// <summary>
+    /// 「교섭」(<c>0x00441110</c> → <c>0x00441190</c>) — 둘레 두 칩 안의 함대를 고르면(없으면 0xE1) 제독이 하는 일을 말한다(움직임 갈래):
+    /// 0 0x98 · 1 0x99 · 2 0x9A(항구) · 3 0x9B · 4 0x9C · 5 ~ 7 0x9D(쫓는 이의 나라 · 이름) · 8 0x9E · 9 0x9F · 10 0xA0.
+    /// 주인공을 노리던 함대(5 ~ 7, 과녁이 주인공)는 11 — 「그게 무엇인지 가르쳐 줄까？」(0xA1) 뒤 덮친다. 칙명 희귀품을 아는 이면 지도를 판다(0x00424FD0).
+    /// </summary>
+    private void Negotiate()
+    {
+        var near = _host.FleetsInReach();
+        if (near.Count == 0) { Say(0xE1, "교섭할 수 있는 함대는 없습니다."); return; }
+        int pick = BuildingMenu.Ask(this, "교섭", [.. near.Select(n => $"{_host.PersonName(n.Admiral)} 함대")]);
+        if (pick < 0) return;
+        var fleet = near[pick];
+        if (_host.Common is { Chapter: not 0 } job && job.GetVar(6) == 11 && (job.GetVar(17) & 0xFF) == fleet.Admiral)
+        {
+            SellMap(job.GetVar(18) & 0xFF);
+            return;
+        }
+        string PortName(int p) => _host.Ports is { } pts && p >= 0 && p < pts.Ports.Count ? pts.Ports[p].Name : $"#{p}";
+        int mode = fleet.Mode;
+        if (mode is >= 5 and <= 7 && fleet.Goal == _host.HeroPersonNumber) mode = 11;
+        switch (mode)
+        {
+            case 0: Say(0x98, "우리들은 본국으로 돌아가는 길이다."); break;
+            case 1: Say(0x99, $"우리들은 {PortName(fleet.Goal)}항에 투자하러 가는 중이다.", PortName(fleet.Goal)); break;
+            case 2: Say(0x9A, $"우리들은 {PortName(fleet.Goal)}항과 교역할 예정이다.", PortName(fleet.Goal)); break;
+            case 3: Say(0x9B, "후훗！ 어리석은 것."); break;
+            case 4: Say(0x9C, "바보 녀석, 내가 누군지 모르는 모양이군."); break;
+            case 5 or 6 or 7:
+            {
+                int nation = _host.Scenario is { } vm ? Navigators.Get(vm.Memory, fleet.Goal, Navigators.Kind) & 0x0F : 6;
+                Say(0x9D, $"{NationNames7[Math.Min(6, nation)]}의 {_host.PersonName(fleet.Goal)}(를) 찾고 있다.",
+                    NationNames7[Math.Min(6, nation)], _host.PersonName(fleet.Goal));
+                break;
+            }
+            case 8: Say(0x9E, "상선대를 호위하고 있다. 최근 이 부근도 시끄러우니까."); break;
+            case 9: Say(0x9F, "해적으로부터 이 바다를 지키고 있다."); break;
+            case 10: Say(0xA0, "네게 용건이 있지."); break;
+            default:
+                Say(0xA1, "그게 무엇인지 가르쳐 줄까？");
+                Defend(fleet);   // 0x0044135E — 그 함대가 덮친다
+                break;
+        }
     }
 
     /// <summary>「급여설정」 — 바다 명령 목록 28 의 여섯째(<c>0x00441B10</c>). 동료를 골라 급여를 정한다(<see cref="Navigators.SetWage"/>).</summary>
