@@ -3223,9 +3223,9 @@ public sealed class SeaMapWindow : Window
         {
             Note(ItemShop.ToggleEquip(m, item) switch
             {
-                true => " · 아이템을 장비합니다",
+                true => " · " + MsgOr(0x444, "아이템을 장비하겠습니다."),
                 false => " · 아이템을 벗습니다",
-                null => " · 이 아이템은 장비할수 없습니다",
+                null => " · " + MsgOr(0x442, "이 아이템은 장비할 수 없습니다."),
             });
             return;
         }
@@ -3243,18 +3243,18 @@ public sealed class SeaMapWindow : Window
             }
             case 8 when item == 0x17 && f != null: said = $"지금은 {Fleet.Clock(f.TimeOfDay)}"; break;
             case 9 when item == 0x29:
-                said = p.Rats ? "쥐가 없어졌다……" : "특별히 아무일도 일어나지 않았다";
+                said = p.Rats ? MsgOr(0x44F, "쥐떼가 사라졌다. . .") : MsgOr(0x450, "별다른 일은 없었던 것 같다.");
                 p.Rats = false;
                 usedUp = true;
                 break;
             case 9 when item == 0x2A:
                 said = f?.Weather.Calm(_host.Roll) == true
-                    ? (f.TimeOfDay is >= 12 and < 60 ? "폭풍이 멈췄다…지금은낮이다" : "폭풍이 멈췄다…지금은밤이다")
-                    : "특별히 아무일도 일어나지 않았다";
+                    ? (f.TimeOfDay is >= 12 and < 60 ? MsgOr(0x452, "폭풍이 그쳤다. . . 지금은 낮이다.") : MsgOr(0x451, "폭풍이 그쳤다. . . 지금은 밤이다."))
+                    : MsgOr(0x453, "별다른 일은 없었던 것 같다.");
                 usedUp = true;
                 break;
             case 9 when item == 0x2B:
-                said = p.Scurvy ? "괴혈병이 나았다…" : "맛있다";
+                said = p.Scurvy ? MsgOr(0x454, "괴혈병이 나았다. . .") : MsgOr(0x455, "맛있다.");
                 p.Scurvy = false;
                 usedUp = true;
                 break;
@@ -3265,7 +3265,8 @@ public sealed class SeaMapWindow : Window
                 said = $"{(east ? "동경" : "서경")} {lon}도 · {(north ? "북위" : "남위")} {lat}도 언저리를 가리키고 있다";
                 break;
             }
-            default: said = "특별히 아무일도 일어나지 않았다"; break;
+            case _ when item == 0x19: said = MsgOr(0x44E, "야옹∼"); break;            // 고양이
+            default: said = MsgOr(0x450, "별다른 일은 없었던 것 같다."); break;
         }
         if (usedUp) { int none = 0; ItemShop.Sell(m, item, 0, ref none); }
         ScenarioDialog.Play(w, _host.Faces, [new ScenarioVm.Line(it.Name, said)]);
