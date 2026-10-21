@@ -15,6 +15,9 @@ public static class Music
     /// <summary>여는 화면(<c>0x0049F8A0</c>) · 제목(<c>0x0049F8A8</c>) · 바다(<c>0x0049F87C</c>) · 작은 항구(<c>0x0049F8AC</c>) · 엔딩(<c>0x0049F890</c>).</summary>
     public const int Opening = 0, Title = 1, Sea = 2, SmallPort = 7, Ending = 11;
 
+    /// <summary>해전 판(<c>0x0040FAD7</c>, <c>0x0049F8F4</c>) · 왕궁(<c>0x0049F884</c>) · 주점(<c>0x0049F888</c>) — 건물에 들 때 <c>0x00431F82</c>.</summary>
+    public const int Battle = 8, Palace = 9, Pub = 10;
+
     /// <summary>
     /// 도시 곡(<c>0x004319B0</c>) — 항구 형편 +0x21(문화권 0 ~ 12)을 갈래 다섯으로 접어 곡을 고른다. 100 넘는 항구는 <see cref="SmallPort"/>.
     /// </summary>

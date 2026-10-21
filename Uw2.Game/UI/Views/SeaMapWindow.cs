@@ -2673,7 +2673,14 @@ public sealed class SeaMapWindow : Window
                 : $" · 「{PortDoors.Names[b]}」 — {PortDoors.LockedText}";
             UpdateStatus();
             // 열려 있으면 그 건물의 MENU.DAT 목록을 띄운다 — 그림을 그리는 틈 안이라 한 박자 뒤에 연다.
-            if (open) Dispatcher.BeginInvoke(() => EnterBuilding(b));
+            if (open) Dispatcher.BeginInvoke(() =>
+            {
+                // 주점 · 왕궁은 제 곡을 돈다(0x00431F82) — 나오면 도시 곡으로.
+                _buildingSong = b == PubBuilding ? Uw2.Game.UI.Audio.Music.Pub : b == PalaceBuilding ? Uw2.Game.UI.Audio.Music.Palace : -1;
+                if (_buildingSong >= 0 && !_devQuiet) Uw2.Game.UI.Audio.Music.Play(_buildingSong);
+                try { EnterBuilding(b); }
+                finally { _buildingSong = -1; PlaySceneMusic(); }
+            });
             // 닫힌 시각이면 「문이 잠겨 있습니다.」 창(0x2FD, 0x00431F5D → 0x00432160).
             else Dispatcher.BeginInvoke(() => Say(0x2FD, PortDoors.LockedText));
         };
@@ -3081,7 +3088,11 @@ public sealed class SeaMapWindow : Window
             Say(id, $"{p.Name} {p.Family}(가) {(side == 3 ? "수비측" : "공격측")}의 원군으로서 전투에 가담했습니다.", p.Name, p.Family);
         }
         if (!fight) battle.Result = Engine.Sea.Battle.Outcome.EnemyLeft;
-        else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem, _host.PersonName);
+        else
+        {
+            if (!_devQuiet) Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Battle);   // 0x0040FAD7
+            BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem, _host.PersonName);
+        }
         f.SetTimeOfDay(battle.Time);
         var spoils = _host.CloseBattle(battle, enemy);
         if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
@@ -3210,6 +3221,7 @@ public sealed class SeaMapWindow : Window
             f.UnderSail = false;
             foreach (var (who, line) in _host.BattleDeserters)
                 ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(who, Deserter(line))]);
+            if (!_devQuiet) Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Battle);
             BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem, _host.PersonName);
             f.SetTimeOfDay(battle.Time);
             var spoils = _host.CloseBattle(battle, enemy);
@@ -4452,10 +4464,12 @@ public sealed class SeaMapWindow : Window
     private string BalanceText() =>
         _host.Player.Balance switch { > 0 and var b => $" · 예금 {b}", < 0 and var b => $" · 빚 {-b}", _ => "" };
 
+    private int _buildingSong = -1;
+
     /// <summary>자리에 맞는 곡 — 바다(0x00448A7B) · 도시(0x004319B0, 문화권 +0x21) · 작은 항구.</summary>
     private void PlaySceneMusic()
     {
-        if (_devQuiet || _over) return;
+        if (_devQuiet || _over || _buildingSong >= 0) return;
         int port = _host.CurrentPort;
         if (port < 0) { Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Sea); return; }
         if (port >= SeaMapHost.SmallPortFirst || _host.Economy is not { } eco || port * Economy.StateSize + 0x21 >= eco.StateBytes.Length)
