@@ -310,6 +310,14 @@ public sealed class NpcFleet
     private void Destination()
     {
         var w = World!;
+        if (Mode is not (0 or 9) && Crowded(w))
+        {
+            // 나가 있는 동무가 많으면 고향에서 닷새 더 머문다(0x00401F5C → 0x00401E20).
+            Mode = 0;
+            Goal = HomePort;
+            DaysInPort = 5;
+            return;
+        }
         int tn = w.Nation(Nation, 2);
         if (tn == 7) tn = w.HeroNation;
         switch (Mode)
@@ -330,6 +338,20 @@ public sealed class NpcFleet
             case 8: Pursue(_rng.Next(4) + 1 + Nation * 10); break;
             default: DaysInPort = _rng.Next(8) + 8; break;
         }
+    }
+
+    /// <summary>
+    /// 동무가 많이 나갔는지(<c>0x00401E20</c>) — 상선(번호 % 10 이 1 ~ 4)은 같은 나라 상선 넷 가운데 둘 넘게, 0 · 5 · 6 은 해군 5 · 6 가운데 하나라도,
+    /// 7 ~ 9 는 7 ~ 9 가운데 하나라도 바다에 있으면 참. 덤비는 함대(+0x29 의 0x40)는 늘 거짓.
+    /// </summary>
+    private bool Crowded(IWorld w)
+    {
+        if ((Record.Flags & 0x40) != 0) return false;
+        int kind = Index % 10, n = Index / 10 * 10;
+        bool Out(int i) => w.FleetByIndex(n + i) is { Docked: false } f && f != this;   // 저는 아직 항구에 든 셈이다(+0x29 의 0x10)
+        if (kind is >= 1 and <= 4) return Enumerable.Range(1, 4).Count(Out) >= 2;
+        if (kind < 7) return Out(5) || Out(6);
+        return Out(7) || Out(8) || Out(9);
     }
 
     /// <summary>항구로(<c>0x00401F30</c>) — 목표 자리를 그 항구로 두고 떠난다.</summary>
@@ -390,7 +412,7 @@ public sealed class NpcFleet
     public bool MeetsHero(int timeOfDay)
     {
         if (World is not { HeroAtSea: true } w || Docked || Mode is < 4 or > 7) return false;
-        if ((_cellX, _cellY) != w.HeroCell) return false;
+        if (!Near(w.HeroCell)) return false;
         if (Mode == 4) { Mode = 5; Goal = w.HeroAdmiral; }
         else if (Goal != w.HeroAdmiral) return false;
         if (timeOfDay is < 18 or >= 54) return false;
@@ -404,7 +426,12 @@ public sealed class NpcFleet
     /// <summary>쫓는 남 함대와 맞닿았는지(<c>0x004189F0</c> 의 갈래 5 ~ 7) — 과녁이 주인공이 아니고 같은 칩에 섰다.</summary>
     public bool MeetsFleet(NpcFleet other) =>
         !Docked && !other.Docked && other != this && Mode is >= 5 and <= 7 && World is { } w && Goal != w.HeroAdmiral
-        && other.Admiral == Goal && other.Cell == Cell;
+        && other.Admiral == Goal && Near(other.Cell);
+
+    /// <summary>
+    /// 맞닿음 — 원본은 칩 자리가 같아야 한다(<c>0x004189F0</c>). 우리 바다 셈은 닿음을 한 칸 곁으로 치므로(<see cref="Step"/>) 여기서도 한 칸 곁까지 본다.
+    /// </summary>
+    private bool Near((int X, int Y) at) => Math.Max(Math.Abs(at.X - _cellX), Math.Abs(at.Y - _cellY)) <= 1;
 
     /// <summary>고향으로 돌아간다(<c>0x00401F30(함대, 0, +0x26)</c>).</summary>
     public void GoHome() { Mode = 0; GoTo(HomePort); }
@@ -430,7 +457,12 @@ public sealed class NpcFleet
         if (Math.Max(Math.Abs(dx), Math.Abs(dy)) <= 1 || _stall >= StallTicks)
         {
             _stall = 0;
-            if (++_leg >= _route.Count && !Retarget()) DaysInPort = _rng.Next(8) + 8;   // 0x004184B0 의 rand(8)+8
+            if (++_leg >= _route.Count && !Retarget())
+            {
+                // 닿음(0x004184B0) — 갈래 0 ~ 2 · 9 는 과녁 항구(+0x1C) 자리로 옮겨 들고, rand(8) + 8 날 머문다.
+                if (Mode is 0 or 1 or 2 or 9 && World?.PortPos(Goal) is { } port) { _cellX = port.X; _cellY = port.Y; }
+                DaysInPort = _rng.Next(8) + 8;
+            }
             _newLeg = true;
             return;
         }

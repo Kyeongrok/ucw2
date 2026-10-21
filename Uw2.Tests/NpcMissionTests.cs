@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Uw2.Tests;
 
-/// <summary>남 함대 할 일 — 구운 자산으로 두 달을 돌려 본다.</summary>
+/// <summary>남 함대 할 일 — 구운 자산으로 여덟 달을 돌려 본다(동무가 나가 있으면 머무니 몇 달이 걸린다).</summary>
 public class NpcMissionTests
 {
     private sealed class World(StartData start, IReadOnlyList<PortTable.Port> ports, Economy economy) : NpcFleet.IWorld
@@ -24,7 +24,7 @@ public class NpcMissionTests
     }
 
     [Fact]
-    public void Two_months_of_missions_run()
+    public void Eight_months_of_missions_run()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, AssetPack.FolderName))) dir = dir.Parent;
@@ -42,16 +42,21 @@ public class NpcMissionTests
         }
         Assert.True(world.Fleets.Count > 30);
         var modes = new HashSet<int>();
-        for (int day = 0; day < 60; day++)
+        for (int day = 0; day < 240; day++)
         {
             for (int t = 0; t < Fleet.TicksPerDay; t++)
-                foreach (var n in world.Fleets) { n.Step(((day * 3 + t / 24) % 8, 4), (0, 0)); n.MeetsHero(30); }
+                foreach (var n in world.Fleets)
+                {
+                    n.Step(((day * 3 + t / 24) % 8, 4), (0, 0));
+                    if (n.MeetsHero(30)) n.GoHome();   // 덮친 뒤라 치고 돌려보낸다
+                }
             foreach (var n in world.Fleets) { n.NewDay(); modes.Add(n.Mode); }
         }
         Assert.Contains(world.Fleets, n => n.Mode != 0 || n.Gold > 0);
         Assert.True(modes.Count > 3, $"갈래가 모자라다: {string.Join(",", modes)}");
-        Assert.Contains(modes, m => m is 1 or 2);          // 상선이 투자 · 사들이기에 나선다
-        Assert.Contains(modes, m => m is >= 4 and <= 8);   // 해군 · 해적이 누군가를 쫓는다
+        string seen = string.Join(",", modes.Order());
+        Assert.True(modes.Any(m => m is 1 or 2), seen);           // 상선이 투자 · 사들이기에 나선다
+        Assert.True(modes.Any(m => m is >= 4 and <= 8), seen);    // 해군 · 해적이 누군가를 쫓는다
     }
 
     [Fact]
