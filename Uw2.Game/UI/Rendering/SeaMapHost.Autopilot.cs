@@ -61,9 +61,16 @@ public sealed partial class SeaMapHost
             f.Step();
             AutopilotMoved(fx, fy);
             if (t % 72 == 0) track.Add(((int)f.X, (int)f.Y));
+            if (t % 72 == 0) DevTrace.Add($"({f.X:0.0},{f.Y:0.0}) 머리 {f.Heading} 빠르기 {f.LastSpeed} 막힘 {f.Blocked} 바람 {f.LastWind} 해류 {f.LastCurrent} 마디 {_autoLeg}/{_autoRoute.Count} 날 {f.DaysAtSea} 선원 {Player.Ships.Sum(s => s.Crew)} 물·식 {Player.Ships.Sum(s => s.Supplies[0])}/{Player.Ships.Sum(s => s.Supplies[1])} 쥐 {Player.Rats} 괴혈 {Player.Scurvy} 방위별 {string.Join(",", Enumerable.Range(0, 8).Select(h => Uw2.Game.Engine.Sea.Sailing.FleetSpeed(f.Ships, h, f.LastWind.Dir, f.LastWind.Speed)))}");
         }
         return (-1, track);
     }
+
+    /// <summary>개발 — 날마다 함대 형편.</summary>
+    public List<string> DevTrace { get; } = [];
+
+    /// <summary>개발 — 짠 길(마디 자리)의 몇 곳.</summary>
+    public IEnumerable<(int X, int Y)> DevRoute(int every) => _autoRoute.Where((_, i) => i % every == 0);
 
     /// <summary>항이동을 멈춘다 — 손으로 키를 잡으면.</summary>
     public void StopAutopilot() => _autoPort = -1;

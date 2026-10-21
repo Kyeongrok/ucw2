@@ -4331,7 +4331,15 @@ public sealed class SeaMapWindow : Window
             foreach (string name in (string[])["세빌리아", "런던", "제노바", "이스탄불", "암스테르담"])
             {
                 int port = _host.Ports?.ByName(name)?.Index ?? -1;
+                // 마디마다 항구에 들른 셈 — 선원 · 물 · 식량을 채우고 항해 날수를 되돌린다. 이스탄불 → 암스테르담은 열나흘쯤이라
+                // 200 으로는 이레 만에 바닥나 선원이 굶어 죽고 빠르기가 바닥(2)이 된다.
+                foreach (var s in _host.Player.Ships) { s.Crew = s.MaxCrew; s.Supplies[0] = s.Supplies[1] = 600; }
+                _host.SyncLoad();
+                _host.Fleet?.ResetDaysAtSea();
                 var (ticks, track) = _host.DevAutopilotRun(port, Fleet.TicksPerDay * 120);
+                if (ticks < 0) log.AppendLine($"  짠 길 {string.Join(" ", _host.DevRoute(10).Take(40))}");
+                if (ticks < 0) foreach (var line in _host.DevTrace.Skip(3).Take(14)) log.AppendLine("  " + line);
+                _host.DevTrace.Clear();
                 log.AppendLine($"{name}({port}) — {(ticks >= 0 ? $"{ticks} 틱({ticks / Fleet.TicksPerDay} 일)" : "못 닿음")} · 자리 {string.Join(" ", track.Take(40))}");
                 if (ticks < 0) break;
             }
