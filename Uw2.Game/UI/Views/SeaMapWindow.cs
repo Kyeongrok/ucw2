@@ -1512,7 +1512,44 @@ public sealed class SeaMapWindow : Window
                 }
                 else if (Pub.PortRumourFirst(n, eco.States[_host.CurrentPort].Economy, Random.Shared.Next) || !TellCargoTip()) TellPortRumour(vm);
             }
+            else TellJobRumour(vm);
         }
+    }
+
+    /// <summary>
+    /// 맡은 일의 소문(<c>0x00424DD0</c>) — 빚수금(변수 6 = 5)이나 칙명 희귀품(11, 아는 이가 정해졌고 물건 · 지도를 아직 안 가졌을 때)에서,
+    /// 이 항구 번호와 그 사람(변수 17) 번호가 3 으로 나눈 나머지가 같으면 그 사람 있는 데를 알려 준다 — 항구에 있으면 0x257 · 0x258 · 0x259,
+    /// 바다에 있으면 0x25A · 0x25B.
+    /// </summary>
+    private void TellJobRumour(ScenarioVm vm)
+    {
+        if (_host.Common is not { } job) return;
+        var m = vm.Memory;
+        int kind = job.GetVar(6), who = job.GetVar(17);
+        if (kind == 11)
+        {
+            int item = job.GetVar(18);
+            var owned = ItemShop.Owned(m);
+            if (who == 0xFF || owned.Contains(item) || owned.Contains(item - 10)) return;
+        }
+        else if (kind != 5) return;
+        if (_host.CurrentPort % 3 != who % 3) return;
+        var full = _host.PersonName(who).Split(' ');
+        string first = full[0], family = full.Length > 1 ? full[^1] : "";
+        int at = Navigators.Get(m, who, Navigators.Port);
+        if (at != 0xFF && _host.Ports is { } pt && at < pt.Ports.Count)
+        {
+            string portName = pt.Ports[at].Name;
+            Say(0x257, $"{first} {family}(는) {portName}항에 있지.", first, family, portName);
+            var (north, lat, east, lon) = Pub.Degrees(pt.Ports[at].X, pt.Ports[at].Y);
+            SayText(MsgOr(0x258, $"{portName}항은 ", portName)
+                    + MsgOr(north ? 0x7E : 0x7F, $"{(north ? "북위" : "남위")} {lat}도, ", lat)
+                    + MsgOr(east ? 0x80 : 0x81, $"{(east ? "동경" : "서경")} {lon}도", lon)
+                    + MsgOr(0x259, "근처야."));
+            return;
+        }
+        Say(0x25A, $"{first} {family}？", first, family);
+        Say(0x25B, "어디에 있냐고？");
     }
 
     /// <summary>짐 팔 곳 귀띔 — 「○○(라면) ○○ 지방에서 팔면 좋지 않을까？」(<see cref="Pub.CargoTip"/>). 짐이 없으면 false.</summary>
