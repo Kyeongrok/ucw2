@@ -1493,25 +1493,24 @@ public sealed class SeaMapWindow : Window
         int port = _host.CurrentPort;
         if (port < 0 || port >= eco.States.Count) return;
         var p = _host.Player;
-        // 교역소 투자 말(0x004212B0) — 서울이면 0x2, 이달 몫이 다 찼으면 0x7, 아니면 「어라, 투자해 주시는 겁니까？」(0x8) 뒤 금액.
+        // 투자 말(교역소 0x004212B0 · 조선소 공업투자 0x0042A850 이 같다) — 서울이면 0x2, 이달 몫이 다 찼으면 0x7, 아니면 「어라, 투자해 주시는 겁니까？」(0x8) 뒤 금액.
         //   0 이면 「이 다음부턴 잘 부탁해요.」(0xD), 500 아래 0xE · 10000 아래 0xF · 그 위 0x10.
         if (_host.StartTables is { } st && st.Capitals.Take(6).Contains(port))
         {
-            if (industry) Note(" · 서울에서는 투자를 받지 않습니다"); else Say(0x2, "이 항구에는 투자할 수 없습니다.");
+            Say(0x2, "이 항구에는 투자할 수 없습니다.");
             return;
         }
         int most = eco.MaxInvest(port, industry, p.Gold);
         if (most <= 0)
         {
-            if (industry) Note(" · 이달에는 더 받지 않습니다"); else Say(0x7, "더이상 투자하셔도……");
+            Say(0x7, "더이상 투자하셔도……");
             return;
         }
-        if (!industry) Say(0x8, "어라, 투자해 주시는 겁니까？");
+        Say(0x8, "어라, 투자해 주시는 겁니까？");
         string what = industry ? "공업투자" : "투자";
         int n = AmountDialog.Ask(this, $"{what} — 돈 {p.Gold} · 경제 {eco.States[port].Economy} · 공업 {eco.States[port].Industry}", most);
-        if (n <= 0) { if (!industry) Say(0xD, "이 다음부턴 잘 부탁해요."); return; }
-        if (!industry)
-            Say(n < 500 ? 0xE : n < 10000 ? 0xF : 0x10, n < 500 ? "아니 겨우 이것뿐입니까？" : n < 10000 ? "정말 고맙습니다." : "이 은혜는 평생 잊지 않겠습니다.");
+        if (n <= 0) { Say(0xD, "이 다음부턴 잘 부탁해요."); return; }
+        Say(n < 500 ? 0xE : n < 10000 ? 0xF : 0x10, n < 500 ? "아니 겨우 이것뿐입니까？" : n < 10000 ? "정말 고맙습니다." : "이 은혜는 평생 잊지 않겠습니다.");
         int nation = _host.HeroNation;
         int gain = eco.Invest(port, industry, n, nation);
         p.SetGold(p.Gold - n);
