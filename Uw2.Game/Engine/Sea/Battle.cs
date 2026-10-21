@@ -267,6 +267,9 @@ public sealed class Battle
 
     private void Place(Ship s, int x, int y) { s.X = x; s.Y = y; }
 
+    /// <summary>판이 열리기 전에 배를 편에서 뺀다 — 달아난 동료 배(<c>0x00410C2F</c>).</summary>
+    public void Withdraw(Ship s) => _sides[s.Side].Remove(s);
+
     public static bool InBounds(int x, int y) => x >= 0 && x < Width && y >= 0 && y < Height;
 
     /// <summary>배가 설 수 있는 칸 — 판 안이고 뭍 · 배가 없다(<c>& 0xE0</c>).</summary>

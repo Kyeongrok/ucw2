@@ -1975,6 +1975,8 @@ public sealed class SeaMapWindow : Window
 
         var battle = _host.OpenBattle(enemy);
         f.UnderSail = false;
+        foreach (var (who, line) in _host.BattleDeserters)
+            ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(who, Deserter(line))]);
         foreach (var (side, ally) in _host.BattleAllies.OrderByDescending(a => a.Key))
         {
             var p = _host.StartTables!.People[Math.Clamp(ally.Admiral, 0, _host.StartTables.People.Count - 1)];
@@ -1999,6 +2001,14 @@ public sealed class SeaMapWindow : Window
             TakePrizes(spoils.Prizes);
         }
         if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
+    }
+
+    /// <summary>떠나는 동료 말(0x313 ~ 0x316) — 첫 줄 「§%s§」 는 말하는 이 자리라 뺀다.</summary>
+    private string Deserter(int id)
+    {
+        string text = MsgOr(id, "제독님, 상대가 너무 나쁩니다.\n나는 더이상 함께 싸울 수 없습니다.").Replace("\\n", "\n");
+        int cut = text.IndexOf('\n');
+        return text.StartsWith("§") && cut > 0 ? text[(cut + 1)..] : text;
     }
 
     /// <summary>
@@ -2036,6 +2046,8 @@ public sealed class SeaMapWindow : Window
             string admiral = _host.PersonName(enemy.Admiral);
             var battle = _host.OpenBattle(enemy, heroAttacks: false);
             f.UnderSail = false;
+            foreach (var (who, line) in _host.BattleDeserters)
+                ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(who, Deserter(line))]);
             BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter);
             f.SetTimeOfDay(battle.Time);
             var spoils = _host.CloseBattle(battle, enemy);

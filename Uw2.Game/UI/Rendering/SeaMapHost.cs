@@ -887,7 +887,7 @@ public sealed partial class SeaMapHost : HwndHost
             var raw = new byte[26];
             for (int i = 0; i < 26; i++) raw[i] = (byte)vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, person, i), false);
             var cp949 = System.Text.Encoding.GetEncoding(949);
-            string name = cp949.GetString(raw, 0, 13).Split(' ')[0], family = cp949.GetString(raw, 13, 13).Split(' ')[0];
+            string name = cp949.GetString(raw, 0, 13).Split('\0')[0], family = cp949.GetString(raw, 13, 13).Split('\0')[0];
             if (name.Length + family.Length > 0) return $"{name} {family}".Trim();
         }
         return StartTables is { } st && person >= 0 && person < st.People.Count ? $"{st.People[person].Name} {st.People[person].Family}".Trim() : $"#{person}";

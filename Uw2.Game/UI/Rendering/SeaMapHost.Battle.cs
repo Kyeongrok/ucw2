@@ -120,7 +120,37 @@ public sealed partial class SeaMapHost
         b.Deploy(HeroSide, Fleet?.Heading ?? 0, hx - dx, hy - dy);
         b.Deploy(EnemySide, enemy.Heading, ex - dx, ey - dy);
         foreach (var (side, f) in BattleAllies) b.Deploy(side, f.Heading, (int)f.X - dx, (int)f.Y - dy);
+        Desert(b, enemy);
         return b;
+    }
+
+    /// <summary>판을 열기 전에 달아난 동료 — 이름 · 말(0x313 ~ 0x316).</summary>
+    public List<(string Name, int Message)> BattleDeserters { get; } = [];
+
+    /// <summary>
+    /// 동료 이탈(<c>0x00410B90</c>) — 맞는 편 세기(<c>0x00498AA8</c>)가 덮치는 편(<c>0x00498AA4</c>) + 20 이상이면, 제 함대 기함 뒤의 배 가운데
+    /// 선장 호감(+0x2B)이 40 아래인 배가 선장과 함께 떠난다(말 0x313 + 기분(+0x2F) &gt;&gt; 6, <c>0x00412ED0</c>). 세기는 함대마다 (내구 합 + 4) / 5.
+    /// </summary>
+    private void Desert(Battle b, NpcFleet enemy)
+    {
+        BattleDeserters.Clear();
+        if (Scenario is not { } vm) return;
+        int Power(int side) => side == HeroSide ? (Player.Ships.Sum(s => s.Hull) + 4) / 5
+            : side == EnemySide ? (enemy.Slots.Sum(s => s.Durability) + 4) / 5
+            : BattleAllies.TryGetValue(side, out var f) ? (f.Slots.Sum(s => s.Durability) + 4) / 5 : 0;
+        int attackers = Power(0) + Power(2), defenders = Power(1) + Power(3);
+        if (defenders < attackers + 20) return;
+        foreach (var s in b.SideShips(HeroSide).Skip(1).ToList())
+        {
+            if (s.Tag is not PlayerState.Ship ship || ship.Captain < 0) continue;
+            if (Navigators.Get(vm.Memory, ship.Captain, Navigators.Liking) >= 40) continue;
+            BattleDeserters.Add((PersonName(ship.Captain), 0x313 + (Navigators.Get(vm.Memory, ship.Captain, Navigators.Mood) >> 6)));
+            b.Withdraw(s);
+            int i = Player.Ships.IndexOf(ship);
+            Navigators.Leave(vm.Memory, ship.Captain, Roll);
+            Player.Ships.RemoveAt(i);
+            if (Fleet != null && i < Fleet.Ships.Count) Fleet.Ships.RemoveAt(i);
+        }
     }
 
     /// <summary>이번 판에서 주인공 편(0 덮침 · 1 맞음)과 맞서는 편.</summary>
@@ -203,9 +233,9 @@ public sealed partial class SeaMapHost
         int fame = 0;
         if (b.Result is (Battle.Outcome.EnemyLeft or Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon) && Scenario is { } vm)
         {
-            // 덤: 적 기함 이탈 1, 그 밖의 승리 3(0x0040ACF0), 해적이면 x 3. 나라 사이 덤(0x0040B0E0)은 아직 안 옮겼다.
+            // 덤: 적 기함 이탈 1, 그 밖의 승리 3(0x0040ACF0). 주인공이 나라 없는 해적이면 x 3, 아니면 사략 덤(0x0040B0E0).
             int mult = b.Result == Battle.Outcome.EnemyLeft ? 1 : 3;
-            if (enemy.Pirate) mult *= 3;
+            mult *= HeroNation == Economy.NoNation ? 3 : Bounty(vm.Memory, enemy.Nation) switch { 2 => 2, 3 => 3, 4 => 4, _ => 1 };
             int lv = HeroStat(enemy.Admiral, Navigators.BattleLevel);
             fame = Sighting.AddFame(vm.Memory, HeroPersonNumber, 200 + Math.Min(lv, 30) * Math.Min(lv, 15) * mult);
         }
@@ -213,6 +243,24 @@ public sealed partial class SeaMapHost
         if (b.Result is Battle.Outcome.PlayerSunk or Battle.Outcome.DuelLost)
             Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndBattle));
         return new Spoils(fame, gold, item, prizes);
+    }
+
+    /// <summary>
+    /// 사략 덤 갈래(<c>0x0040B0E0</c>) — 제 나라 사략허가서(아이템 0x1D + 나라)가 없으면 0. 있으면 차례로 덮어쓴다 — 제 나라가 적 나라와의 사이 ≤ 40 이면 2,
+    /// 적 나라 맞섬(제 나라 쪽)에 0x10 이면 3, 제 나라가 노리는 나라면 4, 사이 ≥ 60 이면 5, 제 나라 맞섬에 0x20 이면 6. 명성 덤은 2 · 3 · 4 가 그 배수다.
+    /// </summary>
+    private int Bounty(ScenarioMemory m, int enemyNation)
+    {
+        int hn = HeroNation;
+        if (hn >= 6 || enemyNation is < 0 or > 6 || !ItemShop.Owned(m).Contains(0x1D + hn)) return 0;
+        int N(int n, int f) => m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, n, f), false);
+        int rel = N(hn, Nations.RelationField + enemyNation), kind = 0;
+        if (rel <= 40) kind = 2;
+        if (enemyNation < 6 && (N(enemyNation, 0x12 + hn) & 0x10) != 0) kind = 3;
+        if (N(hn, Nations.TargetField) == enemyNation) kind = 4;
+        if (rel >= 60) kind = 5;
+        if ((N(hn, 0x12 + enemyNation) & 0x20) != 0) kind = 6;
+        return kind;
     }
 
     /// <summary>싸움 뒤 얻은 것 — 명성 · 금화 · 아이템 이름 · 나포할 수 있는 배.</summary>
