@@ -252,6 +252,12 @@ public sealed class SeaMapWindow : Window
             p.Ships.Select((s, i) => $"{s.Name,-10} 선원 {s.Crew,3} {prices[i],7}").ToList());
         if (pick < 0) return;
         var ship = p.Ships[pick];
+        // 「이 놈이라면 %ld에 인수하지, 괜찮소？」(0xD5) — 아니면 「뭐, 좋을 대로 하시오.」(0xD6) (0x00429E1D)
+        if (MessageBox.Show(this, MsgOr(0xD5, $"이 놈이라면 {prices[pick]}에 인수하지, 괜찮소？", prices[pick]), ship.Name, MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        {
+            Say(0xD6, "뭐, 좋을 대로 하시오.");
+            return;
+        }
         bool loaded = ship.Load > 0 || ship.Crew > 0;
         if (loaded && MessageBox.Show(this, $"{ship.Name}에 짐이나 선원이 있습니다. 그래도 팔까요?", "매각",
                                       MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
@@ -3253,7 +3259,7 @@ public sealed class SeaMapWindow : Window
         if (_host.Fleet is not { } f || _host.StartTables is not { } st) return;
         int reach = Math.Max(2, Sighting.Reach(_host.Player.Ships.Select(s => (s.WatchShare, s.Crew)), false));
         var seen = _host.FleetsInReach(reach);
-        if (seen.Count == 0) { Note(" · 보이는 함대가 없습니다"); return; }
+        if (seen.Count == 0) { Say(0xD7, "군함의 모습은 보이지 않습니다."); return; }
         int pick = BuildingMenu.Ask(this, "감시", [.. seen.Select(n => $"{_host.PersonName(n.Admiral)} 함대")]);
         if (pick < 0) return;
         var fleet = seen[pick];
