@@ -964,6 +964,8 @@ public sealed partial class SeaMapHost : HwndHost
                                  p => raw != null && p * Economy.StateSize + 0x1C < raw.Length ? raw[p * Economy.StateSize + 0x1C] : 2);
         if (seen.Count == 0) return;
         foreach (var s in seen) Sighting.AddFame(m, HeroPersonNumber, s.Fame);   // 주인공 표는 사람 번호로 짚는다(0x0049F5AF)
+        foreach (var s in seen.Where(s => s.Port))   // 항해일지 — 항구 발견(0x00447CCC)
+            Log.Add(Fleet.Date.Year, Fleet.Date.Month, Fleet.Date.Day, Logbook.Found, s.Index);
         Dispatcher.BeginInvoke(() => Sighted?.Invoke(seen));
     }
 
