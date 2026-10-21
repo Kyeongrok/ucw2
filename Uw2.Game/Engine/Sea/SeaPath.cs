@@ -25,8 +25,16 @@ public static class SeaPath
             dx = Math.Min(dx, W - dx);
             return Math.Max(dx, Math.Abs(ay - by));
         }
-        var g = new Dictionary<int, int>();
-        var came = new Dictionary<int, int>();
+        var g = new int[W * H];
+        Array.Fill(g, int.MaxValue);
+        var came = new int[W * H];
+        var open_ = new sbyte[W * H];   // 설 수 있는지 — 0 모름 · 1 바다 · −1 뭍(캐시)
+        bool Sea(int x, int y)
+        {
+            int i = y * W + x;
+            if (open_[i] == 0) open_[i] = (sbyte)(canSail(x, y) ? 1 : -1);
+            return open_[i] > 0;
+        }
         var open = new PriorityQueue<int, int>();
         int start = from.Y * W + Wrap(from.X);
         g[start] = 0;
@@ -47,13 +55,13 @@ public static class SeaPath
             foreach (var (dx, dy) in Steps)
             {
                 int nx = Wrap(cx + dx), ny = cy + dy;
-                if (ny < 0 || ny >= H || !canSail(nx, ny)) continue;
-                if (dx != 0 && dy != 0 && (!canSail(Wrap(cx + dx), cy) || !canSail(cx, cy + dy))) continue;   // 모서리 끊어 가기 없음
+                if (ny < 0 || ny >= H || !Sea(nx, ny)) continue;
+                if (dx != 0 && dy != 0 && (!Sea(Wrap(cx + dx), cy) || !Sea(cx, cy + dy))) continue;   // 모서리 끊어 가기 없음
                 int n = ny * W + nx, cost = gc + (dx != 0 && dy != 0 ? 14 : 10);
-                if (g.TryGetValue(n, out int old) && old <= cost) continue;
+                if (g[n] <= cost) continue;
                 g[n] = cost;
                 came[n] = cur;
-                open.Enqueue(n, cost + 10 * Dist(nx, ny, goal.X, goal.Y));
+                open.Enqueue(n, cost + 12 * Dist(nx, ny, goal.X, goal.Y));   // 조금 무거운 어림 — 가장 짧은 길보다 빨리 찾는다
             }
         }
         return null;
