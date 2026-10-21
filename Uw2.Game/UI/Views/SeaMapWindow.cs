@@ -2705,6 +2705,48 @@ public sealed class SeaMapWindow : Window
     }
 
     /// <summary>
+    /// 사분의 · 육분의 · 경위의(<c>0x0041FC50</c>) — 항구에서는 「경도·위도의 계측은 배 위에서 해 주세요.」(0x2F4). 주인공이 측량술(+0x30 &amp; 0x10)이 없으면
+    /// 「측량술을 가지고 있는 동료를 선택해 주세요.」(0x2F5) — 고른 이가 없으면 0x2F3. 끝내 없으면 주인공이 어림한다(0x2F6 · 0x2F8, 여자면 0x2F7 · 0x2F9 —
+    /// 사람 +0x31 &amp; 0x10)이고 값에 rand(100) + 1 이 덧붙는다. 경도 = ((x + 0x7BD) mod 2160, 1080 넘으면 서경 2160 − 그것) / (6 x 힘) x 힘,
+    /// 위도 = |640 − y| x 8 / (57 x 힘) x 힘(아이템 +0x12 가 눈금). 「북위 %d도, 」(0x7E · 0x7F) 「동경 %d도」(0x80 · 0x81).
+    /// </summary>
+    private string? MeasurePosition(ItemShop.Item item, Window owner)
+    {
+        if (_host.Fleet is not { } f || _host.Scenario is not { } vm) return null;
+        if (_host.CurrentPort >= 0) { Say(0x2F4, "경도·위도의 계측은 배 위에서 해 주세요."); return null; }
+        var m = vm.Memory;
+        const int Surveying = 0x10;
+        int error = 0;
+        if ((HeroField(SkillField) & Surveying) == 0)
+        {
+            Say(0x2F5, "측량술을 가지고 있는 동료를 선택해 주세요.");
+            var mates = Navigators.Mates(m).Select(t => t.Person).ToList();
+            bool found = false;
+            while (mates.Count > 0)
+            {
+                int pick = BuildingMenu.Ask(owner, "측량", [.. mates.Select(_host.PersonName)]);
+                if (pick < 0) break;
+                if ((Navigators.Get(m, mates[pick], SkillField) & Surveying) != 0) { found = true; break; }
+                Say(0x2F3, "그는 측량술을 가지고 있지 않습니다.");
+            }
+            if (!found)
+            {
+                bool woman = (Navigators.Get(m, _host.HeroPersonNumber, 0x31) & 0x10) != 0;
+                Say(woman ? 0x2F6 : 0x2F7, woman ? "할 수 없군요." : "할 수 없군.");
+                Say(woman ? 0x2F8 : 0x2F9, woman ? "뭐, 이 정도랄까？" : "뭐, 이 정도겠지？");
+                error = _host.Roll(100) + 1;
+            }
+        }
+        int step = Math.Max(1, item.Power);
+        int x = ((int)f.X + 0x7BD) % ChipMap.Width, y = 640 - (int)f.Y;
+        bool west = x > ChipMap.Width / 2;
+        if (west) x = ChipMap.Width - x;
+        int lon = x / (step * 6) * step, lat = Math.Abs(y) * 8 / (step * 57) * step;
+        return MsgOr(y >= 0 ? 0x7E : 0x7F, $"{(y >= 0 ? "북위" : "남위")} {lat + error}도, ", lat + error)
+               + MsgOr(west ? 0x81 : 0x80, $"{(west ? "서경" : "동경")} {lon + error}도", lon + error);
+    }
+
+    /// <summary>
     /// 「아이템」 — 가진 것을 골라 목록 33(장비 · 사용, <c>0x0041F630</c>). 쓰기는 갈래마다 다르다(<c>0x0041F8F0</c>):
     /// 7 사분의 · 육분의 · 경위의는 지금 자리(경위도), 8 의 회중시계는 시각, 9 의 쥐약 · 성스런 향유 · 라임 주스는 쓰고 없어진다.
     /// </summary>
@@ -2741,11 +2783,8 @@ public sealed class SeaMapWindow : Window
         {
             case 7 when f != null:
             {
-                // 지금 자리 — 경도는 (x + 0x7BD) mod 2160 을 6 으로, 위도는 (640 − y) x 8 / 57(모험소문과 같은 자).
-                int x = ((int)f.X + 0x7BD) % ChipMap.Width, y = 640 - (int)f.Y;
-                bool west = x > ChipMap.Width / 2;
-                if (west) x = ChipMap.Width - x;
-                said = $"{(west ? "서경" : "동경")} {x / 6}도 · {(y >= 0 ? "북위" : "남위")} {Math.Abs(y) * 8 / 57}도";
+                said = MeasurePosition(it, w);
+                if (said == null) return;
                 break;
             }
             case 8 when item == 0x17 && f != null: said = $"지금은 {Fleet.Clock(f.TimeOfDay)}"; break;
