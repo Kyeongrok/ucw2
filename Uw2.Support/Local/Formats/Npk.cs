@@ -127,6 +127,19 @@ public static class Npk
         (0x0F50D, 0x456D00),   // 알 — 둘이서 책을 본다
     ];
 
+    /// <summary>
+    /// 엔딩 차례(<c>0x00404700</c> → <c>0x00404A60</c> · <c>0x00405440</c>)에 쓰는 <c>END.DAT</c> 그림 — 이름 · 자리 · 빛깔 VA.
+    /// 항해일지(640 x 300)와 모래시계 둘은 <c>0x00454590</c>, 장면 일곱(224 x 160, <c>0x34B20</c> 부터 크기표 <c>0x0040548F</c>)과
+    /// 「Fin」 · 테두리(640 x 400)는 <c>0x00456D00</c> 로 맞는다.
+    /// </summary>
+    public static readonly (string Name, int Offset, int PaletteVa)[] EndingPictures =
+    [
+        ("book", 0x471EB, 0x454590), ("glass0", 0x4F98E, 0x454590), ("glass1", 0x50C5C, 0x454590),
+        ("scene0", 0x34B20, 0x456D00), ("scene1", 0x3752F, 0x456D00), ("scene2", 0x3A2F4, 0x456D00), ("scene3", 0x3CDD9, 0x456D00),
+        ("scene4", 0x40855, 0x456D00), ("scene5", 0x42546, 0x456D00), ("scene6", 0x45541, 0x456D00),
+        ("fin", 0x51F74, 0x456D00), ("frame", 0x57555, 0x456D00),
+    ];
+
     /// <summary>실행 파일 <c>.data</c> 의 VA 를 파일 자리로(<c>KOUKAI2.EXE</c> — 0x454000 이 0x52200 에 놓인다).</summary>
     public static int DataFileOffset(int va) => va - 0x454000 + 0x52200;
 

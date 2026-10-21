@@ -401,6 +401,11 @@ public sealed class AssetPack
             var pic = Npk.DecodeBare(end.AsSpan(at), pal);
             IndexedPng.Write(Path.Combine(dir, $"hero{i}.png"), pic.Pixels, pic.Width, pic.Height, pic.Palette);
         }
+        foreach (var (name, at, pva) in Npk.EndingPictures)
+        {
+            var pic = Npk.DecodeBare(end.AsSpan(at), Npk.ExePalette(exe.AsSpan(Npk.DataFileOffset(pva), 48)));
+            IndexedPng.Write(Path.Combine(dir, $"{name}.png"), pic.Pixels, pic.Width, pic.Height, pic.Palette);
+        }
     }
 
     /// <summary>
@@ -485,6 +490,14 @@ public sealed class AssetPack
     }
 
     /// <summary><c>ending/heroN.png</c> — 없으면 null.</summary>
+    /// <summary>엔딩 차례 그림 하나(<see cref="Npk.EndingPictures"/> 의 이름) — 없으면 null.</summary>
+    public IndexedPng.Image? EndingPicture(string name)
+    {
+        if (Folder is null) return null;
+        string path = Path.Combine(Folder, "ending", $"{name}.png");
+        return File.Exists(path) ? IndexedPng.Read(path) : null;
+    }
+
     public IndexedPng.Image? Ending(int hero)
     {
         if (Folder is null || hero < 0) return null;
