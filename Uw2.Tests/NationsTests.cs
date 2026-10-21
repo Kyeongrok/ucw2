@@ -194,4 +194,33 @@ public class NationsTests
         Assert.Equal(100, states[r + 0x0E]);
         Assert.Equal(60, states[r + 0x0F]);
     }
+
+    [Fact]
+    public void Attacking_own_nation_can_cost_nationality()
+    {
+        var m = new ScenarioMemory();
+        var fav = ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 1);
+        m.Write(fav, 50, false);
+        m.Write(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, ScenarioMemory.RankField), 3, false);
+        m.Write(ScenarioMemory.At(ScenarioMemory.PeopleTable, 0, 0x31), 0x21, false);
+        // rand 4 → 적 나라(= 제 나라) 호의 −14, 제 나라 호의 −14 = 22 ≤ 40 — 국적과 작위를 잃는다.
+        Assert.Equal(Nations.LostNation, Nations.AfterBattle(m, 0, 1, 1, 0, _ => 4));
+        Assert.Equal(22, m.Read(fav, false));
+        Assert.Equal(0, m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, ScenarioMemory.RankField), false));
+        Assert.Equal(0x26, m.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, 0, 0x31), false));
+    }
+
+    [Fact]
+    public void Beating_an_enemy_raises_own_favour_and_cuts_relations()
+    {
+        var m = new ScenarioMemory();
+        m.Write(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 0), 100, false);
+        m.Write(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 2), 100, false);
+        m.Write(ScenarioMemory.At(ScenarioMemory.NationTable, 0, Nations.RelationField + 2), 50, false);
+        Assert.Equal(Nations.Kept, Nations.AfterBattle(m, 0, 0, 2, 4, _ => 1));
+        Assert.Equal(46, m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, 0, Nations.RelationField + 2), false));
+        Assert.Equal(46, m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, 2, Nations.RelationField + 0), false));
+        Assert.Equal(100 - 11 * 3 / 30, m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 2), false));   // 적 나라 호의
+        Assert.Equal(100 + 6 * 4, m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 0), false));     // 제 나라 호의
+    }
 }

@@ -2406,6 +2406,8 @@ public sealed class SeaMapWindow : Window
             TakePrizes(spoils.Prizes);
         }
         if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
+        if (spoils.Stripped == Nations.LostNation) Say(0x238, "국적을 박탈당했습니다.");
+        else if (spoils.Stripped == Nations.LostTitle) Say(0x239, "작위를 박탈당했습니다.");
     }
 
     /// <summary>떠나는 동료 말(0x313 ~ 0x316) — 첫 줄 「§%s§」 는 말하는 이 자리라 뺀다.</summary>
@@ -2510,6 +2512,8 @@ public sealed class SeaMapWindow : Window
                 TakePrizes(spoils.Prizes);
             }
             if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
+            if (spoils.Stripped == Nations.LostNation) Say(0x238, "국적을 박탈당했습니다.");
+            else if (spoils.Stripped == Nations.LostTitle) Say(0x239, "작위를 박탈당했습니다.");
         }
         finally { _host.AmbushDone(enemy); }
     }

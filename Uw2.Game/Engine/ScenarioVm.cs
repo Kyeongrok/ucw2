@@ -166,6 +166,7 @@ public sealed class ScenarioVm
     public int GetVar(int i) => _vars[i & 0xFF];
     public void SetVar(int i, int v) => _vars[i & 0xFF] = (ushort)v;
     public bool GetFlag(int i) => i >= 0 && i < _flags.Length && _flags[i];
+    public void SetFlag(int i, bool v) { if (i >= 0 && i < _flags.Length) _flags[i] = v; }
 
     /// <summary>세이브에 담는 기계 상태 — 장 · 절 · 변수 · 깃발 · 가리키개 · 기억.</summary>
     public sealed class State

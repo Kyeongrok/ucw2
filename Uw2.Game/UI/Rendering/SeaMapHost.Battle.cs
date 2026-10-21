@@ -248,10 +248,23 @@ public sealed partial class SeaMapHost
             int lv = HeroStat(enemy.Admiral, Navigators.BattleLevel);
             fame = Sighting.AddFame(vm.Memory, HeroPersonNumber, 200 + Math.Min(lv, 30) * Math.Min(lv, 15) * mult);
         }
+        // 나라 셈(0x0040BA40) — 끝 값이 짝수일 때(이김 · 적 이탈 · 이벤트). 국적 · 작위를 잃으면 SNR0 일도 끝난다(0x0040BD09).
+        int stripped = Nations.Kept;
+        if (b.Result % 2 == 0 && Scenario is { } nvm)
+        {
+            stripped = Nations.AfterBattle(nvm.Memory, HeroPersonNumber, HeroNation, Math.Min(enemy.Nation, Nations.Pirates),
+                                           Bounty(nvm.Memory, enemy.Nation), Roll);
+            if (stripped != Nations.Kept && Common is { } job)
+            {
+                job.Chapter = 0;
+                job.Section = 0;
+                for (int k = 16; k < 19; k++) job.SetFlag(k, false);
+            }
+        }
         SyncLoad();
         if (b.Result is Battle.Outcome.PlayerSunk or Battle.Outcome.DuelLost)
             Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndBattle));
-        return new Spoils(fame, gold, item, prizes);
+        return new Spoils(fame, gold, item, prizes, stripped);
     }
 
     /// <summary>
@@ -273,7 +286,7 @@ public sealed partial class SeaMapHost
     }
 
     /// <summary>싸움 뒤 얻은 것 — 명성 · 금화 · 아이템 이름 · 나포할 수 있는 배.</summary>
-    public sealed record Spoils(int Fame, int Gold, string? Item, List<Battle.Ship> Prizes);
+    public sealed record Spoils(int Fame, int Gold, string? Item, List<Battle.Ship> Prizes, int Stripped = 0);
 
     /// <summary>
     /// 노획(<c>0x0040B1F0</c>) — 금화 (함대 +0x24 낱말 + 1) x 100(말 0x230), 아이템 함대 +0x1D(0x231, 지닌 것이 스물 아래일 때).

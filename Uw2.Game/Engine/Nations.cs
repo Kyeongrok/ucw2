@@ -291,4 +291,55 @@ public static class Nations
             setFlags(p, flags);
         }
     }
+
+    /// <summary>해전 뒤 나라 셈이 낸 것 — 0 없음 · 1 국적 박탈(0x238) · 2 작위 박탈(0x239).</summary>
+    public const int Kept = 0, LostNation = 1, LostTitle = 2;
+
+    /// <summary>
+    /// 해전 뒤 나라 셈(<c>0x0040BA40</c>, 끝 값이 짝수일 때) — 두 나라 사이(나라 표 +0x0B + 상대, 양쪽 같게)를 min(rand(5) + 3, 사이)만큼 내리고,
+    /// 사략 덤 갈래(<c>0x0040B0E0</c>)로 (덤 d, 무게 w) = 2 → (2, 10) · 3 → (3, 6) · 4 → (4, 3) · 5 → (−1, 90) · 6 → (−1, 60) · 그 밖 (1, 30).
+    /// 적 나라가 해적(6)이 아니면 그 나라 호의(주인공 표 +6 + 나라)를 min((rand(5) + 10) x w / 30, 호의)만큼 내린다. 주인공에 나라가 없으면 끝.
+    /// 제 나라 함대를 쳤으면 제 나라 호의를 min(rand(5) + 10, 호의) 내리고, 40 이하면 국적(사람 +0x31 아래 네 비트 = 6)과 작위를,
+    /// 작위가 있고 70 이하면 작위를 잃는다. 그 밖은 d ≥ 0 이면 제 나라 호의 += (rand(5) + 5) x d(200 까지), 아니면 −min(rand(5) + 5, 호의).
+    /// </summary>
+    public static int AfterBattle(ScenarioMemory m, int hero, int heroNation, int enemyNation, int bounty, Func<int, int> rand)
+    {
+        var rel = ScenarioMemory.At(ScenarioMemory.NationTable, heroNation, RelationField + enemyNation);
+        var back = ScenarioMemory.At(ScenarioMemory.NationTable, enemyNation, RelationField + heroNation);
+        int r = m.Read(rel, false);
+        r -= Math.Min(rand(5) + 3, r);
+        m.Write(rel, r, false);
+        m.Write(back, r, false);
+        ScenarioMemory.Pointer Favour(int n) => ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + n);
+        var (d, w) = bounty switch { 2 => (2, 10), 3 => (3, 6), 4 => (4, 3), 5 => (-1, 90), 6 => (-1, 60), _ => (1, 30) };
+        if (enemyNation != Pirates)
+        {
+            int f = m.Read(Favour(enemyNation), false);
+            m.Write(Favour(enemyNation), f - Math.Min((rand(5) + 10) * w / 30, f), false);
+        }
+        if (heroNation == Pirates) return Kept;
+        int own = m.Read(Favour(heroNation), false);
+        if (heroNation == enemyNation)
+        {
+            own -= Math.Min(rand(5) + 10, own);
+            m.Write(Favour(heroNation), own, false);
+            var rank = ScenarioMemory.At(ScenarioMemory.HeroTable, hero, ScenarioMemory.RankField);
+            if (own <= 40)
+            {
+                m.Write(rank, 0, false);
+                var kind = ScenarioMemory.At(ScenarioMemory.PeopleTable, hero, 0x31);
+                m.Write(kind, (m.Read(kind, false) & 0xF0) | Pirates, false);
+                return LostNation;
+            }
+            if (m.Read(rank, false) != 0 && own <= 70)
+            {
+                m.Write(rank, 0, false);
+                return LostTitle;
+            }
+            return Kept;
+        }
+        if (d >= 0) m.Write(Favour(heroNation), Math.Min(200, own + (rand(5) + 5) * d), false);
+        else m.Write(Favour(heroNation), own - Math.Min(rand(5) + 5, own), false);
+        return Kept;
+    }
 }
