@@ -1874,7 +1874,13 @@ public sealed class SeaMapWindow : Window
             if (best < 1000) Say(0x24, "한턱 써 줘서 고맙소！");
             else if (best < 5000) Say(0x84, $"아, 당신 꽤 유명한 {title} {name} {family}(가) 아니오！", title, name, family);
             else Say(0x85, $"야호, {name} {family}(가) 한턱 낸다니 기쁜데.", name, family);
-            if (_host.Common is not { Chapter: not 0 })
+            // 일이 없고 깃발 16 · 17 가운데 하나가 섰으며 18 이 아니면 왕이 찾는다는 소문(0x00424A57 → 0x00424F80), 깃발 17.
+            if (_host.Common is { Chapter: 0 } rc && (rc.GetFlag(16) || rc.GetFlag(17)) && !rc.GetFlag(18) && _host.HeroNation < 6)
+            {
+                Say(-1, MsgOr(0x199, "그리고 보니, ") + KingCalls(_host.HeroNation) + MsgOr(0x1A0, "당신을 찾고 있다는 소문이 있소."));
+                rc.SetFlag(17, true);
+            }
+            else if (_host.Common is not { Chapter: not 0 })
             {
                 int hunter = Pub.Hunter(HeroField(Church.Luck),
                     k => vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.NationTable, k, 3), false), Random.Shared.Next);
