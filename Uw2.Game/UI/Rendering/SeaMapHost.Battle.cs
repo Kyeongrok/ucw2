@@ -68,15 +68,18 @@ public sealed partial class SeaMapHost
     }
 
     /// <summary>
-    /// 판 한 판을 차린다(<c>0x00409B70</c>) — 주인공이 덮치는 쪽(편 0), 그 함대가 맞는 쪽(편 1). 원군은 아직 없다.
+    /// 판 한 판을 차린다(<c>0x00409B70</c>) — 덮치는 쪽이 편 0, 맞는 쪽이 편 1. <paramref name="heroAttacks"/> 면 주인공이 편 0 이다.
     /// 판은 맞는 쪽 함대 둘레 6 x 6 칩이다(<c>0x0040FCA0</c>).
     /// </summary>
-    public Battle OpenBattle(NpcFleet enemy)
+    public Battle OpenBattle(NpcFleet enemy, bool heroAttacks = true)
     {
         var start = StartTables ?? throw new InvalidOperationException("SDATA.DAT 가 없습니다");
         var b = new Battle(Roll) { Time = Fleet?.TimeOfDay ?? Fleet.MorningTick };
+        HeroSide = heroAttacks ? 0 : 1;
+        int hx = (int)(Fleet?.X ?? enemy.X), hy = (int)(Fleet?.Y ?? enemy.Y);
         int ex = (int)enemy.X, ey = (int)enemy.Y;
-        b.BuildMap((cx, cy) => Fleet?.IsSea(((ex - 2 + cx) % ChipMap.Width + ChipMap.Width) % ChipMap.Width, ey - 2 + cy) ?? true);
+        int dx = heroAttacks ? ex : hx, dy = heroAttacks ? ey : hy;   // 맞는 쪽 자리
+        b.BuildMap((cx, cy) => Fleet?.IsSea(((dx - 2 + cx) % ChipMap.Width + ChipMap.Width) % ChipMap.Width, dy - 2 + cy) ?? true);
         b.RollWind();
 
         // 제 함대 — 기함이 앞. 주인공 배에는 부선장 · 수석항해사가 거든다.
@@ -91,34 +94,38 @@ public sealed partial class SeaMapHost
             var cap = BattleCaptain(who, who == hero ? aideCaps : null);
             var type = ship.Type < start.ShipTypes.Count ? start.ShipTypes[ship.Type] : default;
             bool sailOnly = ship.Type < start.Templates.Count && !start.Templates[ship.Type].Oars;
-            b.Add(0, cap, ship.Name, ship.Crew, ship.Hull, ship.MaxHull, ship.Upwind, ship.Sail, ship.GunKind, ship.Mounted,
+            b.Add(HeroSide, cap, ship.Name, ship.Crew, ship.Hull, ship.MaxHull, ship.Upwind, ship.Sail, ship.GunKind, ship.Mounted,
                   ship.Supplies[3], 100 - ship.SailShare - ship.WatchShare, player: true, sailOnly, merchant: false,
                   type.Durability, ship.MaxCrew, ship);
         }
 
-        AddNpc(b, 1, enemy);
+        AddNpc(b, EnemySide, enemy);
 
         // 원군(0x00409C30) — 둘레 두 칩 안의 나라 해군(번호 % 10 이 5 이상) 가운데 맞는 쪽 나라면 편 3(말 0x30B), 덮치는 쪽 나라면 편 2(0x30C).
         // 편마다 하나, 주인공이 해적이면 없다.
         BattleAllies.Clear();
+        int attackerNation = heroAttacks ? HeroNation : enemy.Nation, defenderNation = heroAttacks ? enemy.Nation : HeroNation;
         if (HeroNation != Economy.NoNation)
             foreach (var f in FleetsInReach())
             {
                 if (f == enemy || f.Pirate || f.Index % 10 < 5) continue;
-                int side = f.Nation == enemy.Nation && !BattleAllies.ContainsKey(3) ? 3
-                         : f.Nation == HeroNation && !BattleAllies.ContainsKey(2) ? 2 : -1;
+                int side = f.Nation == defenderNation && !BattleAllies.ContainsKey(3) ? 3
+                         : f.Nation == attackerNation && !BattleAllies.ContainsKey(2) ? 2 : -1;
                 if (side < 0) continue;
                 BattleAllies[side] = f;
                 AddNpc(b, side, f);
             }
 
         // 펼치기 — 함대마다 맞는 쪽과의 칩 차(0x00410960).
-        int fx = (int)(Fleet?.X ?? ex), fy = (int)(Fleet?.Y ?? ey);
-        b.Deploy(0, Fleet?.Heading ?? 0, fx - ex, fy - ey);
-        b.Deploy(1, enemy.Heading, 0, 0);
-        foreach (var (side, f) in BattleAllies) b.Deploy(side, f.Heading, (int)f.X - ex, (int)f.Y - ey);
+        b.Deploy(HeroSide, Fleet?.Heading ?? 0, hx - dx, hy - dy);
+        b.Deploy(EnemySide, enemy.Heading, ex - dx, ey - dy);
+        foreach (var (side, f) in BattleAllies) b.Deploy(side, f.Heading, (int)f.X - dx, (int)f.Y - dy);
         return b;
     }
+
+    /// <summary>이번 판에서 주인공 편(0 덮침 · 1 맞음)과 맞서는 편.</summary>
+    public int HeroSide { get; private set; }
+    public int EnemySide => HeroSide ^ 1;
 
     /// <summary>이번 판에 든 원군 — 편 2 · 3.</summary>
     public Dictionary<int, NpcFleet> BattleAllies { get; } = [];
@@ -164,14 +171,14 @@ public sealed partial class SeaMapHost
     /// </summary>
     public Spoils CloseBattle(Battle b, NpcFleet enemy)
     {
-        foreach (var s in b.SideShips(0))
+        foreach (var s in b.SideShips(HeroSide))
         {
             if (s.Tag is not PlayerState.Ship ship) continue;
             ship.Crew = s.Crew; ship.Hull = s.Hull; ship.MaxHull = s.MaxHull;
             ship.Upwind = s.Upwind; ship.Sail = s.Sail; ship.Supplies[3] = s.Shot;
         }
-        foreach (var c in b.SideShips(0).Select(s => s.Captain).Distinct()) StoreCaptain(c);
-        var lost = b.SideShips(0).Where(s => s.Crew == 0 || s.Hull == 0).Select(s => s.Tag).OfType<PlayerState.Ship>().ToList();
+        foreach (var c in b.SideShips(HeroSide).Select(s => s.Captain).Distinct()) StoreCaptain(c);
+        var lost = b.SideShips(HeroSide).Where(s => s.Crew == 0 || s.Hull == 0).Select(s => s.Tag).OfType<PlayerState.Ship>().ToList();
         if (lost.Count < Player.Ships.Count)
             foreach (var ship in lost)
             {
@@ -188,7 +195,7 @@ public sealed partial class SeaMapHost
         string? item = null;
         if (b.Result is Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon)
             (gold, item, prizes) = Plunder(b, enemy);
-        StoreNpc(b, 1, enemy, b.Result is Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon);
+        StoreNpc(b, EnemySide, enemy, b.Result is Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon);
         int fame = 0;
         if (b.Result is (Battle.Outcome.EnemyLeft or Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon) && Scenario is { } vm)
         {
@@ -226,7 +233,7 @@ public sealed partial class SeaMapHost
 
         var f = b.PlayerFlagship;
         int vx = Math.Clamp((f?.X ?? 0) - 6, 0, Battle.Width - 13), vy = Math.Clamp((f?.Y ?? 0) - 6, 0, Battle.Height - 12);
-        var prizes = b.SideShips(1).Where(s => s.Hull > 0 && s.X >= vx && s.X < vx + 13 && s.Y >= vy && s.Y < vy + 12).ToList();
+        var prizes = b.SideShips(EnemySide).Where(s => s.Hull > 0 && s.X >= vx && s.X < vx + 13 && s.Y >= vy && s.Y < vy + 12).ToList();
         return (gold, item, prizes);
     }
 

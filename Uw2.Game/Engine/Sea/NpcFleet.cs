@@ -56,6 +56,7 @@ public sealed class NpcFleet
             return new ShipSailing(t.SailKind, s.Sail, s.Upwind, false, 0, 0, 0, 0, 0, 0, 0);
         })];
         _home = home; _away = target;
+        Goal = record.Home;
         Plan(target);
     }
 
@@ -95,12 +96,187 @@ public sealed class NpcFleet
         _newLeg = true;
     }
 
-    /// <summary>날 넘김 — 항구에 있으면 하루를 줄이고, 다 머물렀으면 다음 목표로 떠난다.</summary>
+    /// <summary>날 넘김 — 항구에 있으면 하루를 줄이고(<c>0x00402510</c>), 다 머물렀으면 다음 일을 고른다.</summary>
     public void NewDay()
     {
         if (DaysInPort == 0 || --DaysInPort > 0) return;
-        _towardHome = !_towardHome;
-        Plan(_towardHome ? _home : _away);
+        if (World == null)
+        {
+            _towardHome = !_towardHome;
+            Plan(_towardHome ? _home : _away);
+            return;
+        }
+        PortStay();
+    }
+
+    // ── 할 일(움직임 갈래 +0x1B) ─────────────────────────────────────────────
+
+    /// <summary>남 함대가 들여다보는 바깥 — 항구 자리, 나라 표, 주인공 함대, 다른 함대.</summary>
+    public interface IWorld
+    {
+        (int X, int Y)? PortPos(int port);
+
+        /// <summary>나라 표(<c>0x0043AD80</c>, 32 바이트) — +2 노리는 나라(7 이면 주인공) · +3 방침 · +4 상선 행선 항구 · +0x0A 본거지 항구.</summary>
+        int Nation(int nation, int field);
+
+        int HeroRank { get; }
+        int HeroNation { get; }
+        int HeroFleetIndex { get; }
+        int HeroAdmiral { get; }
+        bool HeroAtSea { get; }
+        (int X, int Y) HeroCell { get; }
+        NpcFleet? FleetByIndex(int index);
+    }
+
+    public IWorld? World { get; set; }
+
+    /// <summary>
+    /// 움직임 갈래(+0x1B) — 0 고향으로 · 1 투자 · 2 사들이기 · 3 바다에 머묾 · 4 무차별(제 함대와 맞닿으면 친다) · 5 · 6 노림 ·
+    /// 7 숨어 기다림 · 8 호위 · 9 고향으로. 4 ~ 8 은 <see cref="Goal"/> 의 사람을 따라간다.
+    /// </summary>
+    public int Mode { get; set; }
+
+    /// <summary>+0x1C — 갈래 0 ~ 2 · 9 는 항구 번호, 4 ~ 8 은 따라갈 사람.</summary>
+    public int Goal { get; set; }
+
+    /// <summary>고향 항구(+0x26).</summary>
+    public int HomePort => Record.Port;
+
+    /// <summary>
+    /// 항구에서 다 머물렀을 때(<c>0x004028A0</c>, 손표 <c>0x00454108</c>) — 갈래 0 은 교역을 마치고 방침으로 다음 갈래를 고르고
+    /// (<c>0x00402180</c> → <c>0x004024A0</c>), 1 투자 · 2 사들이기(<c>0x00402530</c> · <c>0x00402750</c>)는 일을 마치면 갈래 0 으로 돌아간다.
+    /// 그 뒤 갈래대로 행선을 잡는다(<c>0x004022E0</c>). 투자 · 사들이기의 항구 경제 몫은 아직 안 옮겼다.
+    /// </summary>
+    private void PortStay()
+    {
+        if (Mode == 0 || Mode == 9) Mode = PolicyMode();
+        else if (Mode is 1 or 2) Mode = 0;
+        Destination();
+    }
+
+    /// <summary>
+    /// 방침으로 갈래 고르기(<c>0x004024A0</c>) — 머문 항구가 그 나라 본거지(나라 +0x0A)일 때만, 표 <c>0x004540F0</c>[나라 +3] 의
+    /// 네 비트 하나. 상선(번호 % 10 이 1 ~ 4)은 비트 8 ~ 11, 7 ~ 9 는 0 ~ 3, 그 밖(0 · 5 · 6)은 4 ~ 7. 본거지가 아니면 0.
+    /// </summary>
+    public int PolicyMode()
+    {
+        if (World is not { } w || w.Nation(Nation, 0x0A) != Goal) return 0;
+        return PolicyMode(w.Nation(Nation, 3), Index % 10);
+    }
+
+    /// <summary>방침 표(<c>0x004540F0</c>)의 갈래 — 방침 0 ~ 8, 함대 번호 % 10.</summary>
+    public static int PolicyMode(int policy, int kind)
+    {
+        ReadOnlySpan<ushort> table = [0x198, 0x198, 0x298, 0x166, 0x156, 0x156, 0x156, 0x696, 0x646];
+        if (policy < 0 || policy >= table.Length) return 0;
+        int shift = kind is >= 1 and <= 4 ? 8 : kind >= 7 ? 0 : 4;
+        return table[policy] >> shift & 0xF;
+    }
+
+    /// <summary>
+    /// 행선(<c>0x004022E0</c>, 손표 <c>0x0040245C</c>) — 노리는 나라 tn 은 나라 +2(7 이면 주인공 나라).
+    /// <code>
+    ///   0 · 9  고향(+0x26)                 1 · 2  나라 +4 의 상선 행선 항구          3 · 7  그대로
+    ///   4      주인공 함대를 쫓는다         8      제 나라 상선(번호 rand(4) + 1)을 지킨다
+    ///   5 · 6  방침(나라 +3)대로 — 3 · 7 주인공, 4 · 8 tn 나라 함대(작위 2 넘으면 rand(5), 아니면 rand(4) + 1),
+    ///          5 tn 나라 해군 rand(2) + 5, 6 해적 61 + rand(9)
+    /// </code>
+    /// </summary>
+    private void Destination()
+    {
+        var w = World!;
+        int tn = w.Nation(Nation, 2);
+        if (tn == 7) tn = w.HeroNation;
+        switch (Mode)
+        {
+            case 0 or 9: GoTo(HomePort); break;
+            case 1 or 2: GoTo(w.Nation(Nation, 4)); break;
+            case 4: Pursue(w.HeroFleetIndex); break;
+            case 5 or 6:
+                switch (w.Nation(Nation, 3))
+                {
+                    case 3 or 7: Pursue(w.HeroFleetIndex); break;
+                    case 4 or 8: Pursue(w.HeroRank > 2 ? _rng.Next(5) + tn * 10 : _rng.Next(4) + tn * 10 + 1); break;
+                    case 5: Pursue(_rng.Next(2) + 5 + tn * 10); break;
+                    case 6: Pursue(61 + _rng.Next(9)); break;
+                    default: GoTo(HomePort); break;
+                }
+                break;
+            case 8: Pursue(_rng.Next(4) + 1 + Nation * 10); break;
+            default: DaysInPort = _rng.Next(8) + 8; break;
+        }
+    }
+
+    /// <summary>항구로(<c>0x00401F30</c>) — 목표 자리를 그 항구로 두고 떠난다.</summary>
+    private void GoTo(int port)
+    {
+        Goal = port;
+        if (World?.PortPos(port) is { } at) Plan(at);
+        else DaysInPort = 5;
+    }
+
+    /// <summary>
+    /// 함대를 쫓는다(<c>0x00402000</c>) — 그 함대가 바다에 있고 제독이 있으면 그 제독을 따라갈 사람으로, 아니면 고향으로.
+    /// </summary>
+    private void Pursue(int fleetIndex)
+    {
+        var w = World!;
+        if (fleetIndex == w.HeroFleetIndex)
+        {
+            if (!w.HeroAtSea) { Mode = 0; GoTo(HomePort); return; }
+            Goal = w.HeroAdmiral;
+            Plan(w.HeroCell);
+            return;
+        }
+        if (w.FleetByIndex(fleetIndex) is { Docked: false } f && f != this)
+        {
+            Goal = f.Admiral;
+            Plan(((int)f.X, (int)f.Y));
+            return;
+        }
+        Mode = 0;
+        GoTo(HomePort);
+    }
+
+    /// <summary>따라가는 사람의 지금 자리 — 닿을 때마다 다시 잡는다(<c>0x00418379</c>, 갈래 5 ~ 8 · 10).</summary>
+    private bool Retarget()
+    {
+        if (World is not { } w || Mode is not (>= 5 and <= 8 or 10)) return false;
+        if (Goal == w.HeroAdmiral)
+        {
+            if (!w.HeroAtSea) return false;
+            Plan(w.HeroCell);
+            return true;
+        }
+        for (int i = 0; i < 70; i++)
+            if (w.FleetByIndex(i) is { Docked: false } f && f.Admiral == Goal && f != this)
+            {
+                Plan(((int)f.X, (int)f.Y));
+                return true;
+            }
+        return false;
+    }
+
+    /// <summary>
+    /// 제 함대와 맞닿았는지(<c>0x004189F0</c>) — 갈래 4 는 같은 칩에 서면 갈래 5 로 바꾸고 주인공을 노린다. 5 ~ 7 은 주인공을 따라가다
+    /// 같은 칩에 서면. 그다음 <c>0x00418550</c> 이 낮(18 ~ 53 틱)에만, 주인공에게 작위가 있거나 이 함대가 덤비는 함대(+0x29 의 0x40)면 덮친다 —
+    /// 아니면 고향으로 돌아간다.
+    /// </summary>
+    public bool MeetsHero(int timeOfDay)
+    {
+        if (World is not { HeroAtSea: true } w || Docked || Mode is < 4 or > 7) return false;
+        if ((_cellX, _cellY) != w.HeroCell) return false;
+        if (Mode == 4) { Mode = 5; Goal = w.HeroAdmiral; }
+        else if (Goal != w.HeroAdmiral) return false;
+        if (timeOfDay is < 18 or >= 54) return false;
+        if (w.HeroRank == 0 && (Record.Flags & 0x40) == 0) { Mode = 0; GoTo(HomePort); return false; }
+        return true;
+    }
+
+    /// <summary>싸움 뒤 — 고향으로 돌아간다(<c>0x00418672</c>: 셋에 하나).</summary>
+    public void AfterBattle()
+    {
+        if (_rng.Next(3) == 0) { Mode = 0; GoTo(HomePort); }
     }
 
     /// <summary>한 틱. 바람 · 해류는 제 함대 자리의 것이다.</summary>
@@ -115,7 +291,7 @@ public sealed class NpcFleet
         int dy = goal.Y - _cellY;
         if (Math.Max(Math.Abs(dx), Math.Abs(dy)) <= 1)
         {
-            if (++_leg >= _route.Count) DaysInPort = _rng.Next(8) + 8;   // 0x004184B0 의 rand(8)+8
+            if (++_leg >= _route.Count && !Retarget()) DaysInPort = _rng.Next(8) + 8;   // 0x004184B0 의 rand(8)+8
             _newLeg = true;
             return;
         }

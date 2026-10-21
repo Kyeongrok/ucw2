@@ -197,4 +197,14 @@ public class BattleTests
         Battle.Order(s, 1);
         Assert.Equal(!g, s.Gunner);
     }
+
+    [Theory]
+    [InlineData(0, 1, 1)]   // 상선은 투자
+    [InlineData(2, 3, 2)]   // 방침 2 상선은 사들이기
+    [InlineData(8, 5, 4)]   // 방침 8 해군은 무차별
+    [InlineData(7, 2, 6)]   // 방침 7 상선도 노린다
+    [InlineData(4, 9, 6)]
+    [InlineData(3, 0, 6)]
+    public void Npc_policy_table_0x004540F0(int policy, int kind, int mode) =>
+        Assert.Equal(mode, NpcFleet.PolicyMode(policy, kind));
 }

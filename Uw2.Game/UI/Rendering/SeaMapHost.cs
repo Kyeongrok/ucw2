@@ -910,7 +910,7 @@ public sealed partial class SeaMapHost : HwndHost
             foreach (var f in start.Fleets.Where(f => f.Active && f.ShipCount > 0 && fleet.CanSail(f.X, f.Y)))
             {
                 var home = f.Home < ports.Ports.Count ? (ports.Ports[f.Home].X, ports.Ports[f.Home].Y) : (f.TargetX, f.TargetY);
-                Others.Add(new NpcFleet(fleet, routes, _npcRng, f, start, home, (f.TargetX, f.TargetY)));
+                Others.Add(new NpcFleet(fleet, routes, _npcRng, f, start, home, (f.TargetX, f.TargetY)) { World = this });
             }
         _othersScale = -1;
         // 첫 배는 그 주인공 시나리오(SNRn.DAT)의 첫 이벤트가 주는 선종이다 — 배 주기 명령 F9.
@@ -1214,6 +1214,7 @@ public sealed partial class SeaMapHost : HwndHost
         // 대사 창 · 고르기 창이 떠 있는 동안은 바다 시간이 흐르지 않는다 — 원본도 창이 닫혀야 다음 틱이다.
         if (Application.Current is { } app && app.Windows.OfType<Window>().Count(x => x.IsVisible) > 1) return;
 
+        if (_ambush != null) return;   // 덮친 함대를 치르는 동안은 바다가 멈춘다
         _carry += dt / Fleet.TickSeconds;
         int ticks = (int)_carry;
         if (ticks <= 0) return;
@@ -1228,6 +1229,7 @@ public sealed partial class SeaMapHost : HwndHost
             LookAround();
             // 틱마다 남 함대도 다 한 걸음 간다(0x0041A362). 바람 · 해류는 제 함대 자리의 것을 같이 쓴다.
             foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);
+            if (CheckAmbush()) break;
             if (Fleet.DaysAtSea != day)
             {
                 foreach (var npc in Others) npc.NewDay();

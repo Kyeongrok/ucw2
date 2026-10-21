@@ -1694,6 +1694,7 @@ public sealed class SeaMapWindow : Window
         _host.Painted += UpdateStatus;
         _host.SeaDay += OnSeaDay;
         _host.GameOver += OnGameOver;
+        _host.Ambushed += Defend;
         _host.MonsterMet += kind => ScenarioDialog.Play(this, _host.Faces,
             [new ScenarioVm.Line("", MsgOr(0x1FE + kind * 2, "")), new ScenarioVm.Line("", MsgOr(0x1FF + kind * 2, ""))]);
         _host.Wrecked += lost => ScenarioDialog.Play(this, _host.Faces, [.. lost.Select(l => new ScenarioVm.Line("",
@@ -1983,6 +1984,50 @@ public sealed class SeaMapWindow : Window
             TakePrizes(spoils.Prizes);
         }
         if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
+    }
+
+    /// <summary>
+    /// 남이 덮쳤다(<c>0x00410DE0</c>) — 해적이면 0x331, 주인공을 노리던 함대면 0x332, 그 밖은 0x333. 부관은 덮친 편 세기 x 3/2 가
+    /// 맞는 편보다 작으면 0x334, 아니면 0x335 라고 한다(원본 셈 그대로 — 약한 쪽이 덮칠 때 「위험하다」고 한다).
+    /// 목록 0x36: 교전 · 도망(rand(150) &lt; 운 + 항해 레벨 이면 0x336, 아니면 0x338 뒤 싸운다) · 항복(<see cref="Encounter.Surrender"/>).
+    /// </summary>
+    private void Defend(Engine.Sea.NpcFleet enemy)
+    {
+        try
+        {
+            if (_host.Fleet is not { } f || _host.StartTables is not { } st) return;
+            var hp = st.People[Math.Clamp(_host.HeroPersonNumber, 0, st.People.Count - 1)];
+            if (enemy.Pirate) Say(0x331, "목숨이 아깝거든, 돈과 적하를 놓고 썩 꺼져！");
+            else if (enemy.Mode is 5 or 6) Say(0x332, $"{hp.Name} {hp.Family}, 찾고 있었다！", $"{hp.Name} {hp.Family}");
+            else Say(0x333, $"우리 나라의 원수 {NationNames7[Math.Min(6, _host.HeroNation)]}의 함대여！", NationNames7[Math.Min(6, _host.HeroNation)]);
+            int ours = (_host.Player.Ships.Sum(s => s.Hull) + 4) / 5, theirs = (enemy.Slots.Sum(s => s.Durability) + 4) / 5;
+            if (theirs * 3 / 2 < ours) Say(0x334, "제독님, 좀 위험한 상황이군요.");
+            else Say(0x335, "저까짓 놈들 반격합시다.");
+            int pick = BuildingMenu.Ask(this, enemy.Pirate ? "해적" : "만남", ["교  전", "도  망", "항  복"]);
+            if (pick == 1)
+            {
+                int luck = _host.BattleCaptain(_host.HeroPersonNumber).Stat(7), nav = _host.BattleCaptain(_host.HeroPersonNumber).NavLevel;
+                if (_host.Roll(150) < luck + nav) { Say(0x336, "간신히 도망쳐 나왔군요."); return; }
+                Say(0x338, "제독님, 도망칠 수 없습니다.");
+            }
+            else if (pick == 2)
+            {
+                if (!enemy.Pirate) Say(0x339, "항복하다니 현명하군. 그러면 우리 나라의 법률에 의해, 공의 소지금과 적하 ３분의 ２를 몰수하겠다.");
+                else Say(0x33A, "으엑！ 형편없는 수확물이다.");
+                int after = Engine.Sea.Encounter.Surrender(_host.Player, enemy.Pirate);
+                if (after >= 0) Say(after, "");
+                return;
+            }
+            string admiral = _host.PersonName(enemy.Admiral);
+            var battle = _host.OpenBattle(enemy, heroAttacks: false);
+            f.UnderSail = false;
+            BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter);
+            f.SetTimeOfDay(battle.Time);
+            var spoils = _host.CloseBattle(battle, enemy);
+            if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon) TakePrizes(spoils.Prizes);
+            if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
+        }
+        finally { _host.AmbushDone(enemy); }
     }
 
     /// <summary>
