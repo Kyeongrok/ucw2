@@ -25,7 +25,10 @@ public sealed class DuelWindow : Window
     /// <summary>일기토 한 장 — (주인공 쪽인가, 무기 갈래, 무리, 장). 붙이는 쪽이 채운다. 없으면 그림 없이 줄과 글만.</summary>
     public static Func<bool, int, int, int, ImageSource?>? Sprites { get; set; }
 
-    private const double SpriteScale = 2;
+    /// <summary>일기토 마당 그림(GRAPH 24, 480 x 176 — 원본은 화면 23 위 (80, 168) 에 깐다, <c>0x0041462B</c>).</summary>
+    public static ImageSource? Arena { get; set; }
+
+    private const double SpriteScale = 1.5;
     private readonly Image[] _figure = [new(), new()];      // 쪽마다(0 건 쪽 · 1 받은 쪽)
     private readonly System.Windows.Threading.DispatcherTimer _clock = new() { Interval = TimeSpan.FromMilliseconds(180) };
     private readonly Queue<(int Group0, int Frame0, int Group1, int Frame1)> _frames = new();
@@ -51,14 +54,24 @@ public sealed class DuelWindow : Window
             // 두 판은 같은 무대(176 x 120)의 자리를 쓴다 — 상대가 왼쪽(오른쪽을 본다), 주인공이 오른쪽(왼쪽을 본다). 겹쳐 놓는다.
             var stage = new Grid { HorizontalAlignment = HorizontalAlignment.Center,
                                    Background = new SolidColorBrush(Color.FromRgb(0x10, 0x18, 0x30)), Margin = new Thickness(0, 0, 0, 6) };
+            double stageW = Uw2.Support.Local.Formats.DuelSprites.CellW * SpriteScale;
+            if (Arena is { } arena)
+            {
+                var floor = new Image { Source = arena, Width = arena.Width * SpriteScale, Height = arena.Height * SpriteScale };
+                RenderOptions.SetBitmapScalingMode(floor, BitmapScalingMode.NearestNeighbor);
+                stage.Children.Add(floor);
+                stageW = floor.Width;
+            }
             foreach (var fig in _figure)
             {
                 fig.Width = Uw2.Support.Local.Formats.DuelSprites.CellW * SpriteScale;
                 fig.Height = Uw2.Support.Local.Formats.DuelSprites.CellH * SpriteScale;
+                fig.VerticalAlignment = VerticalAlignment.Bottom;
+                fig.Margin = new Thickness(0, 0, 0, 8 * SpriteScale);
                 RenderOptions.SetBitmapScalingMode(fig, BitmapScalingMode.NearestNeighbor);
                 stage.Children.Add(fig);
             }
-            root.Width = Uw2.Support.Local.Formats.DuelSprites.CellW * SpriteScale;
+            root.Width = stageW;
             root.Children.Add(stage);
             Pose(0, 0, 0, 0);
             _clock.Tick += (_, _) => Step();

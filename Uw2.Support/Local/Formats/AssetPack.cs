@@ -54,7 +54,7 @@ namespace Uw2.Support.Local.Formats;
 ///     kao/
 ///       faces.png        1024x640 얼굴 64x80 백스물여덟을 16 x 8 로(값 = 색인 0~7)
 ///       finds.png        768x384  발견물 48x48 백스물여덟을 16 x 8 로
-///     graph/NN.png                GRAPH.DAT 그림 예순아홉(NPK016) — 저마다 제 빛깔 열여섯(<see cref="Npk"/>)
+///     graph/NN.png                GRAPH.DAT 그림 예순아홉(NPK016) — 빛깔은 화면 빛깔(머리의 열여섯은 원본도 쓰지 않는다)
 ///     ending/heroN.png            주인공 여섯의 엔딩 그림(END.DAT · 빛깔은 KOUKAI2.EXE)
 ///     open/NN.png                 여는 화면 그림 아흔(OPEN.DAT · 빛깔은 주인공 장면 것 0x4591D0 하나로)
 ///     duel/NAME-V.png             일기토 그림 판(IAP1 ~ 6 · IAE1, 무기 갈래 V) — 줄이 무리, 칸이 장(<see cref="DuelSprites"/>)
@@ -378,7 +378,7 @@ public sealed class AssetPack
         Directory.CreateDirectory(dir);
         var pics = Npk.ReadAll(File.ReadAllBytes(graphPath));
         for (int i = 0; i < pics.Count; i++)
-            IndexedPng.Write(Path.Combine(dir, $"{i:D2}.png"), pics[i].Pixels, pics[i].Width, pics[i].Height, pics[i].Palette);
+            IndexedPng.Write(Path.Combine(dir, $"{i:D2}.png"), pics[i].Pixels, pics[i].Width, pics[i].Height, GamePalette.SeaScreenRgb);
     }
 
     /// <summary>주인공 여섯의 엔딩 그림을 <c>ending/heroN.png</c> 로 굽는다(<see cref="Npk.HeroEndings"/>).</summary>
@@ -417,12 +417,10 @@ public sealed class AssetPack
         }
     }
 
-    /// <summary>일기토 그림 판을 굽는다 — 빛깔은 GRAPH.DAT 첫 그림의 열여섯(기본 빛깔)이다.</summary>
+    /// <summary>일기토 그림 판을 굽는다 — 빛깔은 화면 빛깔(<see cref="GamePalette.SeaScreen"/>)이다.</summary>
     public static void BakeDuel(string gameDirectory, string outDir)
     {
-        string graph = Path.Combine(gameDirectory, "GRAPH.DAT");
-        if (!File.Exists(graph)) return;
-        var pal = Npk.Decode(File.ReadAllBytes(graph)).Palette;
+        var pal = GamePalette.SeaScreenRgb;
         string dir = Path.Combine(outDir, "duel");
         foreach (string name in (string[])["IAP1", "IAP2", "IAP3", "IAP4", "IAP5", "IAP6", "IAE1"])
         {
@@ -457,7 +455,7 @@ public sealed class AssetPack
             Directory.CreateDirectory(dir);
             var pics = Npk.ReadAll(File.ReadAllBytes(path));
             for (int n = 0; n < pics.Count; n++)
-                IndexedPng.Write(Path.Combine(dir, $"{f}-{n}.png"), pics[n].Pixels, pics[n].Width, pics[n].Height, pics[n].Palette);
+                IndexedPng.Write(Path.Combine(dir, $"{f}-{n}.png"), pics[n].Pixels, pics[n].Width, pics[n].Height, GamePalette.SeaScreenRgb);
         }
     }
 

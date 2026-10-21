@@ -104,6 +104,7 @@ public sealed partial class SeaMapHost : HwndHost
         var graphs = Graphs;
         DuelWindow.Sprites = (hero, variant, group, frame) =>
             graphs.DuelFrame(hero ? $"IAP{HeroPersonNumber + 1}" : "IAE1", variant, group, frame);
+        DuelWindow.Arena = graphs.Get(24);
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
         if (AssetPack.FindFolder() is { } nameDir && File.Exists(Path.Combine(nameDir, "name.tbl")))

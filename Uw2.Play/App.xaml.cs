@@ -24,6 +24,7 @@ public partial class App : Application
             // 개발 — 일기토 화면을 화면 밖에 그려 그림으로 적는다.
             var graphs = new GraphSheet(Uw2.Support.Local.Formats.AssetPack.PicturesOnly(duelAssets));
             DuelWindow.Sprites = (hero, variant, group, frame) => graphs.DuelFrame(hero ? "IAP1" : "IAE1", variant, group, frame);
+            DuelWindow.Arena = graphs.Get(24);
             DuelWindow.DevShot(e.Args[ds + 1]);
             Shutdown();
             return;
