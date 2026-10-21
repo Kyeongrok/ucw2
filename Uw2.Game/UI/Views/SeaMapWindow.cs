@@ -4141,7 +4141,7 @@ public sealed class SeaMapWindow : Window
                 LoadGame(new SaveGame { Original = slot, Port = slot.Port });
                 var f = _host.Fleet!;
                 var p = _host.Player;
-                log.AppendLine($"[{slot.Number + 1}] {slot.Label} · {_host.HeroName.Name} · {f.Date} {Fleet.Clock(f.TimeOfDay)} · 항구 {_host.CurrentPort} · 자리 {f.X:0},{f.Y:0} · 돈 {p.Gold} · 은행 {p.Balance} · 고향 {_homePort}");
+                log.AppendLine($"[{slot.Number + 1}] {slot.Label} · {_host.HeroName.Name} · {f.Date} {Fleet.Clock(f.TimeOfDay)} · 항구 {_host.CurrentPort} · 자리 {f.X:0},{f.Y:0} · 돈 {p.Gold} · 은행 {p.Balance} · 고향 {_homePort}{(_host.StoryOver ? " · 엔딩 뒤" : "")}");
                 foreach (var s in p.Ships)
                     log.AppendLine($"    {s.Name}({s.Type}) 선원 {s.Crew}/{s.MaxCrew} 내구 {s.Hull}/{s.MaxHull} 대포 {s.Mounted}/{s.Guns}({s.GunKind}) 선장 {(s.Captain < 0 ? "-" : _host.PersonName(s.Captain))} 사기 {s.Morale} 보급 {string.Join("/", s.Supplies)} 짐 {string.Join(",", s.Cargo.Where(c => c.Good >= 0).Select(c => $"{c.Good}x{c.Amount}"))}");
                 foreach (var (port, s) in p.Docked) log.AppendLine($"    도크 {port}: {s.Name}");
