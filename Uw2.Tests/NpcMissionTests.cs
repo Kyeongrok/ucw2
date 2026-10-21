@@ -24,6 +24,21 @@ public class NpcMissionTests
     }
 
     [Fact]
+    public void Port_ticks_roll_the_day_at_0x48()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, AssetPack.FolderName))) dir = dir.Parent;
+        var pack = AssetPack.Load(Path.Combine(dir!.FullName, AssetPack.FolderName))!;
+        var sea = new Fleet(WorldMap.FromCells(pack.Cells), pack.ToChipMap(), null);
+        sea.SetTimeOfDay(Fleet.TicksPerDay - 2);
+        int day = sea.Date.Day;
+        Assert.False(sea.TickInPort());
+        Assert.True(sea.TickInPort());
+        Assert.Equal(0, sea.TimeOfDay);
+        Assert.NotEqual(day, sea.Date.Day);
+    }
+
+    [Fact]
     public void Eight_months_of_missions_run()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

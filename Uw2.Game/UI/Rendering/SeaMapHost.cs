@@ -1318,6 +1318,25 @@ public sealed partial class SeaMapHost : HwndHost
         _dirty = true;
     }
 
+    /// <summary>
+    /// 도시에서 시각을 흘린다 — 건물에 들면 rand(3) + 2 틱(<c>0x00431F63</c> → <c>0x0041A2C6</c>). 원본 하루 고리(<c>0x00418D30</c>)처럼
+    /// 틱마다 남 함대가 한 걸음 가고(<c>0x00419900</c>), 하루가 넘으면 남 함대 · 여급의 하루 셈을 한다.
+    /// </summary>
+    public void PassTimeInPort(int ticks)
+    {
+        if (Fleet == null) return;
+        for (int i = 0; i < ticks; i++)
+        {
+            bool day = Fleet.TickInPort();
+            foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);
+            if (!day) continue;
+            foreach (var npc in Others) npc.NewDay();
+            if (Scenario != null) Uw2.Game.Engine.Town.Barmaids.NewDay(Scenario.Memory);
+        }
+        _othersMoved = true;
+        _dirty = true;
+    }
+
     /// <summary>도시에서 사람을 옮기고 따라간다.</summary>
     private void AdvanceWalker(double dt, int w, int h)
     {

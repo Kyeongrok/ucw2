@@ -112,6 +112,20 @@ public sealed class Fleet
         if (Date.Day == 0) NewMonth?.Invoke();
     }
 
+    /// <summary>
+    /// 도시의 한 틱 — 시각만 간다. 0x48 이 되면 하루 끝(<c>0x004178C0</c>)이라 0 시로 돌리고 날짜를 넘긴다. 하루가 넘었으면 참.
+    /// 항구라 물 · 식량은 줄지 않는다(<see cref="SleepUntilMorning"/> 와 같다).
+    /// </summary>
+    public bool TickInPort()
+    {
+        if (++TimeOfDay < TicksPerDay) return false;
+        TimeOfDay = 0;
+        if (Date.NextDay()) Ended?.Invoke();
+        Weather.NewDay();
+        if (Date.Day == 0) NewMonth?.Invoke();
+        return true;
+    }
+
     /// <summary>해가 <see cref="GameDate.LastYear"/> 를 넘었다 — 서른 해 항해의 끝(<c>0x0043A897</c>, 끝 깃발 0x10).</summary>
     public event Action? Ended;
 

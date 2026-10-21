@@ -159,6 +159,19 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     private void EnterBuilding(int b)
     {
+        // 건물에 들면 볼일 뒤 시각이 rand(3) + 2 틱 흐른다(0x00431F63 → 0x0041A2C6). 출항했으면 바다 시각이다.
+        // 여관에서 묵었으면 흐른 시각은 덮이고 아침 8시다(0x0041A2F2).
+        int spent = _host.Roll(3) + 2;
+        _slept = false;
+        VisitBuilding(b);
+        if (_host.CurrentPort >= 0 && !_slept) _host.PassTimeInPort(spent);
+        UpdateStatus();
+    }
+
+    private bool _slept;
+
+    private void VisitBuilding(int b)
+    {
         // 그 항구 · 건물에 시나리오 이벤트가 걸려 있으면 그것이 먼저다(0x00431FD9 → 0x0043F8C0).
         var (name, family) = _host.HeroName;
         ScenarioVm.Chooser ask = (before, options) => ScenarioDialog.Ask(this, _host.Faces, before, options);
@@ -185,6 +198,7 @@ public sealed class SeaMapWindow : Window
             if (run.Stopped && b != InnBuilding) return;
         }
         if (!menu && b != InnBuilding) return;
+        if (Watchmen(b)) return;
         if (b == NpcBuilding) { AtPatron(); return; }
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
@@ -222,6 +236,7 @@ public sealed class SeaMapWindow : Window
         if (b == InnBuilding && pick == 2 && _host.Fleet is { } f)
         {
             f.SleepUntilMorning();
+            _slept = true;
             Note($" · 하룻밤 묵었습니다 — {f.Date} {Fleet.Clock(f.TimeOfDay)}");
             return;
         }
@@ -894,6 +909,48 @@ public sealed class SeaMapWindow : Window
             < 0 => " · 더는 가질 수 없습니다",
             _ => $" · 자금 {got}을 받았습니다",
         });
+    }
+
+    /// <summary>
+    /// 남의 나라 항구(<c>0x0043201A</c>) — 항 · 왕궁 · NPC · 교회 말고 건물에 들 때, 그 항구 나라(6 말고)에 대한 주인공 호의(주인공 표 +6 + 나라)가
+    /// 80 아래면 「이 곳은 %s의 항구입니다. 부디 조심하세요！」(0x346). 다만 세 번에 한 번, rand(100) 이 호의 + 20 보다 크면 대신 잡으러 온다
+    /// (<c>0x00432190</c>): 0x347 · 0x348(성). 능력치 +0x21 x 전투 레벨 / 100 + 능력치 +0x21 이 rand(150) 보다 작으면 잡혀(0x349)
+    /// 돈의 3/4 를 내고(0x34D) 그 나라 호의가 20 오른다. 아니면 빠져나온다(0x34A · 0x34B). 잡으러 오면 건물 볼일은 없다(참).
+    /// </summary>
+    private bool Watchmen(int b)
+    {
+        if (b is HarborBuilding or PalaceBuilding or NpcBuilding or ChurchBuilding) return false;
+        if (_host.Scenario is not { } vm || _host.CurrentPort < 0) return false;
+        int nation = _host.PortNation(_host.CurrentPort);
+        if (nation is < 0 or >= 6) return false;
+        int hero = _host.HeroPersonNumber;
+        var favourAt = ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + nation);
+        int favour = vm.Memory.Read(favourAt, false);
+        if (favour >= 80) return false;
+        if (_host.Roll(3) != 0 || _host.Roll(100) <= favour + 20)
+        {
+            Say(0x346, $"제독님, 이 곳은 {NationNames7[nation]}의 항구입니다.\n부디 조심하세요！", NationNames7[nation]);
+            return false;
+        }
+        var (_, family) = _host.HeroName;
+        Say(0x347, "제독님, 수상한 놈들이 접근해 오는데요.");
+        Say(0x348, $"네 이놈！ 악명 높은 {family}(렸다). 우리 나라에 진입하다니 대담하구나！", family);
+        int wit = Navigators.Get(vm.Memory, hero, 0x21), level = Navigators.Get(vm.Memory, hero, Navigators.BattleLevel);
+        if (wit * level / 100 + wit < _host.Roll(150))
+        {
+            Say(0x349, "아뿔사！ 포위당했다.");
+            Say(0x34D, "지금까지 네 놈이 저지른 죄에 대한 벌금으로, 소지금의 ４분의 ３을 몰수하겠다. 더이상 우리 나라에 관여하지 말아라！");
+            int gold = _host.Player.Gold;
+            _host.Player.SetGold(gold - gold * 3 / 4);
+            vm.Memory.Write(favourAt, (favour + 20) & 0xFF, false);
+            Note($" · 벌금 {gold * 3 / 4}");
+        }
+        else
+        {
+            Say(0x34A, "이런 곳에서 체포될 순 없지.");
+            Say(0x34B, "휴우, 간신히 도망쳐 나왔군요.");
+        }
+        return true;
     }
 
     /// <summary>왕궁 「알현」 이 시나리오에 넘기는 건물 번호(<c>0x0042785A</c> 의 0x15).</summary>
