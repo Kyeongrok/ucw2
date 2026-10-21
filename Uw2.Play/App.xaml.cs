@@ -17,6 +17,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        // 배경 음악은 원본 폴더의 bgm/TrackNN.mp3 — 개발 시험(--…-smoke)은 소리 없이.
+        if (!e.Args.Any(x => x.EndsWith("-smoke") || x.EndsWith("-shot"))) Uw2.Game.UI.Audio.Music.Folder = Uw2.Support.Local.Helpers.GameFolder.Find();
         if (e.Args.Contains("--battle-demo")) { BattleWindow.Demo(); Shutdown(); return; }
         if (Array.IndexOf(e.Args, "--duel-shot") is >= 0 and var ds && ds + 1 < e.Args.Length
             && Uw2.Support.Local.Formats.AssetPack.FindFolder() is { } duelAssets)
@@ -83,13 +85,17 @@ public partial class App : Application
         }
         // 여는 화면(0x00431930) — 아무 글쇠나 누르면 건너뛴다. --no-opening 이면 안 띄운다.
         if (!e.Args.Contains("--no-opening") && Uw2.Support.Local.Formats.AssetPack.FindFolder() is { } assets)
+        {
+            Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Opening);
             OpeningWindow.Play(new GraphSheet(Uw2.Support.Local.Formats.AssetPack.PicturesOnly(assets)));
+        }
         ShowTitle();
     }
 
     /// <summary>제목 창 — 게임이 끝나면(<see cref="SeaMapWindow.Ended"/>) 다시 띄운다.</summary>
     private void ShowTitle()
     {
+        Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Title);
         var title = new TitleWindow();
         bool started = false;
         SeaMapWindow Open()

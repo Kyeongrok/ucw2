@@ -4189,7 +4189,8 @@ public sealed class SeaMapWindow : Window
         var ending = _host.Graphs?.Ending(_host.HeroPersonNumber);
         if (ScenarioDialog.Confirm(this, _host.Faces, [new ScenarioVm.Line("", MsgOr(0x2EA, "엔딩 이후의 데이터를 저장하겠습니다."))], ending))
             SaveToSlot();
-        // 저장 뒤 엔딩 차례(0x004043D7 → 0x00404700) — 공작 엔딩(0xF)도 같은 손을 탄다.
+        // 저장 뒤 엔딩 차례(0x004043D7 → 0x00404700) — 공작 엔딩(0xF)도 같은 손을 탄다. 곡은 엔딩(0x0049F890, 0x00404A26).
+        Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Ending);
         if (!_devQuiet && _host.Graphs is { } gs) EndingWindow.Play(this, gs, _host.HeroPersonNumber);
         _over = true;
         _host.Sailing = false;
@@ -4451,9 +4452,24 @@ public sealed class SeaMapWindow : Window
     private string BalanceText() =>
         _host.Player.Balance switch { > 0 and var b => $" · 예금 {b}", < 0 and var b => $" · 빚 {-b}", _ => "" };
 
+    /// <summary>자리에 맞는 곡 — 바다(0x00448A7B) · 도시(0x004319B0, 문화권 +0x21) · 작은 항구.</summary>
+    private void PlaySceneMusic()
+    {
+        if (_devQuiet || _over) return;
+        int port = _host.CurrentPort;
+        if (port < 0) { Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Sea); return; }
+        if (port >= SeaMapHost.SmallPortFirst || _host.Economy is not { } eco || port * Economy.StateSize + 0x21 >= eco.StateBytes.Length)
+        {
+            Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.SmallPort);
+            return;
+        }
+        Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Town(eco.StateBytes[port * Economy.StateSize + 0x21]));
+    }
+
     private void UpdateStatus()
     {
         if (_host.Map == null) return;
+        PlaySceneMusic();
 
         if (_host.CurrentPort >= 0)
         {
