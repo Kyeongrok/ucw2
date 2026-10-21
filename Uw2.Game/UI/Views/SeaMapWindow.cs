@@ -1447,6 +1447,11 @@ public sealed class SeaMapWindow : Window
             SellMap(job.GetVar(18) & 0xFF);
             return;
         }
+        if (_host.Common is { Chapter: not 0 } debt && debt.GetVar(6) == 5 && (debt.GetVar(17) & 0xFF) == nav && debt.GetVar(18) != 0)
+        {
+            CollectDebt(debt, nav);
+            return;
+        }
         int p = Math.Min(0x63, _host.Roll(8) + here);
         p -= Math.Min(_host.Roll(4), p);
         string PortName(int k) => _host.Ports is { } pt && k < pt.Ports.Count ? pt.Ports[k].Name : $"#{k}";
@@ -1465,6 +1470,32 @@ public sealed class SeaMapWindow : Window
             Say(0x23A, $"{PortName(p)}항에서 {who}(라는) 항해사가 일자리를 얻지 못하고 있던데.", PortName(p), who);
         }
         else Say(0x23B, $"{PortName(p)}항엔 괜찮은 녀석이 없었다고 하던데.", PortName(p));
+    }
+
+    /// <summary>
+    /// 조합 「빚 수금」 일(SNR0 변수 6 = 5)에서 빚진 항해자(변수 17)를 만났다(<c>0x00425120</c>) — 「%s %s씨지？ 셜록은행의 부탁을 받아 수금하러 왔소.」(0x260).
+    /// 주인공 운(+0x23)이 rand(100) 보다 작고 셋에 하나면 「어림없지」(0x262) · 「놓치고 말았군」(0x265) — 그 이는 다른 항구로 간다(지금 항구가 42 아래면 rand(42),
+    /// 아니면 rand(58) + 42). 아니면 「알았소, 지불하면 되잖소」(0x261) · 0x266 — 변수 18 = 0, 돈 += 변수 19 x 50000.
+    /// </summary>
+    private void CollectDebt(ScenarioVm job, int nav)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        string who = _host.PersonName(nav);
+        Say(0x260, $"{who}씨지？\n셜록은행의 부탁을 받아 수금하러 왔소.", who, "");
+        int luck = Navigators.Get(m, _host.HeroPersonNumber, 0x23);
+        if (luck < _host.Roll(100) && _host.Roll(3) == 0)
+        {
+            Say(0x262, "칵！ 그럼 당신, 빚장이오？\n어림없지.");
+            Say(0x265, "제기랄！\n놓치고 말았군.");
+            int port = Navigators.Get(m, nav, Navigators.Port);
+            Navigators.Set(m, nav, Navigators.Port, port < 0x2A ? _host.Roll(0x2A) : _host.Roll(0x3A) + 0x2A);
+            return;
+        }
+        Say(0x261, "칵！ 그럼 당신, 빚쟁이오？\n알았소, 지불하면 되잖소.");
+        Say(0x266, "그렇지, 그렇게 얌전히 지불해 주면 이쪽도 편하고 좋지.");
+        job.SetVar(18, 0);
+        _host.Player.SetGold(Math.Min(PlayerState.MaxGold, _host.Player.Gold + (short)job.GetVar(19) * 50000));
     }
 
     /// <summary>나라 이름 — 나라 표 차례(서울 리스본 · 세빌리아 · 이스탄불 · 런던 · 제노바 · 암스테르담).</summary>
