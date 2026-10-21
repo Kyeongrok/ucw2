@@ -1385,37 +1385,57 @@ public sealed class SeaMapWindow : Window
         var stock = ItemShop.ForSale(eco.StateBytes, _host.CurrentPort, _host.Fleet?.TimeOfDay ?? 0);
         if (stock.Count == 0) { Note(" · 파는 것이 없습니다"); return; }
         var items = stock.Select(i => ItemShop.Get(vm.Memory, i)).ToList();
-        int pick = BuildingMenu.Ask(this, $"구입 — 돈 {p.Gold}", items.Select(it => $"{it.Name,-10} {it.Price,7}").ToList());
-        if (pick < 0) return;
-        // 고른 것의 풀이와 그림을 보이고 살지 묻는다(0x0041F450).
-        ShowItem(items[pick].Index);
-        // 「%s(는) 금화 」(0xF0) + 값 + 「닢예요.」(0xF1, 0x0041FF50)
-        if (MessageBox.Show(this, MsgOr(0xF0, $"{items[pick].Name}(는) 금화 ", items[pick].Name) + items[pick].Price + MsgOr(0xF1, "닢예요."),
-                            "구입", MessageBoxButton.YesNo)
-            != MessageBoxResult.Yes) return;
-        int gold = p.Gold;
-        var result = ItemShop.Buy(vm.Memory, items[pick].Index, ref gold);
-        p.SetGold(gold);
-        Note(result switch
+        // 고리(0x0041FE80) — 돌 때마다 돈이 없으면 0xEC, 스무 개를 가졌으면 0xED 로 끝. 목록 머리는 처음 0xEE, 다음부터 0xF2.
+        bool first = true;
+        while (true)
         {
-            ItemShop.Result.Bought => $" · {Josa(items[pick].Name, "을", "를")} {items[pick].Price}에 샀습니다",
-            ItemShop.Result.Owned => M(0x14C, "이미 가지고 있습니다"),
-            ItemShop.Result.Poor => M(0xEF, "돈이 모자랍니다"),
-            _ => " · 더 가질 수 없습니다",
-        });
+            if (p.Gold == 0) { Say(0xEC, "금화를 안 가지고 계신 모양이군요."); return; }
+            if (ItemShop.Owned(vm.Memory).Count() >= 20) { Say(0xED, "가질 수 있는 아이템은 ２０까지입니다.\n뭔가 판 다음에 사 주세요."); return; }
+            string head = first ? MsgOr(0xEE, "마음에 드는 물건이 있을 겁니다.") : MsgOr(0xF2, "그 밖에 사실 물건이 있습니까？");
+            int pick = BuildingMenu.Ask(this, $"{head} — 돈 {p.Gold}", items.Select(it => $"{it.Name,-10} {it.Price,7}").ToList());
+            if (pick < 0) return;
+            first = false;
+            // 고른 것의 풀이와 그림을 보이고 살지 묻는다(0x0041F450).
+            ShowItem(items[pick].Index);
+            // 「%s(는) 금화 」(0xF0) + 값 + 「닢예요.」(0xF1, 0x0041FF50)
+            if (MessageBox.Show(this, MsgOr(0xF0, $"{items[pick].Name}(는) 금화 ", items[pick].Name) + items[pick].Price + MsgOr(0xF1, "닢예요."),
+                                "구입", MessageBoxButton.YesNo)
+                != MessageBoxResult.Yes) continue;
+            int gold = p.Gold;
+            var result = ItemShop.Buy(vm.Memory, items[pick].Index, ref gold);
+            p.SetGold(gold);
+            switch (result)
+            {
+                case ItemShop.Result.Bought: Note($" · {Josa(items[pick].Name, "을", "를")} {items[pick].Price}에 샀습니다"); break;
+                case ItemShop.Result.Owned: Say(0x14C, "같은 아이템을 이미 가지고 계십니다."); break;
+                case ItemShop.Result.Poor: Say(0xEF, "손님, 돈이 모자랍니다."); break;
+                default: Say(0xED, "가질 수 있는 아이템은 ２０까지입니다.\n뭔가 판 다음에 사 주세요."); return;
+            }
+        }
     }
 
     /// <summary>ITEM 「매각」 — 값의 반에서 부르고, 마다하면 운에 따라 매력만큼 올려 부른다.</summary>
     private void SellItem()
     {
         if (_host.Scenario is not { } vm) return;
-        var owned = ItemShop.Owned(vm.Memory).Select(i => ItemShop.Get(vm.Memory, i)).ToList();
-        if (owned.Count == 0) { Note(M(0xF3, "팔 것이 없습니다")); return; }
-        int pick = BuildingMenu.Ask(this, "매각", owned.Select(it => it.Name).ToList());
-        if (pick < 0) return;
-        var item = owned[pick];
-        if ((item.Kind & 0x10) != 0) { Note(M(0x14D, "그것은 팔 수 없습니다")); return; }
-        if (item.Power == 0) { Note(M(0x3A1, "그런 것은 받지 않습니다")); return; }
+        // 고리(0x00420060) — 목록 머리는 처음 「무엇을 파시겠습니까？」(0xF4), 다음부터 0xF8. 가진 것이 없어지면 「아이템을 안 가지고 계신 모양이군요.」(0xF3).
+        bool first = true;
+        while (true)
+        {
+            var owned = ItemShop.Owned(vm.Memory).Select(i => ItemShop.Get(vm.Memory, i)).ToList();
+            if (owned.Count == 0) { Say(0xF3, "아이템을 안 가지고 계신 모양이군요."); return; }
+            int pick = BuildingMenu.Ask(this, first ? MsgOr(0xF4, "무엇을 파시겠습니까？") : MsgOr(0xF8, "그 밖에 파실 물건이 있습니까？"),
+                                        owned.Select(it => it.Name).ToList());
+            if (pick < 0) return;
+            first = false;
+            SellOneItem(vm, owned[pick]);
+        }
+    }
+
+    private void SellOneItem(ScenarioVm vm, ItemShop.Item item)
+    {
+        if ((item.Kind & 0x10) != 0) { Say(0x14D, "장비하고 있는 아이템은 팔 수 없습니다."); return; }
+        if (item.Power == 0) { Say(0x3A1, "손님, 그 물건은 매입할 수 없네요."); return; }
         int hero = _host.HeroPersonNumber, offer = ItemShop.Offer(item);
         // 「%s(는) 금화 」(0xF5) + 값 + 「닢에 인수하지요.」(0xF7, 0x00420124). 올려 부르면 「손님에겐 두 손 들었읍니다. 금화 」(0xF6) + 값 + 0xF7.
         string head = MsgOr(0xF5, $"{item.Name}(는) 금화 ", item.Name);
