@@ -627,7 +627,24 @@ public sealed class SeaMapWindow : Window
             case 5: Say(0x24D, "주점 손님 중에 아는 사람이 있을지도 모르죠."); return;
             case 9: Say(0x24A, "그 항구의 교역소나 조선소에 투자하는 것이 좋겠지요."); return;
             case 10: Say(0x24B, "부락 주민들의 힘을 빌리면 발견할 수 있을 지도 모르겠네요."); return;
-            case 11: Say(0x24C, "조합에 가서 물어 보는 게 어때요"); return;
+            // 일 11 희귀품(0x00426474) — 변수 18 이 보물, 18 − 10 이 그 지도. 지도를 가졌으면 「아！ 이것이 %s …」(0x3FA),
+            //   보물을 가졌으면 「%s(를) 발견했군요！」(0x3FB) 뒤 그날 처음이면 호감 +10. 아니면 변수 17 이 없을 때 0x24C, 있으면 0x24D.
+            case 11:
+            {
+                var owned = ItemShop.Owned(vm.Memory);
+                int treasure = good & 0xFF;
+                if (owned.Contains(treasure - 10)) { SayText(MsgOr(0x3FA, "", ItemShop.Get(vm.Memory, treasure - 10).Name)); return; }
+                if (owned.Contains(treasure))
+                {
+                    SayText(MsgOr(0x3FB, "", ItemShop.Get(vm.Memory, treasure).Name));
+                    if (_boastPort != _host.CurrentPort) { _boastPort = _host.CurrentPort; _boasted = false; }
+                    if (!_boasted) { Barmaids.Admire(vm.Memory, maid); _boasted = true; }
+                    return;
+                }
+                if ((job.GetVar(17) & 0xFF) == 0xFF) Say(0x24C, "조합에 가서 물어 보는 게 어때요");
+                else Say(0x24D, "주점 손님 중에 아는 사람이 있을지도 모르죠.");
+                return;
+            }
             case 1 or 7 or 8 when port == _host.CurrentPort: Say(0x249, "어머, 이 항구에 일 때문에 왔나요？"); return;
             case 7 or 8 when port < ports.Ports.Count && Told():
             {

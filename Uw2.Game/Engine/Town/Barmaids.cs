@@ -67,6 +67,9 @@ public static class Barmaids
 
     public static int Taste(ScenarioMemory m, int i) => Get(m, i, Flags) >> 4 & 3;
 
+    /// <summary>보물을 보여 주면 호감 +10(<c>0x00426811</c>) — 오른 만큼.</summary>
+    public static int Admire(ScenarioMemory m, int i) => Raise(m, i, 10);
+
     private static int Raise(ScenarioMemory m, int i, int by)
     {
         int before = Get(m, i, Liking);
