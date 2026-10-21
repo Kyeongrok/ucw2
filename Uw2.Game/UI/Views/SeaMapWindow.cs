@@ -1738,15 +1738,23 @@ public sealed class SeaMapWindow : Window
             Say(0x1F, "선원을 고용하기 위해선 술을 더 내는 것이 좋겠군요.");
             if (MessageBox.Show(this, MsgOr(0x20, "선원을 모으겠습니까？"), "선원 고용", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         }
+        // 제독이 외치고(0x21 — 이름 뒤에 작위), 모인 수를 알린다 — 20 명 이상 0x79, 그 아래 0x7A, 없으면 0x7B(0x00424435).
+        var (heroName, _) = _host.HeroName;
+        string title = Titles[Math.Clamp(_host.HeroRank, 0, Titles.Length - 1)];
+        Say(0x21, $"이 중에서 {heroName}{title}의 배를 탈 사람은 없느냐？", heroName, title);
         int available = Pub.AvailableAt(economy, _pubMood, _host.HeroRank);
-        if (available == 0) { Note(M(0x7B, "지금은 일하려는 사람이 없습니다")); return; }
+        if (available == 0) { Say(0x7B, "제독님, 지원자가 한 명도 없었습니다."); return; }
+        if (available >= 20) Say(0x79, $"{available}명의 선원이 모였습니다.", available);
+        else Say(0x7A, $"제독님, 지원자는 겨우 {available}명뿐이었습니다.", available);
+        // 「선원 한 사람당, 금화 %d닢이 필요합니다. 몇명 데리고 갈까요？」(0x22 · 0x7C · 0x7D)
         int most = Pub.MostHirable(available, p.Gold, price, p.Vacancy);
-        int n = AmountDialog.Ask(this, $"선원 고용 — {available}명이 일하겠답니다 · 한 사람 {price} · 빈 자리 {p.Vacancy}", most);
+        int n = AmountDialog.Ask(this, MsgOr(0x22, "선원 한 사람당,") + " " + MsgOr(0x7C, $"금화 {price}닢이 필요합니다.", price) + " "
+                                       + MsgOr(0x7D, "몇명 데리고 갈까요？"), most);
         if (n <= 0) return;
         int hired = p.Hire(n, price);
         _host.CrewHiredToday = true;
         _host.SyncLoad();
-        Note(M(0x79, $"선원 {hired}명을 {hired * price}에 고용했습니다", hired) + $" · 금화 {hired * price}");
+        Note($" · 선원 {hired}명 · 금화 {hired * price}");
     }
 
     /// <summary>교역소 「구입」 — 고른 교역품을 수만큼 산다(<see cref="Economy.ForSale"/> 값, <see cref="PlayerState.Buy"/>).</summary>
@@ -2223,19 +2231,29 @@ public sealed class SeaMapWindow : Window
         Note($" · 소지금 {start} → {p.Gold}");
     }
 
-    /// <summary>주점 「선원 해고」(<c>0x00424830</c>) — 배를 골라 선원을 내린다. 선원이 0 이 된 배는 사기도 0 이다.</summary>
+    /// <summary>
+    /// 주점 「선원 해고」(<c>0x00424830</c> → <c>0x00424540</c>) — 배를 골라 「%s의 선원을 몇 명으로 하겠습니까(0-%d)？」(0x359)로
+    /// 남길 수를 묻고, 줄었으면 「%d명의 선원을 해고하겠습니다.」(0x35A)를 다짐받는다. 끝나면 배 목록으로 돌아간다.
+    /// 선원이 0 이 된 배는 사기도 0 이다.
+    /// </summary>
     private void FireCrew()
     {
         var p = _host.Player;
-        int pick = BuildingMenu.Ask(this, "선원 해고", p.Ships.Select(sh => $"{sh.Name}  선원 {sh.Crew}/{sh.MaxCrew}").ToList());
-        if (pick < 0) return;
-        var ship = p.Ships[pick];
-        int n = AmountDialog.Ask(this, $"{ship.Name} — 몇 명을 내리겠습니까？(0-{ship.Crew})", ship.Crew);
-        if (n <= 0) return;
-        ship.Crew -= Math.Min(n, ship.Crew);
-        if (ship.Crew == 0) ship.Morale = 0;
-        _host.SyncLoad();
-        Note($" · {ship.Name} 선원 {ship.Crew}명");
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, "선원 해고", p.Ships.Select(sh => $"{sh.Name}  선원 {sh.Crew}/{sh.MaxCrew}").ToList());
+            if (pick < 0) return;
+            var ship = p.Ships[pick];
+            int keep = AmountDialog.Ask(this, MsgOr(0x359, $"{ship.Name}의 선원을 몇 명으로 하겠습니까(0-{ship.Crew})？", ship.Name, ship.Crew),
+                                        ship.Crew);
+            if (keep < 0 || keep >= ship.Crew) continue;
+            if (MessageBox.Show(this, MsgOr(0x35A, $"{ship.Crew - keep}명의 선원을 해고하겠습니다.", ship.Crew - keep), "선원 해고",
+                                MessageBoxButton.YesNo) != MessageBoxResult.Yes) continue;
+            ship.Crew = keep;
+            if (ship.Crew == 0) ship.Morale = 0;
+            _host.SyncLoad();
+            Note($" · {ship.Name} 선원 {ship.Crew}명");
+        }
     }
 
     /// <summary>교역소 「매각」 — 실은 교역품을 골라 다 판다(<see cref="Economy.SellPrice"/>).</summary>
