@@ -323,7 +323,7 @@ public sealed partial class SeaMapHost : HwndHost
 
     /// <summary>
     /// 남의 함대 — 새 게임의 일흔 함대 가운데 바다에 나와 있고(+0x29 비트 0) 배가 있는 것.
-    /// 아직 움직이지 않는다(뱃길 그래프 DATA1.LZW 4번 청크를 옮기면 간다).
+    /// 뱃길 그래프(DATA1.LZW 4번 청크)를 따라 움직인다(<see cref="NpcFleet"/>).
     /// </summary>
     public List<NpcFleet> Others { get; } = [];
 
@@ -379,7 +379,7 @@ public sealed partial class SeaMapHost : HwndHost
     /// </summary>
     public const int StandInShipType = 5;
 
-    /// <summary>제 함대 배의 이름 — 본보기(선종 이름)를 그대로 쓴다. 명명은 아직이다.</summary>
+    /// <summary>기함의 이름 — 시나리오 <c>FA</c> · 조선소 명명 · 「이름변경」이 붙인 것, 없으면 본보기(선종 이름).</summary>
     public string ShipName { get; set; } = "";
 
     /// <summary>시나리오 파일이 있는 폴더 — 구운 자산이면 <c>asset/snr</c>, 게임 폴더면 그 폴더.</summary>

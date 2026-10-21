@@ -17,8 +17,7 @@ namespace Uw2.Game.UI.Views;
 /// 세계지도를 띄우는 창. 끌어 옮기고 휠로 늘이고 줄인다.
 /// </summary>
 /// <remarks>
-/// 배를 움직이는 것은 아직 없다 — 지도가 제대로 서는지 보는 것이 먼저다.
-/// 3편 <c>ShipMapWindow</c> 자리다.
+/// 바다 · 항구 · 도시 · 건물 · 해전 창을 모두 여기서 연다. 3편 <c>ShipMapWindow</c> 자리다.
 /// </remarks>
 public sealed class SeaMapWindow : Window
 {
@@ -60,7 +59,7 @@ public sealed class SeaMapWindow : Window
         Note($" · {Economy.SupplyNames[pick]} {bought * PlayerState.Lot}통을 실었습니다");
     }
 
-    /// <summary>조선소 「함선 건조」 — 지을 수 있는 선종과 값(선종 +10)을 늘어놓는다. 짓기는 아직이다.</summary>
+    /// <summary>조선소 「함선 건조」 — 맡긴 배가 있으면 그것부터, 아니면 지을 수 있는 선종과 값(선종 +10)을 늘어놓고 맡긴다.</summary>
     private void ShowShipyard()
     {
         if (_host.Economy is not { } eco || _host.StartTables is not { } start) return;
@@ -325,8 +324,8 @@ public sealed class SeaMapWindow : Window
         s.Length > 0 && s[^1] is >= '가' and <= '힣' && (s[^1] - '가') % 28 != 0;
 
     /// <summary>
-    /// 건물 고르기 — 목록은 <c>MENU.DAT</c> 그대로(<see cref="MenuTable.BuildingList"/>). 된 것은 항구 「출항 · 보급」 ·
-    /// 교역소 「구입 · 매각」 · 조선소 「함선 건조」(돈을 내고 짓기, 열 척까지)이고, 나머지는 고르면 「아직」이라고 적는다.
+    /// 건물 고르기 — 목록은 <c>MENU.DAT</c> 그대로(<see cref="MenuTable.BuildingList"/>). 볼일은 <see cref="VisitBuilding"/> 이 건물마다 가르고,
+    /// 손이 없는 항목은 「아직」이라고 적는다.
     /// </summary>
     private void EnterBuilding(int b)
     {
@@ -1627,8 +1626,9 @@ public sealed class SeaMapWindow : Window
     }
 
     /// <summary>
-    /// 주점 · 여관 「항해자와 대화」 — 거기 있는 항해자를 골라, 주점은 목록 12(한턱내기 · 항해자정보 · 고용 · 결투),
-    /// 여관은 항해자정보 · 고용으로(<see cref="Navigators"/>, 여관 고용은 호감을 보지 않는다 — 0x00426F50). 결투는 아직이다.
+    /// 주점 · 여관 「항해자와 대화」 — 거기 있는 항해자를 골라, 주점은 목록 12 의 앞 셋(한턱내기 · 항해자정보 · 고용),
+    /// 여관은 항해자정보 · 고용으로(<see cref="Navigators"/>, 여관 고용은 호감을 보지 않는다 — 0x00426F50).
+    /// 목록 12 의 넷째 「결투」는 원본도 띄우지 않는다(<c>0x00425919 push 3</c>).
     /// </summary>
     private void TalkToNavigator(bool pub)
     {
@@ -1697,7 +1697,6 @@ public sealed class SeaMapWindow : Window
                 if (Navigators.Join(m, nav, hero, wage)) Note($" · {Josa(name, "이", "가")} 동료가 되었습니다(급여 {wage})");
                 return;
             }
-            else { Note(" · 결투는 아직 없습니다"); return; }
         }
     }
 
