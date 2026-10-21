@@ -46,6 +46,22 @@ public static class Navigators
     /// </summary>
     public static int FirstMate(ScenarioMemory m) => FirstInStatus(m, [3, 4, 5, Captain, Employed]);
 
+    /// <summary>
+    /// 날씨를 살피는 이(<c>0x004192D0</c>) — 부선장(처지 3)과 수석항해사(5) 가운데 직감(+0x1F)이 큰 쪽, 같으면 수석항해사. 둘 다 없으면 -1.
+    /// </summary>
+    public static int Lookout(ScenarioMemory m)
+    {
+        int mate = -1, navigator = -1;
+        foreach (var (_, p, _) in Mates(m))
+        {
+            int st = Get(m, p, Status);
+            if (st == 3) mate = p;
+            else if (st == 5) navigator = p;
+        }
+        if (mate < 0 || navigator < 0) return mate >= 0 ? mate : navigator;
+        return Get(m, mate, Stats + 3) > Get(m, navigator, Stats + 3) ? mate : navigator;
+    }
+
     private static int FirstInStatus(ScenarioMemory m, int[] order)
     {
         var people = Mates(m).Select(x => x.Person).ToList();

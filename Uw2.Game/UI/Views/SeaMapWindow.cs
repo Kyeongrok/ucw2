@@ -2287,6 +2287,31 @@ public sealed class SeaMapWindow : Window
         UpdateStatus();
     }
 
+    /// <summary>
+    /// 날씨 말 — 전조(<c>0x00419250</c>)는 살피는 이(<see cref="Navigators.Lookout"/>)가 있고 rand(100) ≤ 그이 직감(+0x1F)일 때만,
+    /// 지식(+0x1E)이 70 아래면 두 칸 뒤 말(「불길한 예감」 쪽), +0x2F 의 8 이면 한 칸 뒤(말투)다. 걷힘은 그대로다(0x004198E2).
+    /// 원본은 창으로 띄우지만 여기서는 상태줄에 적는다.
+    /// </summary>
+    private string? WeatherLine(int id)
+    {
+        if (id is Weather.OmenStorm or Weather.OmenCalm or Weather.OmenFog)
+        {
+            if (_host.Scenario is not { } vm) return null;
+            int who = Navigators.Lookout(vm.Memory);
+            if (who < 0 || _host.CurrentPort >= 0) return null;
+            if (_host.Roll(100) > Navigators.Get(vm.Memory, who, Navigators.Stats + 3)) return null;
+            if (Navigators.Get(vm.Memory, who, Navigators.Stats + 2) < 70) id += 2;
+            if ((Navigators.Get(vm.Memory, who, Navigators.Mood) & 8) != 0) id++;
+        }
+        return MsgOr(id, id switch
+        {
+            Weather.ClearedStorm => "제독님, 겨우 위기를 넘겼습니다.",
+            Weather.ClearedCalm => "제독님, 바람, 바람이 붑니다.",
+            Weather.ClearedFog => "제독님, 겨우 안개가 걷혔습니다.",
+            _ => "제독님, 날씨가 이상한데요.",
+        });
+    }
+
     /// <summary>항해사가 마지막으로 한 말(날씨) — 상태줄에 적는다.</summary>
     private string _seaNote = "";
     private ComboBox _portPick = null!;
@@ -2379,8 +2404,9 @@ public sealed class SeaMapWindow : Window
         };
         _host.FleetReady += f =>
         {
-            f.Weather.Said += line =>
+            f.Weather.Said += id =>
             {
+                if (WeatherLine(id) is not { } line) return;
                 _seaNote = $" · 「{line}」";
                 UpdateStatus();
             };

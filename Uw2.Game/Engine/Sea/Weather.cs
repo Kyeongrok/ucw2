@@ -34,6 +34,9 @@ public sealed class Weather
 {
     public enum Kind { Clear = 0, Storm = 1, Calm = 2, Fog = 3 }
 
+    /// <summary>날씨 말 바탕 번호(MESSAGE.DAT).</summary>
+    public const int OmenStorm = 0x154, OmenCalm = 0x158, OmenFog = 0x15C, ClearedStorm = 0x168, ClearedCalm = 0x16A, ClearedFog = 0x16C;
+
     public Kind Current { get; private set; }
 
     /// <summary>조짐만 보이고 아직 안 들이닥쳤다(비트 6).</summary>
@@ -50,8 +53,11 @@ public sealed class Weather
     /// <summary>제독(과 동료) 가운데 가장 큰 운 — 사람 +0x23. 새 게임이 <c>rand(101)</c> 로 정한다(<c>0x00416A01</c>).</summary>
     public int Luck { get; set; }
 
-    /// <summary>알릴 말이 생기면 부른다. 글은 <c>MESSAGE.DAT</c> 그대로다.</summary>
-    public event Action<string>? Said;
+    /// <summary>
+    /// 항해사 말 — 게임 말 번호 바탕을 준다. 전조는 폭풍 0x154 · 무풍 0x158 · 안개 0x15C(<c>0x00419250</c> — 말할 이 · 다른 말은
+    /// 받는 쪽이 고른다), 걷힘은 폭풍 0x168 · 무풍 0x16A · 안개 0x16C. 들이닥침은 <see cref="Struck"/> 이다.
+    /// </summary>
+    public event Action<int>? Said;
 
     /// <summary>
     /// 폭풍을 막는 남은 날 — 성스런 향유를 쓰면 rand(6) + 10(<c>0x0041FBFA</c>, <c>0x0049EFBC</c>). 0 이 아니면 폭풍이 일지 않고(<c>0x0041922A</c>)
@@ -111,12 +117,6 @@ public sealed class Weather
             StruckToday = true;
             if (Current == Kind.Storm) StormHit?.Invoke();
             Struck?.Invoke(Current);
-            Said?.Invoke(Current switch
-            {
-                Kind.Storm => "제독님, 폭풍우입니다!! 키가 전혀 안 듣습니다.",
-                Kind.Calm => "제독님, 바람이 완전히 멎었습니다.",
-                _ => "제독님, 심한 안개군요. 주위가 보이지 않습니다.",
-            });
             return;
         }
 
@@ -129,12 +129,7 @@ public sealed class Weather
             _ => true,
         };
         if (!clears) return;
-        Said?.Invoke(Current switch
-        {
-            Kind.Storm => "제독님, 겨우 위기를 넘겼습니다.",
-            Kind.Calm => "제독님, 바람, 바람이 붑니다.",
-            _ => "제독님, 겨우 안개가 걷혔습니다.",
-        });
+        Said?.Invoke(Current switch { Kind.Storm => ClearedStorm, Kind.Calm => ClearedCalm, _ => ClearedFog });
         Current = Kind.Clear;
     }
 
@@ -156,12 +151,7 @@ public sealed class Weather
 
         Current = kind;
         Brewing = true;
-        Said?.Invoke(kind switch
-        {
-            Kind.Storm => "제독님, 날씨가 이상한데요. 이것은 폭풍우의 전조입니다.",
-            Kind.Calm => "제독님, 분위기가 심상치 않습니다. 바람이 멎을지도 모르겠어요.",
-            _ => "제독님, 바람이 습합니다. 안개가 낄지도 모르겠습니다.",
-        });
+        Said?.Invoke(kind switch { Kind.Storm => OmenStorm, Kind.Calm => OmenCalm, _ => OmenFog });
     }
 
     /// <summary>
