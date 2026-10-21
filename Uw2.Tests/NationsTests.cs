@@ -223,4 +223,24 @@ public class NationsTests
         Assert.Equal(100 - 11 * 3 / 30, m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 2), false));   // 적 나라 호의
         Assert.Equal(100 + 6 * 4, m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 0), false));     // 제 나라 호의
     }
+
+    [Fact]
+    public void RouteIncome_follows_region_rules()
+    {
+        var ports = new List<(int, bool, int, int, int)>
+        {
+            (0, false, 400, 300, 0),
+            (0, true, 300, 100, 3),    // 갈래 3 — 비트 8 이면 경제 두 배
+            (0, false, 100, 300, 3),
+            (0, false, 900, 299, 4),
+            (0, false, 500, 400, 5),
+            (1, false, 800, 900, 1),
+        };
+        Assert.Equal(100, Nations.RouteIncome(0, 0, ports));   // 400 / 4
+        Assert.Null(Nations.RouteIncome(0, 1, ports));          // 공업 0
+        Assert.Null(Nations.RouteIncome(0, 2, ports));          // 갈래 2 · 4 가 모자라다
+        Assert.Equal(350, Nations.RouteIncome(0, 3, ports));   // 갈래 4 를 보지 않는다 — (600 + 100) / 2
+        Assert.Null(Nations.RouteIncome(0, 5, ports));          // 갈래 4 가 299
+        Assert.Equal(266, Nations.RouteIncome(1, 1, ports));   // 800 / 3
+    }
 }

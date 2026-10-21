@@ -1301,6 +1301,12 @@ public sealed class SeaMapWindow : Window
             foreach (int p in here)
                 sb.AppendLine($"{ports.Ports[p].Name,-10} {eco.States[p].Shares[nation],5} {eco.States[p].Industry,8} {eco.States[p].Economy,8}");
             MessageBox.Show(this, sb.ToString(), regions[pick]);
+            // 그 갈래의 항로(0x004271A0) — 이어졌으면 「유럽(으로부터의) 수익은 n(이지).」(0x1C9), 끊겼으면 「~의 항로는 두절되어 있다.」(0x1C8).
+            string area = MsgOr(0x1D1 + pick, regions[pick]);
+            if (Nations.RouteIncome(nation, pick, _host.NationPorts()) is { } income)
+                Say(-1, area + MsgOr(0x1C9, $"(으로부터의) 수익은 \n{income}(이지).", income));
+            else
+                Say(-1, area + MsgOr(0x1C8, "의 항로는 두절되어 있다."));
         }
         Say(0x1C6, "조금은 도움이 되었는지？");
     }

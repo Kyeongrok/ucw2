@@ -27,6 +27,21 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
     (int X, int Y) NpcFleet.IWorld.HeroCell => Fleet is { } f ? ((int)f.X, (int)f.Y) : (-1, -1);
     NpcFleet? NpcFleet.IWorld.FleetByIndex(int index) => Others.FirstOrDefault(o => o.Index == index);
 
+    /// <summary>항구 백의 (임자, 비트 8, 경제 +0, 공업 +4, 바다 갈래 +0x1C) — 나라 셈 · 세력상황이 쓴다.</summary>
+    public List<(int Owner, bool Major, int Economy, int Industry, int Region)> NationPorts()
+    {
+        var ports = new List<(int, bool, int, int, int)>();
+        if (Scenario is not { } vm || Economy?.StateBytes is not { } raw) return ports;
+        var m = vm.Memory;
+        for (int p = 0; p < Sighting.PortCount && (p + 1) * Support.Local.Formats.Economy.StateSize <= raw.Length; p++)
+        {
+            int flags = m.Read(ScenarioMemory.At(ScenarioMemory.PortTable, p, 0x15), false);
+            int o = p * Support.Local.Formats.Economy.StateSize;
+            ports.Add((flags & 7, (flags & 8) != 0, raw[o] | raw[o + 1] << 8, raw[o + 4] | raw[o + 5] << 8, raw[o + 0x1C]));
+        }
+        return ports;
+    }
+
     /// <summary>
     /// 달마다 나라 셈(<c>0x0042B960</c>, <see cref="Nations.NewMonth"/>) — 항구 백의 임자 · 경제 · 공업 · 바다 갈래를 모아 넘긴다.
     /// </summary>
@@ -34,13 +49,7 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
     {
         if (Scenario is not { } vm || Economy?.StateBytes is not { } raw) return;
         var m = vm.Memory;
-        var ports = new List<(int, bool, int, int, int)>();
-        for (int p = 0; p < Sighting.PortCount && (p + 1) * Support.Local.Formats.Economy.StateSize <= raw.Length; p++)
-        {
-            int flags = m.Read(ScenarioMemory.At(ScenarioMemory.PortTable, p, 0x15), false);
-            int o = p * Support.Local.Formats.Economy.StateSize;
-            ports.Add((flags & 7, (flags & 8) != 0, raw[o] | raw[o + 1] << 8, raw[o + 4] | raw[o + 5] << 8, raw[o + 0x1C]));
-        }
+        var ports = NationPorts();
         int hero = HeroPersonNumber;
         Nations.NewMonth(m, ports, n => m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + n), false), HeroNation, Roll,
                          p => p < ports.Count ? ports[p].Item1 : Nations.Pirates);

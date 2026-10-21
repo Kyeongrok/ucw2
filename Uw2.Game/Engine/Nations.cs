@@ -241,6 +241,36 @@ public static class Nations
     }
 
     /// <summary>
+    /// 왕궁 세력상황의 바다 갈래 한 줄(<c>0x004271A0</c>) — 그 갈래의 항로가 이어졌으면 수익(경제 합 / 나눗수), 끊겼으면 null.
+    /// 갈래 0 · 1 은 그 갈래 공업 합이 300 이상, 갈래 2 는 (갈래 2 나 4) 와 갈래 3 이 300 이상이면 <b>갈래 3</b> 의 수익을,
+    /// 갈래 3 ~ 7 은 갈래 4 부터 그 갈래까지가 모두 300 이상이어야 한다. 셈은 <see cref="Powers"/> 와 같다(비트 8 이면 경제 두 배).
+    /// </summary>
+    public static int? RouteIncome(int nation, int region, IReadOnlyList<(int Owner, bool Major, int Economy, int Industry, int Region)> ports)
+    {
+        if (nation < 0 || nation >= Count || region is < 0 or > 7) return null;
+        long[] industry = new long[8], economy = new long[8];
+        foreach (var p in ports)
+        {
+            if (p.Owner != nation) continue;
+            industry[p.Region & 7] += p.Industry;
+            economy[p.Region & 7] += p.Economy * (p.Major ? 2 : 1);
+        }
+        const int Floor = 300;
+        switch (region)
+        {
+            case 0 or 1:
+                return industry[region] >= Floor ? (int)(economy[region] / RegionDivisor[region]) : null;
+            case 2:
+                return (industry[2] >= Floor || industry[4] >= Floor) && industry[3] >= Floor
+                    ? (int)(economy[3] / RegionDivisor[3]) : null;
+            default:
+                for (int r = 4; r <= region; r++)
+                    if (industry[r] < Floor) return null;
+                return (int)(economy[region] / RegionDivisor[region]);
+        }
+    }
+
+    /// <summary>
     /// 달마다 — 세기를 적고 노리는 나라 · 방침을 고친다. <paramref name="favour"/> 는 나라마다 주인공 호감(주인공 표 +6 + 나라).
     /// </summary>
     public static void NewMonth(ScenarioMemory m, IReadOnlyList<(int Owner, bool Major, int Economy, int Industry, int Region)> ports,
