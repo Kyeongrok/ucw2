@@ -2657,9 +2657,14 @@ public sealed class SeaMapWindow : Window
                 sb.AppendLine($"명성 교역 {trade} · 해적 {pirate} · 모험 {adventure}");
                 sb.AppendLine($"능력치 {string.Join(" · ", stats)}");
                 sb.AppendLine($"항해 레벨 {Get(hero, Navigators.NavLevel)} · 전투 레벨 {Get(hero, Navigators.BattleLevel)} · 운 {Get(hero, Church.Luck)}");
-                sb.AppendLine($"돈 {p.Gold}{BalanceText()}");
+                // 원본 주인공정보(0x00443230)는 소지금을 금화(나머지 1만) · 금괴(1만 닢 하나)로 가르고(0x38F · 0x390),
+                // 나라마다 공헌도(주인공 표 +6 + 나라, 0x393)를 늘어놓는다.
+                sb.AppendLine($"소지금 금화 {p.Gold % 10000} · 금괴 {p.Gold / 10000}{BalanceText()}");
                 if (vm != null)
                 {
+                    int hp = _host.HeroPersonNumber;
+                    sb.AppendLine("공헌도 " + string.Join(" · ", Enumerable.Range(0, 6).Select(n =>
+                        $"{NationNames7[n]} {vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hp, 6 + n), false)}")));
                     var owned = ItemShop.Owned(vm.Memory).Select(i => ItemShop.Get(vm.Memory, i).Name);
                     sb.AppendLine($"아이템 {string.Join(" · ", owned)}");
                 }
