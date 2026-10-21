@@ -398,6 +398,17 @@ public sealed class NpcFleet
         return true;
     }
 
+    /// <summary>지금 칩 자리.</summary>
+    public (int X, int Y) Cell => (_cellX, _cellY);
+
+    /// <summary>쫓는 남 함대와 맞닿았는지(<c>0x004189F0</c> 의 갈래 5 ~ 7) — 과녁이 주인공이 아니고 같은 칩에 섰다.</summary>
+    public bool MeetsFleet(NpcFleet other) =>
+        !Docked && !other.Docked && other != this && Mode is >= 5 and <= 7 && World is { } w && Goal != w.HeroAdmiral
+        && other.Admiral == Goal && other.Cell == Cell;
+
+    /// <summary>고향으로 돌아간다(<c>0x00401F30(함대, 0, +0x26)</c>).</summary>
+    public void GoHome() { Mode = 0; GoTo(HomePort); }
+
     /// <summary>싸움 뒤 — 고향으로 돌아간다(<c>0x00418672</c>: 셋에 하나).</summary>
     public void AfterBattle()
     {

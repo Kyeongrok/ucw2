@@ -187,9 +187,15 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
         FleetReserve[fleet.Index] = [];
         if (Scenario is not { } vm) return;
         var m = vm.Memory;
+        // 제독은 함대를 잃는다 — +0x1B 에 0xC0 이 있거나 열에 하나는 사람 칸에서 빠진다(0x004189DC).
         Navigators.Set(m, fleet.Admiral, Navigators.Status, 0);
         Navigators.Set(m, fleet.Admiral, Navigators.Fleet, 0xFF);
-        Navigators.Set(m, fleet.Admiral, Navigators.Port, Roll(42));
+        if ((Navigators.Get(m, fleet.Admiral, 0x1B) & 0xC0) != 0 || Roll(10) == 0)
+        {
+            Navigators.Set(m, fleet.Admiral, Navigators.Port, 0xFF);
+            Navigators.Set(m, fleet.Admiral, Navigators.Kind, Navigators.Get(m, fleet.Admiral, Navigators.Kind) & ~0x20);
+        }
+        else Navigators.Set(m, fleet.Admiral, Navigators.Port, Roll(42));
     }
 
     /// <summary>남 함대가 제 함대를 덮쳤다(<c>0x00418622</c>) — 창이 만남 목록을 띄우고 <see cref="AmbushDone"/> 를 부른다.</summary>
@@ -204,7 +210,7 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
         _ambush = null;
     }
 
-    /// <summary>틱마다 — 맞닿은 함대가 있으면 하나만 알린다. 알린 동안은 바다가 멈춘다.</summary>
+    /// <summary>틱마다 — 맞닿은 함대가 있으면 하나만 알린다. 알린 동안은 바다가 멈춘다. 남끼리 맞닿으면 그 자리에서 셈한다.</summary>
     private bool CheckAmbush()
     {
         if (_ambush != null || Fleet == null) return _ambush != null;
@@ -215,6 +221,83 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
                 Dispatcher.BeginInvoke(() => Ambushed?.Invoke(npc));
                 return true;
             }
+        if (Fleet.TimeOfDay is >= 18 and < 54)
+            foreach (var npc in Others.ToList())
+            {
+                if (!Others.Contains(npc)) continue;
+                var target = Others.FirstOrDefault(npc.MeetsFleet);
+                if (target != null) Clash(npc, target);
+            }
         return false;
+    }
+
+    /// <summary>
+    /// 남 함대끼리의 싸움(<c>0x0041868A</c> ~ <c>0x00418989</c>). 과녁 제독 항해술이 rand(150) 보다 크면 빠져나가고 덮친 쪽은 고향으로 간다.
+    /// 아니면 덮친 쪽도 고향으로 돌아가며(갈래 7 은 남는다) 서로 세기(<c>0x0042ACA0</c>) / 10 만큼을 뒤 배부터 내구에서 깎는다 —
+    /// 내구가 다 깎인 배는 가라앉고, 과녁 배가 가라앉을 때마다 그 짐의 반을 1000 까지, 돈의 반을 60000 까지 덮친 쪽이 가져간다.
+    /// 배를 다 잃은 함대는 쓰러진다(<c>0x00418990</c>). 끝으로 덮친 나라의 과녁 나라 사이가 rand(2) + 2 줄고, 과녁 나라는 그것을 따라 적는다
+    /// (덮친 쪽이 해적이면 과녁 나라의 해적 사이가 준다).
+    /// </summary>
+    private void Clash(NpcFleet attacker, NpcFleet target)
+    {
+        if (Scenario is not { } vm) return;
+        var m = vm.Memory;
+        int Power(NpcFleet f) => (f.Slots.Sum(s => s.Durability) + 4) / 5;
+        if (Navigators.Get(m, target.Admiral, Navigators.Stats + 1) > Roll(150))
+        {
+            if (attacker.Mode != 7) attacker.GoHome();
+            return;
+        }
+        if (attacker.Mode != 7) attacker.GoHome();
+        int hitTarget = Power(attacker) / 10, hitAttacker = Power(target) / 10;
+        Hurt(target, hitTarget, sunk =>
+        {
+            int half = target.CargoAmount / 2;
+            target.CargoAmount -= half;
+            attacker.CargoAmount += Math.Min(1000 - attacker.CargoAmount, half);
+            attacker.CargoGood = target.CargoGood;
+            int g = target.Gold / 2;
+            target.Gold -= g;
+            attacker.Gold += Math.Min(60000 - attacker.Gold, g);
+        });
+        if (target.Slots.Count == 0) { Others.Remove(target); FleetLost(target); attacker.GoHome(); }
+        Hurt(attacker, hitAttacker, _ => { });
+        if (attacker.Slots.Count == 0) { Others.Remove(attacker); FleetLost(attacker); }
+
+        int an = attacker.Index / 10, tn = target.Index / 10;
+        ScenarioMemory.Pointer Rel(int a, int b) => ScenarioMemory.At(ScenarioMemory.NationTable, a, Nations.RelationField + b);
+        if (an < 6)
+        {
+            int rel = m.Read(Rel(an, tn), false);
+            m.Write(Rel(an, tn), rel - Math.Min(rel, Roll(2) + 2), false);
+        }
+        if (tn < 6)
+        {
+            if (an < 6) m.Write(Rel(tn, an), m.Read(Rel(an, tn), false), false);
+            else
+            {
+                int rel = m.Read(Rel(tn, an), false);
+                m.Write(Rel(tn, an), rel - Math.Min(rel, Roll(2) + 2), false);
+            }
+        }
+
+        static void Hurt(NpcFleet f, int points, Action<int> sunk)
+        {
+            for (int i = f.Slots.Count - 1; i >= 0 && points > 0; i--)
+            {
+                var s = f.Slots[i];
+                if (points >= s.Durability)
+                {
+                    points -= s.Durability;
+                    f.Slots.RemoveAt(i);
+                    sunk(i);
+                }
+                else
+                {
+                    f.Slots[i] = s with { Durability = s.Durability - points };
+                    points = 0;
+                }
+            }
+        }
     }
 }
