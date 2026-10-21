@@ -471,6 +471,13 @@ public sealed class SeaMapWindow : Window
         string[] Kinds(int nation) => nation == 6 ? ["카리브해적", "코르세르", "사략선대"] : ["상선대", "경비함대", "외양함대"];
         if (probe == Barmaids.NoProbe)
         {
+            // 호감이 80 / ((+0x12 & 1) + 1) 아래면 「안돼요. 바쁜걸요.」(0x215, 0x00426020)
+            bool heroFlag = (Navigators.Get(m, _host.HeroPersonNumber, 0x31) & 0x10) != 0;
+            if (!heroFlag && Barmaids.Get(m, maid, Barmaids.Liking) < 80 / ((Barmaids.Get(m, maid, Barmaids.Flags) & 1) + 1))
+            {
+                Say(0x215, "안돼요. 바쁜걸요.");
+                return;
+            }
             int nation = BuildingMenu.Ask(this, MsgOr(0x216, "어느 나라의 함대를 조사하면 되죠？"), [.. nations]);
             if (nation < 0) return;
             int kind = BuildingMenu.Ask(this, MsgOr(0x217, "어떤 함대인가요？"), [.. Kinds(nation)]);
