@@ -2618,6 +2618,7 @@ public sealed class SeaMapWindow : Window
         _host.SeaDay += OnSeaDay;
         _host.GameOver += OnGameOver;
         _host.Ambushed += Defend;
+        _host.MonsterMet += _ => { if (!_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Monster); };   // 0x00447FAB
         _host.MonsterMet += kind => ScenarioDialog.Play(this, _host.Faces,
             [new ScenarioVm.Line("", MsgOr(0x1FE + kind * 2, "")), new ScenarioVm.Line("", MsgOr(0x1FF + kind * 2, ""))]);
         _host.Wrecked += lost => ScenarioDialog.Play(this, _host.Faces, [.. lost.Select(l => new ScenarioVm.Line("",
@@ -2659,6 +2660,7 @@ public sealed class SeaMapWindow : Window
                 UpdateStatus();
             };
             // 들이닥친 날은 그림 58 과 말(폭풍 0x160 · 무풍 0x162 · 안개 0x164)을 창으로(0x004193D0).
+            f.Weather.Struck += kind => { if (kind == Weather.Kind.Storm && !_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Storm); };   // 0x00419244
             f.Weather.Struck += kind => SayWith(58, 0x15E + (int)kind * 2, kind switch
             {
                 Weather.Kind.Storm => "제독님, 폭풍우입니다！！",
@@ -3091,11 +3093,12 @@ public sealed class SeaMapWindow : Window
         if (!fight) battle.Result = Engine.Sea.Battle.Outcome.EnemyLeft;
         else
         {
-            if (!_devQuiet) Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Battle);   // 0x0040FAD7
+            if (!_devQuiet) { Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.BattleStart); Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Battle); }   // 0x0040FAD7
             BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem, _host.PersonName); _forceSceneMusic = true;
         }
         f.SetTimeOfDay(battle.Time);
         var spoils = _host.CloseBattle(battle, enemy);
+        if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon && !_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Victory);   // 0x0040AF2B
         if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
         {
             var st = _host.StartTables!;
@@ -3222,11 +3225,12 @@ public sealed class SeaMapWindow : Window
             f.UnderSail = false;
             foreach (var (who, line) in _host.BattleDeserters)
                 ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(who, Deserter(line))]);
-            if (!_devQuiet) Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Battle);
+            if (!_devQuiet) { Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.BattleStart); Uw2.Game.UI.Audio.Music.Play(Uw2.Game.UI.Audio.Music.Battle); }
             BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem, _host.PersonName); _forceSceneMusic = true;
             f.SetTimeOfDay(battle.Time);
             var spoils = _host.CloseBattle(battle, enemy);
-            if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
+            if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon && !_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Victory);   // 0x0040AF2B
+        if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
             {
                 Say(-1, (MsgOr(0x230, $"전리품으로서 금화 {spoils.Gold}닢, ", spoils.Gold)
                          + (spoils.Item != null ? MsgOr(0x231, $"그리고 {spoils.Item}을(를) ", spoils.Item) : "")

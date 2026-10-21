@@ -18,7 +18,7 @@ public partial class App : Application
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         // 배경 음악은 원본 폴더의 bgm/TrackNN.mp3 — 개발 시험(--…-smoke)은 소리 없이.
-        if (!e.Args.Any(x => x.EndsWith("-smoke") || x.EndsWith("-shot"))) Uw2.Game.UI.Audio.Music.Folder = Uw2.Support.Local.Helpers.GameFolder.Find();
+        if (!e.Args.Any(x => x.EndsWith("-smoke") || x.EndsWith("-shot"))) { Uw2.Game.UI.Audio.Music.Folder = Uw2.Support.Local.Helpers.GameFolder.Find(); Uw2.Game.UI.Audio.Sound.Folder = Uw2.Support.Local.Formats.AssetPack.FindFolder(); }
         if (e.Args.Contains("--battle-demo")) { BattleWindow.Demo(); Shutdown(); return; }
         if (Array.IndexOf(e.Args, "--duel-shot") is >= 0 and var ds && ds + 1 < e.Args.Length
             && Uw2.Support.Local.Formats.AssetPack.FindFolder() is { } duelAssets)

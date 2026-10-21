@@ -58,7 +58,7 @@ public static class LsArchive
     /// <summary>청크 목록과 글자표만 읽는다. 알맹이는 안 푼다.</summary>
     public static Entry[] ReadDirectory(ReadOnlySpan<byte> file, out byte[] table)
     {
-        if (file.Length < HeaderSize + EntrySize || file[0] != (byte)'L' || file[1] != (byte)'S')
+        if (file.Length < HeaderSize + EntrySize || file[0] != (byte)'L' || (file[1] | 0x20) != (byte)'s')   // Waves.K2 는 "Ls12" 다
             throw new InvalidDataException("LS10/LS11 묶음이 아닙니다");
 
         table = file.Slice(TableOffset, TableSize).ToArray();

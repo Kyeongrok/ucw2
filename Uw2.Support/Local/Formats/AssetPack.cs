@@ -144,6 +144,7 @@ public sealed class AssetPack
         if (File.Exists(Find("OPEN.DAT")) && File.Exists(Find("KOUKAI2.EXE"))) BakeOpening(Find("OPEN.DAT"), Find("KOUKAI2.EXE"), outDir);
         BakeEvents(gameDirectory, outDir);
         BakeDuel(gameDirectory, outDir);
+        BakeSound(gameDirectory, outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
         IndexedPng.Write(Path.Combine(outDir, "port", "chipno.png"),
@@ -385,6 +386,16 @@ public sealed class AssetPack
         var pics = Npk.ReadAll(File.ReadAllBytes(graphPath));
         for (int i = 0; i < pics.Count; i++)
             IndexedPng.Write(Path.Combine(dir, $"{i:D2}.png"), pics[i].Pixels, pics[i].Width, pics[i].Height, GamePalette.SeaScreenRgb);
+    }
+
+    /// <summary>효과음 — <c>Waves.K2</c>("Ls12" 묶음)의 열 청크가 다 WAV 다. 소리 번호 12 ~ 21 이 차례로 0 ~ 9 번(<c>0x00440600</c>).</summary>
+    public static void BakeSound(string gameDirectory, string outDir)
+    {
+        string path = Path.Combine(gameDirectory, "Waves.K2");
+        if (!File.Exists(path)) return;
+        Directory.CreateDirectory(Path.Combine(outDir, "sound"));
+        var waves = LsArchive.ReadAll(path);
+        for (int i = 0; i < waves.Length; i++) File.WriteAllBytes(Path.Combine(outDir, "sound", $"{i:00}.wav"), waves[i]);
     }
 
     /// <summary>주인공 여섯의 엔딩 그림을 <c>ending/heroN.png</c> 로 굽는다(<see cref="Npk.HeroEndings"/>).</summary>
