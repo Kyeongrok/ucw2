@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Uw2.Support.Local.Formats;
 
 namespace Uw2.Game.UI.Views;
 
@@ -52,7 +53,7 @@ public sealed class EndingWindow : Window
             int k = i;
             _steps.Add(() => { Put("frame", 0, 0); Center($"scene{k}"); });
         }
-        _steps.Add(() => { if (_graphs.Ending(_hero) is { } img) Add(img, (ScreenW - img.Width) / 2, (ScreenH - img.Height) / 2); });
+        _steps.Add(HeroPicture);
         _steps.Add(() => Center("fin"));
 
         _timer.Tick += (_, _) => Next();
@@ -64,10 +65,39 @@ public sealed class EndingWindow : Window
         };
         KeyDown += (_, _) => Close();
         MouseLeftButtonUp += (_, _) => Close();
-        Closed += (_, _) => { _timer.Stop(); _flicker.Stop(); };
+        Closed += (_, _) => { _timer.Stop(); _flicker.Stop(); _frames.Stop(); };
         Next();
         _timer.Start();
     }
+
+    /// <summary>
+    /// 주인공 그림 — 눈은 이따금 깜빡이고(장 0 → 1 → 2 → 1) 촛불은 늘 흔들린다(<see cref="Npk.HeroEndingFrames"/>).
+    /// </summary>
+    private void HeroPicture()
+    {
+        if (_graphs.Ending(_hero) is not { } img) return;
+        double ox = (ScreenW - img.Width) / 2.0, oy = (ScreenH - img.Height) / 2.0;
+        Add(img, ox, oy);
+        if (_hero < 0 || _hero >= Npk.HeroEndingFrames.Length) return;
+        var (_, ex, ey, candle, cx, cy) = Npk.HeroEndingFrames[_hero];
+        var eye = Put($"eye{_hero}-0", ox + ex, oy + ey);
+        var flame = candle != null ? Put($"candle{_hero}-0", ox + cx, oy + cy) : null;
+        int tick = 0;
+        int[] blink = [0, 1, 2, 1];
+        _frames.Tick += (_, _) =>
+        {
+            tick++;
+            if (flame != null) flame.Source = _graphs.EndingPicture($"candle{_hero}-{tick % 3}") ?? flame.Source;
+            if (eye != null)
+            {
+                int b = tick % 16;   // 열여섯 틱에 한 번 깜빡인다
+                eye.Source = _graphs.EndingPicture($"eye{_hero}-{(b < blink.Length ? blink[b] : 0)}") ?? eye.Source;
+            }
+        };
+        _frames.Start();
+    }
+
+    private readonly DispatcherTimer _frames = new() { Interval = TimeSpan.FromSeconds(0.15) };
 
     private Image? Put(string name, double x, double y) =>
         _graphs.EndingPicture(name) is { } img ? Add(img, x, y) : null;
@@ -88,6 +118,7 @@ public sealed class EndingWindow : Window
     private void Next()
     {
         _flicker.Stop();
+        _frames.Stop();
         _glass = null;
         if (++_at >= _steps.Count) { Close(); return; }
         _canvas.Children.Clear();

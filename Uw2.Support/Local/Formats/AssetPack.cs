@@ -400,6 +400,17 @@ public sealed class AssetPack
             var pal = Npk.ExePalette(exe.AsSpan(Npk.DataFileOffset(pva), 48));
             var pic = Npk.DecodeBare(end.AsSpan(at), pal);
             IndexedPng.Write(Path.Combine(dir, $"hero{i}.png"), pic.Pixels, pic.Width, pic.Height, pic.Palette);
+            var (eyes, _, _, candle, _, _) = Npk.HeroEndingFrames[i];
+            for (int k = 0; k < eyes.Length; k++)
+            {
+                var f = Npk.DecodeBare(end.AsSpan(at + eyes[k]), pal);
+                IndexedPng.Write(Path.Combine(dir, $"eye{i}-{k}.png"), f.Pixels, f.Width, f.Height, f.Palette);
+            }
+            for (int k = 0; candle != null && k < candle.Length; k++)
+            {
+                var f = Npk.DecodeBare(end.AsSpan(at + candle[k]), pal);
+                IndexedPng.Write(Path.Combine(dir, $"candle{i}-{k}.png"), f.Pixels, f.Width, f.Height, f.Palette);
+            }
         }
         foreach (var (name, at, pva) in Npk.EndingPictures)
         {
