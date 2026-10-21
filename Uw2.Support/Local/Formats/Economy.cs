@@ -43,8 +43,13 @@ public sealed class Economy
 
     /// <param name="Yard">+0x22 조선소 갈래(<see cref="ShipyardTypes"/> 의 줄).</param>
     /// <param name="Building">+0x23 짓고 있는 배(0xFF 없음).</param>
+    /// <param name="SpecialNeed">+0x1B 특산품이 나오는 경제(항구 경제 ≥ 이것 x 10).</param>
     public readonly record struct PortState(int Economy, int Industry, int[] Shares, int[] PriceIndex,
-                                            int SpecialBase, int Special, int Zone, int Yard = 0, int Building = -1);
+                                            int SpecialBase, int Special, int Zone, int Yard = 0, int Building = -1,
+                                            int SpecialNeed = 0);
+
+    /// <summary>특산품이 목록에 붙는 갈래 지수의 끝 — 이 아래여야 판다(<c>0x004204A4</c> 의 <c>cmp 0x5A</c>).</summary>
+    public const int SpecialIndexLimit = 90;
 
     /// <summary>
     /// 조선소 갈래마다 지을 수 있는 선종 — <c>KOUKAI2.EXE 0x00458BD0</c>, 8바이트 x 11 (0xFF 빈 칸).
@@ -298,7 +303,7 @@ public sealed class Economy
         [.. r.AsSpan(o + 8, 6).ToArray().Select(b => (int)b)],
         [.. r.AsSpan(o + 0x0E, 10).ToArray().Select(b => (int)b)],
         BitConverter.ToUInt16(r, o + 0x18), r[o + 0x1A] == 0xFF ? -1 : r[o + 0x1A], r[o + 0x21],
-        r[o + 0x22], r[o + 0x23] == 0xFF ? -1 : r[o + 0x23]);
+        r[o + 0x22], r[o + 0x23] == 0xFF ? -1 : r[o + 0x23], r[o + 0x1B]);
 
     /// <summary>
     /// 그 항구 조선소가 지을 수 있는 선종 — 갈래 줄 가운데 공업이 <c>선종 +0 x 10</c> 이상인 것
@@ -322,7 +327,10 @@ public sealed class Economy
         return 0;
     }
 
-    /// <summary>그 항구 교역소가 파는 것 — (교역품, 값). 특산품이 있으면 맨 뒤에 붙는다.</summary>
+    /// <summary>
+    /// 그 항구 교역소가 파는 것 — (교역품, 값). 특산품은 경제가 +0x1B x 10 이상이고 그 갈래 지수가 90 아래일 때만 맨 뒤에 붙는다
+    /// (<c>0x00420460</c>: 지수가 높으면 「다 팔렸다」 쪽 말 4, 없거나 경제가 모자라면 말 3 이다).
+    /// </summary>
     public List<(int Good, int Price)> ForSale(int port, bool permit = false)
     {
         var list = new List<(int, int)>();
@@ -337,7 +345,8 @@ public sealed class Economy
             if (m.Need[i] * 10 > s.Economy) continue;
             list.Add((g, Price(m.BuyBase[i], s.PriceIndex[CategoryOf(g)], permit)));
         }
-        if (s.Special >= 0 && s.Special < GoodsCount)
+        if (s.Special >= 0 && s.Special < GoodsCount && s.SpecialNeed * 10 <= s.Economy
+            && s.PriceIndex[CategoryOf(s.Special)] < SpecialIndexLimit)
             list.Add((s.Special, Price(s.SpecialBase, s.PriceIndex[CategoryOf(s.Special)], permit)));
         return list;
     }

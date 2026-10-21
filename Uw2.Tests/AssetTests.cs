@@ -89,6 +89,28 @@ public class AssetTests
         Assert.Equal(AssetPack.KaoCols * KaoImages.FaceW, Pack.FacesWidth);
 
     [Fact]
+    public void SpecialGoodNeedsEconomyAndLowIndex()
+    {
+        var eco = Pack.Economy!;
+        var lisbon = eco.States[0];
+        Assert.Equal(16, lisbon.Special);                                     // 돌소금
+        Assert.True(lisbon.SpecialNeed * 10 <= lisbon.Economy);
+        Assert.Equal(16, eco.ForSale(0)[^1].Good);
+        // 그 갈래 지수가 90 이상이면 안 판다(0x004204A4)
+        var high = eco.Clone();
+        var bytes = (byte[])high.StateBytes.Clone();
+        bytes[0x0E + Economy.CategoryOf(16)] = Economy.SpecialIndexLimit;
+        high.RestoreStates(bytes);
+        Assert.DoesNotContain(high.ForSale(0), g => g.Good == 16);
+        // 경제가 +0x1B x 10 에 못 미쳐도 안 판다
+        var poor = eco.Clone();
+        bytes = (byte[])poor.StateBytes.Clone();
+        bytes[0x1B] = (byte)(lisbon.Economy / 10 + 1);
+        poor.RestoreStates(bytes);
+        Assert.DoesNotContain(poor.ForSale(0), g => g.Good == 16);
+    }
+
+    [Fact]
     public void LisbonMarketPricesFollow0x004208D0()
     {
         var eco = Pack.Economy!;
