@@ -80,6 +80,8 @@ public sealed partial class SeaMapHost
         save.Summary = $"{HeroName.Name} {HeroName.Family} · 원본 {slot.Label}";
 
         save.Logbook = slot.Log;
+        // 몸통 첫 바이트가 0x0045A1E0 갈래다(0x00415368) — 2 가 지워졌으면 엔딩을 본 칸이다(처음은 0xFF, 0x0043A800).
+        save.StoryOver = (b[0] & 2) == 0;
         Restore(save);
         var fleets = StartData.ParseFleets(b.AsSpan(StartData.FleetOffset, StartData.FleetSize * StartData.FleetCount).ToArray());
         SpawnOthers(Fleet, fleets, fleetNo);
