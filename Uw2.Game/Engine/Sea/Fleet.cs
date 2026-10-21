@@ -197,6 +197,9 @@ public sealed class Fleet
     public bool IsSea(int chipX, int chipY) =>
         chipY >= 0 && chipY < ChipMap.Height && ChipMap.CanSail(ChipAt(chipX, chipY));
 
+    /// <summary>그 칩 번호(0 바다 · 0x41 뭍 · 0x59 사막 …).</summary>
+    public byte Chip(int chipX, int chipY) => chipY >= 0 && chipY < ChipMap.Height ? ChipAt(chipX, chipY) : ChipMap.LandChip;
+
     private byte ChipAt(int chipX, int chipY)
     {
         int cx = Wrap(chipX);

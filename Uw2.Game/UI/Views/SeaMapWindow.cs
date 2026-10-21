@@ -3115,6 +3115,10 @@ public sealed class SeaMapWindow : Window
     /// 「상륙」 — 바다 명령 목록 29(<c>0x0041AD60</c>). 함대 둘레에 뭍이 있어야 내린다(아니면 말 0x1B9).
     /// 곁에 이번 게임의 발견물이 있으면 「부락에 상륙하겠습니다」 뒤 목록 35, 없으면 목록 36 이다(<see cref="Discoveries"/>).
     /// </summary>
+    /// <summary>상륙한 뭍이 사막 칩인지(<c>0x00458260</c> 이 0) — 물 「탐색」 앞에 묻는다.</summary>
+    private bool _desertShore;
+    private const byte DesertChip = 0x59;
+
     private void Land()
     {
         if (_host.Fleet is not { } f || _host.CurrentPort >= 0 || _host.Scenario is not { } vm) return;
@@ -3122,7 +3126,7 @@ public sealed class SeaMapWindow : Window
         bool shore = false;
         for (int dy = -2; dy <= 3 && !shore; dy++)
             for (int dx = -2; dx <= 3 && !shore; dx++)
-                if (!f.IsSea(fx + dx, fy + dy)) shore = true;
+                if (!f.IsSea(fx + dx, fy + dy)) { shore = true; _desertShore = f.Chip(fx + dx, fy + dy) == DesertChip; }
         if (!shore) { Say(0x1B9, "그곳에는 상륙할 수 없습니다."); return; }
 
         var spot = Discoveries.Near(vm.Memory, fx, fy);
@@ -3595,10 +3599,12 @@ public sealed class SeaMapWindow : Window
 
     /// <summary>
     /// 뭍 「탐색」 — 물을 찾는다(<c>0x0041B8B0</c>). rand(100) &lt; 운이면 찾고(0x1AA) 배마다 빈 자리만큼 물을 채운다.
-    /// 원본은 사막 칩(0x59)이면 찾을 수 없다고 먼저 묻는데(0x1A8), 그건 아직 안 가린다.
     /// </summary>
     private void SearchWater()
     {
+        // 사막(칩 0x59)에 내렸으면(0x0041AF8D) 「이런 곳에 물이 있을 것 같지는 않습니다만, 일단 찾아보겠습니까？」(0x1A8, 0x0041B8BE)
+        if (_desertShore && MessageBox.Show(this, MsgOr(0x1A8, "이런 곳에 물이 있을 것 같지는 않습니다만, 일단 찾아보겠습니까？"), "탐색",
+                                            MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         if (Random.Shared.Next(100) >= HeroField(Church.Luck)) { Say(0x1A9, "물은 발견되지 않았습니다."); return; }
         Say(0x1AA, "깨끗한 물을 발견했습니다.");
         // 배를 골라(목록 0x8B) 「%s호에 물을 얼마나 싣겠습니까？(0-%d)」(0x1A7) — 더 못 실으면 0x1A6(0x0041B950). 물은 열 통이 짐 하나다.
