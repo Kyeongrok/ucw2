@@ -41,6 +41,12 @@ public static class Shipyard
 
     public static int NewHull(StartData.ShipType type) => type.Durability * 9 / 10;
 
+    /// <summary>지은 배의 내구 — min(100, 선종 내구 x (등급 + 8) / 10)(<c>0x00429364</c>).</summary>
+    public static int BuiltHull(StartData.ShipType type, int grade) => Math.Min(100, type.Durability * (grade + 8) / 10);
+
+    /// <summary>배가 다 지어지는 날 수 — (100 − 공업 / 50) x 선종 내구 / 100(<c>0x004293C5</c>). 항구 형편 +0x23 에 두고 하루 끝마다 준다.</summary>
+    public static int BuildDays(StartData.ShipType type, int industry) => Math.Max(0, (100 - industry / 50) * type.Durability / 100);
+
     /// <summary>중고선 칸 — 시나리오 기억 표 15(<c>0x00460608</c>), 8바이트 x 3: 선종 다섯(0xFF 빈 칸) · 항구 · 둘.</summary>
     public const int UsedTable = 15, UsedRecords = 3, UsedSlots = 5, UsedPortField = 5;
 

@@ -104,15 +104,22 @@ public sealed class Economy
         return Math.Max(0, Math.Min(Math.Min(gold, InvestCap), InvestCap - BitConverter.ToUInt16(StateBytes, at)));
     }
 
-    /// <summary>
-    /// 투자한다 — 이달 투자(+2 · +6)에 더하고, 나라 몫을 올린다(<c>0x004213A0</c> · <c>0x0042A5D0</c>).
-    /// 오르는 몫은 min(투자 / 경제(공업이면 공업), 100 − 그 나라 몫). 다른 나라 가운데 몫이 있는 것들이 그것을 똑같이 나눠 내고,
-    /// 모자란 나라가 못 낸 것은 몫이 남은 나라가 하나씩 더 낸다. 주인공에 나라가 없으면(6) 올라가는 나라 없이 깎이기만 한다.
-    /// 오른 몫을 돌려준다.
-    /// </summary>
-    /// <summary>
-    /// 투자 뒤의 항구 편(<c>0x0042A77C</c>) — 몫이 75 이상인 나라, 없으면 <see cref="NoNation"/>.
-    /// </summary>
+    /// <summary>그 항구 조선소에서 짓는 배가 다 되기까지 남은 날 — 형편 +0x23(0xFF 면 짓는 배 없음 → -1).</summary>
+    public int BuildDays(int port)
+    {
+        int o = port * StateSize + 0x23;
+        return port < 0 || o >= StateBytes.Length || StateBytes[o] == 0xFF ? -1 : StateBytes[o];
+    }
+
+    public void SetBuildDays(int port, int days)
+    {
+        int o = port * StateSize + 0x23;
+        if (port < 0 || o >= StateBytes.Length) return;
+        StateBytes[o] = (byte)(days < 0 ? 0xFF : Math.Min(days, 0xFE));
+        States = [.. Enumerable.Range(0, StateBytes.Length / StateSize).Select(k => ParseState(StateBytes, k * StateSize))];
+    }
+
+    /// <summary>투자 뒤의 항구 편(<c>0x0042A77C</c>) — 몫이 75 이상인 나라, 없으면 <see cref="NoNation"/>.</summary>
     public int Allegiance(int port)
     {
         int o = port * StateSize;
@@ -123,6 +130,12 @@ public sealed class Economy
         return side;
     }
 
+    /// <summary>
+    /// 투자한다 — 이달 투자(+2 · +6)에 더하고, 나라 몫을 올린다(<c>0x004213A0</c> · <c>0x0042A5D0</c>).
+    /// 오르는 몫은 min(투자 / 경제(공업이면 공업), 100 − 그 나라 몫). 다른 나라 가운데 몫이 있는 것들이 그것을 똑같이 나눠 내고,
+    /// 모자란 나라가 못 낸 것은 몫이 남은 나라가 하나씩 더 낸다. 주인공에 나라가 없으면(6) 올라가는 나라 없이 깎이기만 한다.
+    /// 오른 몫을 돌려준다.
+    /// </summary>
     public int Invest(int port, bool industry, int amount, int nation)
     {
         var r = StateBytes;

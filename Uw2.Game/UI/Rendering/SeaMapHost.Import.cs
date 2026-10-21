@@ -53,11 +53,18 @@ public sealed partial class SeaMapHost
         {
             int port = b[OriginalSave.ShipSideOffset + i * OriginalSave.ShipSideSize + 0x1B];
             if ((port & 0x80) == 0) continue;
-            if (OriginalShip(slot, OriginalSave.DockSlotOffset + (i - StartData.SlotCount) * StartData.SlotSize, i, person) is { } ship)
+            int at = OriginalSave.DockSlotOffset + (i - StartData.SlotCount) * StartData.SlotSize;
+            if (OriginalShip(slot, at, i, person) is { } ship)
             {
                 ship.Port = port & 0x7F;
                 ship.Captain = -1;
                 save.Player.Docked.Add(ship);
+            }
+            else if (OriginalShip(slot, at, i, person, 0x20) is { } ordered)   // 조선소에 맡긴 배(0x00429350)
+            {
+                ordered.Port = port & 0x7F;
+                ordered.Captain = -1;
+                save.Player.Ordered.Add(ordered);
             }
         }
         if (save.Player.Ships.Count == 0) return -1;
@@ -83,10 +90,10 @@ public sealed partial class SeaMapHost
     /// 배 기록 22 바이트(이름 · +0x0F 선종 · +0x10 등급 · +0x11 대포 · +0x12 선원 자리 · +0x14 짐 자리),
     /// 칸 곁 30 바이트(<paramref name="side"/> 번: 보급 넷 · +8 파수 · +9 운항 · 짐 양 · 짐 번호 · +0x1B 선장 · +0x1C 사기 · +0x1D 선수상).
     /// </summary>
-    private static SaveGame.ShipData? OriginalShip(OriginalSave.Slot slot, int at, int side, int hero)
+    private static SaveGame.ShipData? OriginalShip(OriginalSave.Slot slot, int at, int side, int hero, int flag = 0x10)
     {
         var b = slot.Body;
-        if ((b[at + 8] & 0x30) != 0x10) return null;
+        if ((b[at + 8] & 0x30) != flag) return null;
         int rAt = StartData.ShipRecordOffset + b[at + 7] * StartData.ShipRecordSize;
         if (rAt + StartData.ShipRecordSize > b.Length || b[rAt + 0x0F] >= StartData.ShipTypeCount) return null;
         int sAt = OriginalSave.ShipSideOffset + side * OriginalSave.ShipSideSize;

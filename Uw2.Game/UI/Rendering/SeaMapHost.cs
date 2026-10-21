@@ -631,6 +631,55 @@ public sealed partial class SeaMapHost : HwndHost
     }
 
     /// <summary>
+    /// 「함선 건조」(<c>0x0042929D</c>) — 그 조선소에 배를 맡긴다. 내구는 min(100, 선종 내구 x (등급 + 8) / 10), 다 되는 날은
+    /// (100 − 공업 / 50) x 선종 내구 / 100(항구 형편 +0x23). 남은 날을 돌려준다(말 0x106). 이미 짓는 배가 있으면 -1.
+    /// </summary>
+    public int OrderShip(int type, int grade)
+    {
+        if (StartTables is not { } start || Economy is not { } eco || CurrentPort < 0) return -1;
+        if (type < 0 || type >= start.ShipTypes.Count || eco.BuildDays(CurrentPort) >= 0) return -1;
+        var st = start.ShipTypes[type];
+        var made = NewShip(start, type, crew: 0);
+        int hull = Uw2.Game.Engine.Town.Shipyard.BuiltHull(st, grade);
+        var ship = new PlayerState.Ship
+        {
+            Type = made.Type, Name = made.Name, Room = made.Room, MaxCrew = made.MaxCrew, Crew = 0, Guns = made.Guns,
+            Hull = hull, MaxHull = hull, Upwind = made.Upwind, Sail = made.Sail, Grade = grade,
+        };
+        int industry = CurrentPort < eco.States.Count ? eco.States[CurrentPort].Industry : 0;
+        int days = Uw2.Game.Engine.Town.Shipyard.BuildDays(st, industry);
+        Player.Ordered.Add((CurrentPort, ship));
+        eco.SetBuildDays(CurrentPort, days);
+        return days;
+    }
+
+    /// <summary>이 항구 조선소에 맡긴 배 — 없으면 null.</summary>
+    public PlayerState.Ship? OrderedHere =>
+        Player.Ordered.FirstOrDefault(o => o.Port == CurrentPort) is { Ship: { } s } ? s : null;
+
+    /// <summary>
+    /// 다 지은 배를 받는다(<c>0x00428C7E</c>) — <paramref name="captain"/> 에게 맡겨 함대 끝에 넣고 그 항구 +0x23 을 0xFF 로 돌린다.
+    /// 아직 덜 됐거나 함대가 다 찼으면 false.
+    /// </summary>
+    public bool TakeOrdered(int captain)
+    {
+        if (StartTables is not { } start || Fleet == null || Economy is not { } eco || CurrentPort < 0) return false;
+        int at = Player.Ordered.FindIndex(o => o.Port == CurrentPort);
+        if (at < 0 || eco.BuildDays(CurrentPort) > 0 || Player.Ships.Count >= MaxShips) return false;
+        var ship = Player.Ordered[at].Ship;
+        Player.Ordered.RemoveAt(at);
+        eco.SetBuildDays(CurrentPort, -1);
+        var t = start.Templates.Count > ship.Type ? start.Templates[ship.Type] : default;
+        var skipper = captain >= 0 && captain < start.People.Count ? start.People[captain] : start.People[HeroPerson[Hero]];
+        Fleet.Ships.Add(ShipSailing.Fresh(start.ShipTypes[ship.Type], skipper, t.Oars) with { Crew = 0 });
+        ship.Captain = captain;
+        Player.Ships.Add(ship);
+        if (captain >= 0 && Scenario != null) Uw2.Game.Engine.Town.Navigators.Command(Scenario.Memory, captain, aboard: true);
+        SyncLoad();
+        return true;
+    }
+
+    /// <summary>
     /// 「보관」 — 배를 도크에 맡긴다. 선원은 내리고(<c>0x00423419</c> 이 해고한다) 선장은 쉬게 한다. 기함(0)은 못 맡긴다.
     /// </summary>
     public bool DockShip(int index, int port)

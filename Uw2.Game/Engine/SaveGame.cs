@@ -78,6 +78,9 @@ public sealed class SaveGame
 
         /// <summary>도크에 맡긴 배 — <see cref="ShipData.Port"/> 가 맡긴 항구다.</summary>
         public List<ShipData> Docked { get; set; } = [];
+
+        /// <summary>조선소에 맡겨 짓고 있는 배 — <see cref="ShipData.Port"/> 가 그 조선소 항구다.</summary>
+        public List<ShipData> Ordered { get; set; } = [];
     }
 
     public sealed class ShipData
@@ -111,6 +114,7 @@ public sealed class SaveGame
         Gold = p.Gold, Balance = p.Balance, WaterRate = p.WaterRate, FoodRate = p.FoodRate, Rats = p.Rats, Scurvy = p.Scurvy,
         Ships = [.. p.Ships.Select(s => Of(s, -1))],
         Docked = [.. p.Docked.Select(d => Of(d.Ship, d.Port))],
+        Ordered = [.. p.Ordered.Select(d => Of(d.Ship, d.Port))],
     };
 
     private static ShipData Of(PlayerState.Ship s, int port) => new()
@@ -143,6 +147,7 @@ public sealed class SaveGame
         p.SetGold(d.Gold);
         foreach (var s in d.Ships) p.Ships.Add(ToShip(s));
         foreach (var s in d.Docked) p.Docked.Add((s.Port, ToShip(s)));
+        foreach (var s in d.Ordered ?? []) p.Ordered.Add((s.Port, ToShip(s)));
         return p;
     }
 

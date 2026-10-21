@@ -62,6 +62,12 @@ public sealed class SeaMapWindow : Window
     private void ShowShipyard()
     {
         if (_host.Economy is not { } eco || _host.StartTables is not { } start) return;
+        // 맡긴 배가 있으면 그것부터(0x0042894D → 0x00428BA0).
+        if (eco.BuildDays(_host.CurrentPort) >= 0 && _host.OrderedHere is { } ordered)
+        {
+            TakeOrderedShip(eco.BuildDays(_host.CurrentPort), ordered);
+            return;
+        }
         var types = eco.Buildable(_host.CurrentPort, start.ShipTypes);
         if (types.Count == 0) { _doorNote = " · 이 조선소는 배를 지을 수 없습니다"; UpdateStatus(); return; }
         // 새 배를 맡을 동료가 있어야 한다(0x00429180, 말 0xA6).
@@ -81,9 +87,40 @@ public sealed class SeaMapWindow : Window
         if (grade < 0) return;
         int price = Shipyard.BuildPrice(basePrice, grade);
         if (p.Gold < price) { Note($" · 돈이 모자랍니다({NameOf(type)} {price})"); return; }
-        if (!_host.AddShip(type, grade, mate)) return;
+        int days = _host.OrderShip(type, grade);
+        if (days < 0) return;
         p.SetGold(p.Gold - price);
-        Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 지었습니다{(mate >= 0 ? $" · 선장 {_host.PersonName(mate)}" : "")}");
+        Say(0x101, "좋아, 최고의 배를 만들어 주겠소.");
+        Say(0x106, $"배가 완성되는 데 {days}일 걸리지.", days);
+        Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 맡겼습니다 — {days}일 뒤");
+    }
+
+    /// <summary>
+    /// 맡긴 배(<c>0x00428BA0</c>) — 남은 날이 있으면 「배는 아직 완성되지 않았소. %d일 더 기다려 주시오」(0x105). 다 됐으면 「아, 손님！」(0xFA)
+    /// 「이 배를 인수하겠소？」(0x107) — 받으면 맡을 동료를 고르고(<c>0x004290D0</c>) 함대에 넣는다. 아니면 「배는 아직 좀더 맡아 두겠소」(0x109).
+    /// </summary>
+    private void TakeOrderedShip(int days, PlayerState.Ship ship)
+    {
+        if (days > 0) { Say(0x105, $"배는 아직 완성되지 않았소. {days}일 더 기다려 주시오.", days); return; }
+        Say(0xFA, "아, 손님！");
+        if (MessageBox.Show(this, MsgOr(0x107, "이 배를 인수하겠소？"), ship.Name, MessageBoxButton.YesNo) != MessageBoxResult.Yes
+            || _host.Player.Ships.Count >= SeaMapHost.MaxShips)
+        {
+            Say(0x109, "배는 아직 좀더 맡아 두겠소.");
+            return;
+        }
+        int captain = -1;
+        if (_host.Scenario is { } vm && _host.HasMates)
+        {
+            var free = Navigators.Mates(vm.Memory).Select(t => t.Person)
+                .Where(x => Navigators.Get(vm.Memory, x, Navigators.Status) != Navigators.Captain).ToList();
+            if (free.Count == 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); Say(0x109, "배는 아직 좀더 맡아 두겠소."); return; }
+            int who = BuildingMenu.Ask(this, $"{ship.Name} — 선장", free.Select(_host.PersonName).ToList());
+            if (who < 0) { Say(0x109, "배는 아직 좀더 맡아 두겠소."); return; }
+            captain = free[who];
+        }
+        if (!_host.TakeOrdered(captain)) return;
+        Note($" · {ship.Name}{(KoreanBatchim(ship.Name) ? "을" : "를")} 받았습니다{(captain >= 0 ? $" · 선장 {_host.PersonName(captain)}" : "")}");
     }
 
     /// <summary>조선소 「중고선 구입」 — 항구에 들 때 마련한 다섯 칸(<see cref="Shipyard.EnterPort"/>), 값은 선종 값.</summary>

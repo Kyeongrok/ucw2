@@ -96,6 +96,12 @@ public sealed class PlayerState
     /// </summary>
     public List<(int Port, Ship Ship)> Docked { get; } = [];
 
+    /// <summary>
+    /// 조선소에 맡겨 짓고 있는 배 — 원본은 빈 배 칸에 깃발 0x20(아직 없음) · +0x1B 「항구 | 0x80」 으로 둔다(<c>0x00429350</c>).
+    /// 남은 날은 그 항구 형편 +0x23 이다. 한 항구에 한 척.
+    /// </summary>
+    public List<(int Port, Ship Ship)> Ordered { get; } = [];
+
     public const int DockPerPort = 5, DockTotal = 30;
 
     public List<Ship> DockedAt(int port) => [.. Docked.Where(d => d.Port == port).Select(d => d.Ship)];
