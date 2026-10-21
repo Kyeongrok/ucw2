@@ -51,4 +51,15 @@ public class NationsTests
         Assert.InRange(Nations.Policy(0, t, 0, n => n - 1), 0, 2);   // rand(120) = 119 ≥ 호전성 → 장사
         Assert.Equal(8, Nations.Policy(Nations.Pirates, t, 0, n => 0));
     }
+
+    [Fact]
+    public void Merchant_port_by_policy()
+    {
+        int[] owner = [.. Enumerable.Range(0, 100).Select(p => p < 10 ? 0 : p < 20 ? 1 : 6)];
+        Func<int, int, int> read(int policy) => (n, f) => f == Nations.PolicyField ? policy : f == 0x0A ? (n == 0 ? 0 : 10) : 0;
+        Assert.InRange(Nations.MerchantPort(0, read(1), p => owner[p], 1, n => 0), 1, 9);     // 제 나라 항구, 본거지 0 말고
+        Assert.InRange(Nations.MerchantPort(0, read(0), p => owner[p], 1, n => 0), 20, 99);   // 임자 없는 항구
+        Assert.InRange(Nations.MerchantPort(0, read(2), p => owner[p], 1, n => 0), 75, 92);
+        Assert.InRange(Nations.MerchantPort(0, read(3), p => owner[p], 1, n => 0), 11, 19);   // 주인공 나라(1) 항구, 본거지 10 말고
+    }
 }

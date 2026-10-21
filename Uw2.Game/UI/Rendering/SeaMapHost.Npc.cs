@@ -37,7 +37,8 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
             ports.Add((flags & 7, (flags & 8) != 0, raw[o] | raw[o + 1] << 8, raw[o + 4] | raw[o + 5] << 8, raw[o + 0x1C]));
         }
         int hero = HeroPersonNumber;
-        Nations.NewMonth(m, ports, n => m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + n), false), HeroNation, Roll);
+        Nations.NewMonth(m, ports, n => m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + n), false), HeroNation, Roll,
+                         p => p < ports.Count ? ports[p].Item1 : Nations.Pirates);
     }
 
     /// <summary>남 함대가 제 함대를 덮쳤다(<c>0x00418622</c>) — 창이 만남 목록을 띄우고 <see cref="AmbushDone"/> 를 부른다.</summary>

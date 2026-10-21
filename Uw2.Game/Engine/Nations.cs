@@ -10,8 +10,8 @@ namespace Uw2.Game.Engine;
 ///   +4     상선 행선 항구                      +9  호전성                          +0x0A 본거지 항구
 ///   +0x0B  나라마다 사이(일곱, 100 이 제 나라)  +0x12 나라마다 맞섬(여섯)
 /// </code>
-/// 여기 옮긴 것은 세기(<c>0x0042B980</c>) · 노리는 나라(<c>0x0042BB60</c>) · 방침(<c>0x0042BCB0</c>)까지다.
-/// 상선 행선(<c>0x0042BD90</c>) · 맞섬(<c>0x0042BEA0</c>) · <c>0x0042B0F0</c> 은 아직이다.
+/// 여기 옮긴 것은 세기(<c>0x0042B980</c>) · 노리는 나라(<c>0x0042BB60</c>) · 방침(<c>0x0042BCB0</c>) · 상선 행선(<c>0x0042BD90</c>)이다.
+/// 맞섬(<c>0x0042BEA0</c>) · <c>0x0042B0F0</c> 은 아직이다.
 /// </remarks>
 public static class Nations
 {
@@ -105,10 +105,54 @@ public static class Nations
     }
 
     /// <summary>
+    /// 상선 행선(<c>0x0042BD90</c>) — 방침마다의 고르개(<c>0x00458DD0</c>)를 항구 0 ~ 99 에 차례로 대어, 맞는 항구마다 다섯에 하나로 고른다.
+    /// 한 바퀴에 못 고르면 다시 돈다. 맞는 항구가 하나도 없으면 고르개를 바꿔(<c>0x0042BE84</c>: 0 → 1, 1 → 2, 3 · 4 · 5 → 0, 6 → 1) 다시.
+    /// <code>
+    ///   0 · 6  임자 없는 항구(6)          1  제 나라 항구(본거지 말고)      2  항구 75 ~ 92
+    ///   3      주인공 나라 항구(본거지 말고)  4 · 5  노리는 나라 항구(본거지 말고, 7 이면 주인공 나라)
+    /// </code>
+    /// </summary>
+    public static int MerchantPort(int nation, Func<int, int, int> read, Func<int, int> portOwner, int heroNation, Func<int, int> rand, int portCount = 100)
+    {
+        int policy = read(nation, PolicyField);
+        int Capital(int n) => n is >= 0 and < Count ? read(n, 0x0A) : -1;
+        bool Fits(int rule, int p)
+        {
+            int owner = portOwner(p) & 7;
+            switch (rule)
+            {
+                case 0 or 6: return owner == Pirates;
+                case 1: return owner == nation && p != Capital(nation);
+                case 2: return p is >= 75 and <= 92;
+                case 3: return owner == heroNation && p != Capital(heroNation);
+                case 4 or 5:
+                    int tn = read(nation, TargetField);
+                    if (tn == HeroTarget) tn = heroNation;
+                    return owner == tn && p != Capital(tn);
+                default: return false;
+            }
+        }
+        for (int guard = 0; guard < 64; guard++)
+        {
+            bool any = false;
+            for (int p = 0; p < portCount; p++)
+            {
+                if (!Fits(policy, p)) continue;
+                any = true;
+                if (rand(5) == 0) return p;
+            }
+            if (!any)
+                policy = policy switch { 0 or 6 => 1, 1 => 2, 3 or 4 or 5 => 0, _ => policy };
+            if (!any && policy == 2 && portCount <= 75) return read(nation, PortField);
+        }
+        return read(nation, PortField);
+    }
+
+    /// <summary>
     /// 달마다 — 세기를 적고 노리는 나라 · 방침을 고친다. <paramref name="favour"/> 는 나라마다 주인공 호감(주인공 표 +6 + 나라).
     /// </summary>
     public static void NewMonth(ScenarioMemory m, IReadOnlyList<(int Owner, bool Major, int Economy, int Industry, int Region)> ports,
-                                Func<int, int> favour, int heroNation, Func<int, int> rand)
+                                Func<int, int> favour, int heroNation, Func<int, int> rand, Func<int, int>? portOwner = null)
     {
         ScenarioMemory.Pointer At(int n, int f) => ScenarioMemory.At(ScenarioMemory.NationTable, n, f);
         int Read(int n, int f) => f == PowerField ? m.Read(At(n, f), true) : m.Read(At(n, f), false);
@@ -116,5 +160,7 @@ public static class Nations
         for (int n = 0; n < Count; n++) m.Write(At(n, PowerField), power[n] & 0xFFFF, true);
         for (int n = 0; n < Count; n++) m.Write(At(n, TargetField), Target(n, Read, favour(n), rand), false);
         for (int n = 0; n < Count; n++) m.Write(At(n, PolicyField), Policy(n, Read, heroNation, rand), false);
+        if (portOwner != null)
+            for (int n = 0; n < 6; n++) m.Write(At(n, PortField), MerchantPort(n, Read, portOwner, heroNation, rand, ports.Count), false);
     }
 }
