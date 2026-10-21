@@ -255,4 +255,40 @@ public static class Nations
         if (portOwner != null)
             for (int n = 0; n < 6; n++) m.Write(At(n, PortField), MerchantPort(n, Read, portOwner, heroNation, rand, ports.Count), false);
     }
+
+    /// <summary>
+    /// 하루 끝의 항구 편(<c>0x00417CD0</c>) — 항구마다 나라 몫(형편 +8 ~ +0x0D)을 보고: 몫이 75 이상인 나라가 임자가 아니면 임자로 삼고
+    /// (<c>0x00417DB0</c>, 경제(+0) 150 아래이고 항구 번호가 41 넘으면 쇠락 비트 8 을 세운다), 75 아래인 나라가 임자면 임자 없음(6)으로 둔다
+    /// (<c>0x00417DE0</c>, 비트 8 도 지운다). 쇠락 비트가 선 항구가 경제 150 이상이 되면 비트를 지우고 값 지수 열(+0x0E)을 저마다
+    /// min(rand(5) + 10, 100 − 지수)만큼 올린다(<c>0x00417E00</c>). 끝으로 +0x23(짓는 배)이 0xFF 가 아니면 0 까지 하나 줄인다.
+    /// 임자는 항구 표 +0x15 의 아래 세 비트(<paramref name="getFlags"/> · <paramref name="setFlags"/>)다.
+    /// </summary>
+    public static void PortsDay(byte[] states, Func<int, int> getFlags, Action<int, int> setFlags, Func<int, int> rand)
+    {
+        const int Size = Support.Local.Formats.Economy.StateSize;
+        for (int p = 0; p < 100 && (p + 1) * Size <= states.Length; p++)
+        {
+            int o = p * Size;
+            int flags = getFlags(p);
+            for (int k = 0; k < 6; k++)
+            {
+                int owner = flags & 7;
+                if (states[o + 8 + k] >= 75)
+                {
+                    if (owner == k) continue;
+                    flags = (flags & 0xF8) | k;
+                    if (BitConverter.ToUInt16(states, o) < 150 && p > 0x29) flags |= 8;
+                }
+                else if (owner == k) flags = (flags & 0xF6) | 6;
+            }
+            if ((flags & 8) != 0 && BitConverter.ToUInt16(states, o) >= 150)
+            {
+                flags &= 0xF7;
+                for (int i = 0; i < 10; i++)
+                    states[o + 0x0E + i] += (byte)Math.Min(rand(5) + 10, 100 - states[o + 0x0E + i]);
+            }
+            if (states[o + 0x23] is not 0xFF and > 0) states[o + 0x23]--;
+            setFlags(p, flags);
+        }
+    }
 }

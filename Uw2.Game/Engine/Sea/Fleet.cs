@@ -109,6 +109,7 @@ public sealed class Fleet
         TimeOfDay = MorningTick;
         if (Date.NextDay()) Ended?.Invoke();
         Weather.NewDay();
+        DayEnded?.Invoke();
         if (Date.Day == 0) NewMonth?.Invoke();
     }
 
@@ -122,6 +123,7 @@ public sealed class Fleet
         TimeOfDay = 0;
         if (Date.NextDay()) Ended?.Invoke();
         Weather.NewDay();
+        DayEnded?.Invoke();
         if (Date.Day == 0) NewMonth?.Invoke();
         return true;
     }
@@ -237,12 +239,16 @@ public sealed class Fleet
             if (Date.NextDay()) Ended?.Invoke();
             Weather.NewDay();
             NewDay?.Invoke();
+            DayEnded?.Invoke();
             if (Date.Day == 0) NewMonth?.Invoke();
         }
     }
 
     /// <summary>달이 바뀌었을 때(<c>0x0043AA52</c> — 은행 이자 따위).</summary>
     public event Action? NewMonth;
+
+    /// <summary>바다든 항구든 하루가 끝났을 때(<c>0x004178C0</c> — 항구 편 따위).</summary>
+    public event Action? DayEnded;
 
     /// <summary>바다에서 하루가 지났을 때(<c>0x00417930</c> — 물 · 식량 따위).</summary>
     public event Action? NewDay;

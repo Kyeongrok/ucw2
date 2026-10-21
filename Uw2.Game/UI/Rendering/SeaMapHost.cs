@@ -261,6 +261,7 @@ public sealed partial class SeaMapHost : HwndHost
                 if (Player.Ships.Sum(s => s.Crew) == 0) Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndNoCrew));
             };
             Fleet.Ended += () => Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndRetire));
+            Fleet.DayEnded += PortsDay;
             Fleet.NewMonth += () =>
             {
                 Player.NewMonth();
@@ -929,6 +930,16 @@ public sealed partial class SeaMapHost : HwndHost
         return Ports is { } pt && port >= 0 && port < pt.Ports.Count ? pt.Ports[port].Nation & 7 : Economy.NoNation;
     }
 
+    /// <summary>하루 끝의 항구 편 · 쇠락 · 짓는 배(<see cref="Nations.PortsDay"/>).</summary>
+    private void PortsDay()
+    {
+        if (Economy is not { } eco || Scenario is not { } vm) return;
+        Nations.PortsDay(eco.StateBytes,
+            p => vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PortTable, p, 0x15), false),
+            (p, v) => vm.Memory.Write(ScenarioMemory.At(ScenarioMemory.PortTable, p, 0x15), v, false), _npcRng.Next);
+        eco.RestoreStates(eco.StateBytes);
+    }
+
     public void SetPortNation(int port, int nation)
     {
         if (Scenario == null) return;
@@ -1355,7 +1366,7 @@ public sealed partial class SeaMapHost : HwndHost
         for (int i = 0; i < Math.Min(ticks, 8); i++) Walker.Step_(ix, iy);
 
         // 문에 서면 그 건물에 든다 — 닫힌 시각이면 잠겨 있다. 건물 안은 아직 없어 알리기만 하고 한 칸 물러 나온다.
-        // 도시의 시각은 바다에서 넘어온 함대 시각을 그대로 쓴다(도시 안에서 시각이 흐르는지는 아직 안 봤다).
+        // 도시의 시각은 걸어서는 흐르지 않는다 — 건물에 들 때만 흐른다(PassTimeInPort).
         if (Walker.Moving && Walker.Building is int building and >= 0)
         {
             int tick = Fleet?.TimeOfDay ?? Fleet.MorningTick;

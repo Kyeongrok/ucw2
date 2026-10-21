@@ -166,4 +166,32 @@ public class NationsTests
         Assert.Equal(4 + 3 + 1, Uw2.Game.Engine.Town.Navigators.Get(m, 1, 0x25));   // + (10 − 4) / 2 + 1
         Assert.Equal(20, Uw2.Game.Engine.Town.Navigators.Get(m, 0, 0x24));
     }
+
+    [Fact]
+    public void PortsDay_moves_owner_by_share_and_lifts_slump()
+    {
+        const int Size = Uw2.Support.Local.Formats.Economy.StateSize;
+        var states = new byte[Size * 100];
+        var flags = new int[100];
+        // 항구 0 — 나라 2 몫 80, 임자 0 → 2. 경제 100 이지만 번호가 41 아래라 쇠락 비트는 없다.
+        states[8 + 2] = 80; BitConverter.GetBytes((ushort)100).CopyTo(states, 0); flags[0] = 0;
+        // 항구 50 — 나라 3 몫 90, 임자 6 → 3, 경제 100 이라 쇠락 비트.
+        int o = 50 * Size;
+        states[o + 8 + 3] = 90; BitConverter.GetBytes((ushort)100).CopyTo(states, o); flags[50] = 6;
+        // 항구 60 — 임자 1 인데 몫 40 → 임자 없음. 짓는 배 3 → 2.
+        int q = 60 * Size;
+        states[q + 8 + 1] = 40; flags[60] = 1 | 8; states[q + 0x23] = 3;
+        // 항구 70 — 쇠락 비트가 선 채 경제 200 → 비트를 지우고 지수가 오른다(95 는 100 에서 멈춘다).
+        int r = 70 * Size;
+        BitConverter.GetBytes((ushort)200).CopyTo(states, r); flags[70] = 6 | 8; states[r + 0x0E] = 95; states[r + 0x0F] = 50;
+        for (int p = 0; p < 100; p++) if (p is not (0 or 50 or 60 or 70)) { flags[p] = 6; states[p * Size + 0x23] = 0xFF; }
+        Nations.PortsDay(states, p => flags[p], (p, v) => flags[p] = v, _ => 0);
+        Assert.Equal(2, flags[0]);
+        Assert.Equal(3 | 8, flags[50]);
+        Assert.Equal(6, flags[60]);
+        Assert.Equal(2, states[q + 0x23]);
+        Assert.Equal(6, flags[70]);
+        Assert.Equal(100, states[r + 0x0E]);
+        Assert.Equal(60, states[r + 0x0F]);
+    }
 }
