@@ -90,6 +90,7 @@ public sealed class SeaMapWindow : Window
         int days = _host.OrderShip(type, grade);
         if (days < 0) return;
         p.SetGold(p.Gold - price);
+        if (_host.OrderedHere is { } made) NameNewShip(made);
         Say(0x101, "좋아, 최고의 배를 만들어 주겠소.");
         Say(0x106, $"배가 완성되는 데 {days}일 걸리지.", days);
         Note($" · {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 맡겼습니다 — {days}일 뒤");
@@ -160,6 +161,13 @@ public sealed class SeaMapWindow : Window
         return offer;
     }
 
+    /// <summary>산 배에 이름을 붙인다(<c>0x00429800</c>) — 「이제 이 배는 당신 것이오. 배 이름을 붙여 주시오.」(0xC7), 일곱 자까지. 비우면 선종 이름 그대로.</summary>
+    private void NameNewShip(PlayerState.Ship ship)
+    {
+        string? name = TextDialog.Ask(this, MsgOr(0xC7, "이제 이 배는 당신 것이오. 배 이름을 붙여 주시오."), ship.Name, 7);
+        if (!string.IsNullOrWhiteSpace(name)) ship.Name = name.Trim();
+    }
+
     /// <summary>조선소 「중고선 구입」 — 항구에 들 때 마련한 다섯 칸(<see cref="Shipyard.EnterPort"/>), 값은 선종 값.</summary>
     private void BuyUsedShip()
     {
@@ -179,6 +187,7 @@ public sealed class SeaMapWindow : Window
         if (p.Gold < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
         if (!_host.AddShip(type, captain: mate)) return;
         p.SetGold(p.Gold - price);
+        NameNewShip(p.Ships[^1]);
         Shipyard.TakeUsed(vm.Memory, slot);
         Note($" · 중고 {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 샀습니다 · 선장 {_host.PersonName(mate)}");
     }
