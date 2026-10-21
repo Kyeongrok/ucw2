@@ -308,9 +308,17 @@ public sealed class TitleWindow : Window
                 {
                     var lines = Uw2.Game.Engine.SaveGame.SlotLines().ToList();
                     lines.Add("원본 세이브(KOUKAI2.DAT) 불러오기…");
-                    int slot = BuildingMenu.Ask(this, "불러오기 — 칸을 고르세요", lines);
+                    // 원본 말(0x3B7 · 0x3B8 · 0x3B9, 0x0041533B ~ 0x0041590C) — 빈 칸이면 알리고, 아니면 다짐받는다.
+                    int slot = BuildingMenu.Ask(this, "데이터를 선택해 주세요.", lines);
                     if (slot == lines.Count - 1) { LoadOriginal(); return; }
-                    if (slot >= 0 && Uw2.Game.Engine.SaveGame.Read(slot) is { } save) SaveChosen?.Invoke(save);
+                    if (slot < 0) return;
+                    if (Uw2.Game.Engine.SaveGame.Read(slot) is not { } save)
+                    {
+                        MessageBox.Show(this, "데이터가 기록되어 있지 않습니다.", "불러오기");
+                        return;
+                    }
+                    if (MessageBox.Show(this, "로드하겠습니다. 좋습니까？", "불러오기", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                        SaveChosen?.Invoke(save);
                     return;
                 }
                 case 1: _scene = Scene.Characters; _pick = 0; Draw(); return;

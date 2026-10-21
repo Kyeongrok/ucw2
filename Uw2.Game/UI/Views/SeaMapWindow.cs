@@ -3746,8 +3746,10 @@ public sealed class SeaMapWindow : Window
     /// <summary>세이브 칸을 골라 지금 게임을 담는다(<see cref="SaveGame"/>).</summary>
     private void SaveToSlot()
     {
-        int slot = BuildingMenu.Ask(this, "저장 — 칸을 고르세요", SaveGame.SlotLines());
+        // 「데이터를 선택해 주세요.」(0x3B7) — 고른 칸에 「저장하겠습니다. 좋습니까？」(0x3BA, 0x0041624A)
+        int slot = BuildingMenu.Ask(this, MsgOr(0x3B7, "데이터를 선택해 주세요."), SaveGame.SlotLines());
         if (slot < 0) return;
+        if (MessageBox.Show(this, MsgOr(0x3BA, "저장하겠습니다. 좋습니까？"), "저장", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         try
         {
             _host.Capture(_homePort).Write(slot);
