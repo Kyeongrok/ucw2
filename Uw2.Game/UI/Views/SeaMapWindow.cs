@@ -1310,8 +1310,13 @@ public sealed class SeaMapWindow : Window
             });
             return;
         }
-        string balance = p.Balance >= 0 ? $"예금 {p.Balance}" : $"빚 {-p.Balance}";
-        int n = AmountDialog.Ask(this, $"{names[pick]} — 돈 {p.Gold} · {balance}", most);
+        // 잔고 · 한도를 먼저 말하고(0x67 · 0x72 · 0x95) 얼마인지 묻는다(0x69 · 0x6C · 0x73 · 0x77) — 0x0041E4AA ~ 0x0041E7D5.
+        if (pick == 1) Say(0x67, $"예금잔고는 금화 {p.Balance}닢입니다.", p.Balance);
+        else if (pick == 2) Say(0x72, $"대출한도액은 금화 {most}닢입니다.", most);
+        else if (pick == 3) Say(0x95, $"차입금은 금화 {-p.Balance}닢입니다.", -p.Balance);
+        int ask = pick switch { 0 => 0x69, 1 => 0x6C, 2 => 0x73, _ => 0x77 };
+        string fallback = pick switch { 0 => "얼마나 예금하시겠습니까？", 1 => "얼마나 인출하시겠습니까？", 2 => "얼마나 빌리시겠습니까？", _ => "얼마나 상환하시겠습니까？" };
+        int n = AmountDialog.Ask(this, MsgOr(ask, fallback, most).Replace("\n", " "), most);
         if (n <= 0) return;
         p.Transfer(pick is 0 or 3 ? n : -n);
         Note(pick switch
