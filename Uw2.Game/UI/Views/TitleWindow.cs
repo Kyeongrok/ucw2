@@ -277,6 +277,27 @@ public sealed class TitleWindow : Window
         }
     }
 
+    /// <summary>원본 세이브 파일을 골라 그 칸 하나를 들인다(<see cref="Uw2.Support.Local.Formats.OriginalSave"/>).</summary>
+    private void LoadOriginal()
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog { Title = "원본 세이브", Filter = "KOUKAI2.DAT|KOUKAI2.DAT|DAT 파일|*.DAT" };
+        if (dlg.ShowDialog(this) != true) return;
+        Uw2.Support.Local.Formats.OriginalSave file;
+        try { file = Uw2.Support.Local.Formats.OriginalSave.Load(dlg.FileName); }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            MessageBox.Show(this, e.Message, "원본 세이브");
+            return;
+        }
+        var slots = file.Slots.Where(s => s != null).Select(s => s!).ToList();
+        if (slots.Count == 0) { MessageBox.Show(this, "들일 칸이 없습니다.", "원본 세이브"); return; }
+        string[] heroes = ["조안", "카탈리나", "옷토", "에르네스트", "피에트로", "알"];
+        int pick = BuildingMenu.Ask(this, "원본 세이브 — 칸을 고르세요",
+            [.. slots.Select(s => $"{s.Number + 1}. {s.Label} · {(s.HeroPerson < heroes.Length ? heroes[s.HeroPerson] : "?")}")]);
+        if (pick < 0) return;
+        SaveChosen?.Invoke(new Uw2.Game.Engine.SaveGame { Original = slots[pick], Port = slots[pick].Port });
+    }
+
     private void Choose()
     {
         if (_scene == Scene.Menu)
@@ -285,7 +306,10 @@ public sealed class TitleWindow : Window
             {
                 case 0:
                 {
-                    int slot = BuildingMenu.Ask(this, "불러오기 — 칸을 고르세요", Uw2.Game.Engine.SaveGame.SlotLines());
+                    var lines = Uw2.Game.Engine.SaveGame.SlotLines().ToList();
+                    lines.Add("원본 세이브(KOUKAI2.DAT) 불러오기…");
+                    int slot = BuildingMenu.Ask(this, "불러오기 — 칸을 고르세요", lines);
+                    if (slot == lines.Count - 1) { LoadOriginal(); return; }
                     if (slot >= 0 && Uw2.Game.Engine.SaveGame.Read(slot) is { } save) SaveChosen?.Invoke(save);
                     return;
                 }

@@ -2880,7 +2880,14 @@ public sealed class SeaMapWindow : Window
     public void LoadGame(SaveGame save)
     {
         _homePort = save.HomePort;
-        _host.Restore(save);
+        if (save.Original is { } original)
+        {
+            int home = _host.ImportOriginal(original);
+            if (home < 0) { Note($" · 원본 세이브 「{original.Label}」을 들이지 못했습니다"); return; }
+            _homePort = home;
+            save.Port = original.Port;
+        }
+        else _host.Restore(save);
         if (save.Port >= 0) _portPick.SelectedIndex = save.Port;
         else
         {
@@ -2962,6 +2969,29 @@ public sealed class SeaMapWindow : Window
     /// 개발 — 새 게임에서 고향을 떠나 바다에 나온 남 함대 곁에 서서 「공격」 판을 차리고, 제 기함까지 남 배 생각으로 끝까지 돌린 뒤
     /// 뒤끝을 셈해 <paramref name="outPath"/> 에 적는다(<c>Uw2Play.exe --battle-smoke 파일</c>). 판 그림은 <paramref name="shotPath"/> 에 뜬다.
     /// </summary>
+    public void DevImportSmoke(string savePath, string outPath)
+    {
+        var log = new System.Text.StringBuilder();
+        try
+        {
+            var file = OriginalSave.Load(savePath);
+            foreach (var slot in file.Slots)
+            {
+                if (slot == null) continue;
+                LoadGame(new SaveGame { Original = slot, Port = slot.Port });
+                var f = _host.Fleet!;
+                var p = _host.Player;
+                log.AppendLine($"[{slot.Number + 1}] {slot.Label} · {_host.HeroName.Name} · {f.Date} {Fleet.Clock(f.TimeOfDay)} · 항구 {_host.CurrentPort} · 자리 {f.X:0},{f.Y:0} · 돈 {p.Gold} · 은행 {p.Balance} · 고향 {_homePort}");
+                foreach (var s in p.Ships)
+                    log.AppendLine($"    {s.Name}({s.Type}) 선원 {s.Crew}/{s.MaxCrew} 내구 {s.Hull}/{s.MaxHull} 대포 {s.Mounted}/{s.Guns}({s.GunKind}) 선장 {(s.Captain < 0 ? "-" : _host.PersonName(s.Captain))} 사기 {s.Morale} 보급 {string.Join("/", s.Supplies)} 짐 {string.Join(",", s.Cargo.Where(c => c.Good >= 0).Select(c => $"{c.Good}x{c.Amount}"))}");
+                foreach (var (port, s) in p.Docked) log.AppendLine($"    도크 {port}: {s.Name}");
+                log.AppendLine($"    시나리오 장 {_host.Scenario?.Chapter}.{_host.Scenario?.Section} · SNR0 {_host.Common?.Chapter}.{_host.Common?.Section} · 남 함대 {_host.Others.Count} · 동료 {(_host.Scenario is { } vm ? Navigators.Mates(vm.Memory).Count() : 0)}");
+            }
+        }
+        catch (Exception e) { log.AppendLine(e.ToString()); }
+        File.WriteAllText(outPath, log.ToString());
+    }
+
     public void DevBattleSmoke(string outPath, string? shotPath)
     {
         var log = new System.Text.StringBuilder();

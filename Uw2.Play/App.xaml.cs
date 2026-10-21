@@ -34,6 +34,22 @@ public partial class App : Application
             t.Start();
             return;
         }
+        if (Array.IndexOf(e.Args, "--import-smoke") is >= 0 and var ia && ia + 2 < e.Args.Length)
+        {
+            // 개발 — 원본 세이브 칸마다 들여 보고 적은 뒤 끝낸다.
+            var map = new SeaMapWindow { Title = "대항해시대2 — 원본 세이브 시험" };
+            map.Show();
+            map.ShowHomePort(0);
+            var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            t.Tick += (_, _) =>
+            {
+                t.Stop();
+                map.DevImportSmoke(e.Args[ia + 1], e.Args[ia + 2]);
+                Shutdown();
+            };
+            t.Start();
+            return;
+        }
         ShowTitle();
     }
 

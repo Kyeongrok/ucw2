@@ -41,6 +41,10 @@ public sealed class SaveGame
     /// <summary>바다에 없는 함대의 배 칸 — 함대 번호 → 칸마다 여덟 값.</summary>
     public Dictionary<int, int[]>? NpcReserve { get; set; }
 
+    /// <summary>원본 세이브 칸(<see cref="Uw2.Support.Local.Formats.OriginalSave"/>)에서 들일 때만 — 들일 때 나머지를 다 채운다.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Uw2.Support.Local.Formats.OriginalSave.Slot? Original { get; set; }
+
     public sealed class SurveyState
     {
         public string Cells { get; set; } = "";

@@ -182,7 +182,8 @@ public sealed class StartData
             ItemBytes = itemBytes ?? [], DiscoveryBytes = discoveryBytes ?? [], PatronBytes = patronBytes ?? [], BarmaidBytes = barmaidBytes ?? [],
         };
 
-    private static Fleet[] ParseFleets(byte[] raw)
+    /// <summary>함대 표 날바이트(0x85 x 70)를 읽는다 — 세이브 칸 것도 같은 꼴이다.</summary>
+    public static Fleet[] ParseFleets(byte[] raw)
     {
         int n = Math.Min(FleetCount, raw.Length / FleetSize);
         var fleets = new Fleet[n];

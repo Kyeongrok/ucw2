@@ -963,21 +963,7 @@ public sealed partial class SeaMapHost : HwndHost
     {
         fleet.Ships.Clear();
         if (StartTables is not { } start) return;
-        Others.Clear();
-        // 바다에 나온 함대는 갈 데(+0x04 · +0x06)로 가고, 뭍 위 자리(항구에 든 함대)는 그 항구에 머물다(rand(8) + 8 날) 할 일을 고른다.
-        if (Routes is { } routes && Ports is { } ports)
-            foreach (var f in start.Fleets.Where(f => f.Active && f.ShipCount > 0 && f.Admiral != 0xFF))
-            {
-                var home = f.Home < ports.Ports.Count ? (ports.Ports[f.Home].X, ports.Ports[f.Home].Y) : (f.TargetX, f.TargetY);
-                var npc = new NpcFleet(fleet, routes, _npcRng, f, start, home, (f.TargetX, f.TargetY)) { World = this };
-                if (!fleet.CanSail(f.X, f.Y)) npc.StayInPort(_npcRng.Next(8) + 8);
-                Others.Add(npc);
-            }
-        // 바다에 없는 함대 — 배 칸을 쌓아 두었다가 달마다 채워 내보낸다(0x0042B0F0).
-        FleetReserve.Clear();
-        foreach (var f in start.Fleets.Where(f => f.Index % 10 != 0 && Others.All(o => o.Index != f.Index)))
-            FleetReserve[f.Index] = [.. f.Slots.Where(s => s.Present)];
-        _othersScale = -1;
+        SpawnOthers(fleet, start.Fleets, -1);
         // 첫 배는 그 주인공 시나리오(SNRn.DAT)의 첫 이벤트가 주는 선종이다 — 배 주기 명령 F9.
         Economy = _economyBase?.Clone();
         int person = HeroPerson[Hero];
@@ -999,6 +985,29 @@ public sealed partial class SeaMapHost : HwndHost
             Player.WaterRate = start.MiscBytes[1];
             Player.FoodRate = start.MiscBytes[2];
         }
+    }
+
+    /// <summary>
+    /// 함대 표로 남 함대를 띄운다 — 바다에 나온 함대는 갈 데(+0x04 · +0x06)로 가고, 뭍 위 자리(항구에 든 함대)는 그 항구에 머물다(rand(8) + 8 날)
+    /// 할 일을 고른다. 바다에 없는 함대는 배 칸을 쌓아 두었다가 달마다 채워 내보낸다(0x0042B0F0). <paramref name="skip"/> 은 주인공 함대.
+    /// </summary>
+    private void SpawnOthers(Fleet fleet, IEnumerable<StartData.Fleet> fleets, int skip)
+    {
+        if (StartTables is not { } start) return;
+        var list = fleets.Where(f => f.Index != skip).ToList();
+        Others.Clear();
+        if (Routes is { } routes && Ports is { } ports)
+            foreach (var f in list.Where(f => f.Active && f.ShipCount > 0 && f.Admiral != 0xFF))
+            {
+                var home = f.Home < ports.Ports.Count ? (ports.Ports[f.Home].X, ports.Ports[f.Home].Y) : (f.TargetX, f.TargetY);
+                var npc = new NpcFleet(fleet, routes, _npcRng, f, start, home, (f.TargetX, f.TargetY)) { World = this };
+                if (!fleet.CanSail(f.X, f.Y)) npc.StayInPort(_npcRng.Next(8) + 8);
+                Others.Add(npc);
+            }
+        FleetReserve.Clear();
+        foreach (var f in list.Where(f => f.Index % 10 != 0 && Others.All(o => o.Index != f.Index)))
+            FleetReserve[f.Index] = [.. f.Slots.Where(s => s.Present)];
+        _othersScale = -1;
     }
 
     /// <summary>어디서 읽었는지 — 게임 폴더 아니면 「구운 자산」.</summary>
