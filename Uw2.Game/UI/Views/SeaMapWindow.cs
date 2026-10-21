@@ -419,9 +419,6 @@ public sealed class SeaMapWindow : Window
             else Say(0xEB, "어서 오세요.\n무슨 용건입니까？");
         }
         if (b == HarborBuilding) AtHarbor();
-        // 조합 — 깃발 16 · 17 이 둘 다 섰으면 「~왕이 당신을 찾고 있어.」(0x0041E99B)
-        if (b == GuildBuilding && _host.Common is { } gc && gc.GetFlag(16) && gc.GetFlag(17) && _host.HeroNation < 6)
-            Say(-1, KingCalls(_host.HeroNation) + MsgOr(0x3A4, "당신을 찾고 있어."));
         if (b == FortuneBuilding) Say(0x12A, "점술관에 어서 오세요.");                     // 0x00428402
         // 건물 임자 그림(0x00436620) — 모스크는 교회 자리에 제 그림이 있다.
         var keeper = _host.Graphs?.Get(AssetPack.KeeperGraph(b, _host.PortChipSet(_host.CurrentPort) == 2));
@@ -1175,10 +1172,12 @@ public sealed class SeaMapWindow : Window
             int kind = job.GetVar(6), to = job.GetVar(16);
             if (kind >= 6) { RoyalHint(job); return; }
             string where = _host.Ports is { } pt && to < pt.Ports.Count ? pt.Ports[to].Name : $"#{to}";
-            Note(to == port ? " · 맡은 일을 먼저 마치세요" : $" · {where}의 일이 남아 있습니다");
+            if (to == port) Say(0x3A3, "어？ 당신, 이 항구에 일이 있을 텐데！");
+            else Say(0x152, $"에？ 당신 {where}항에 용무가 있잖소？", where);
             return;
         }
-        if (job.GetFlag(16) && job.GetFlag(17)) { Note(" · 조합이 당신 나라 사람에게는 일을 주지 않습니다"); return; }
+        // 깃발 16 · 17 이 둘 다 섰으면 「~왕이 당신을 찾고 있어.」(0x0041E99B) — 일을 주지 않는다.
+        if (job.GetFlag(16) && job.GetFlag(17)) { Say(-1, KingCalls(_host.HeroNation) + MsgOr(0x3A4, "당신을 찾고 있어.")); return; }
         var offers = Enumerable.Range(0, 3).Select(i => job.GetVar(i)).ToList();
         int pick = BuildingMenu.Ask(this, "업무 알선", offers.Select(k => k < JobNames.Length ? JobNames[k] : $"일 {k}").ToList());
         if (pick < 0) return;
