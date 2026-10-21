@@ -1204,8 +1204,14 @@ public sealed class SeaMapWindow : Window
         bool ours = nation == (_host.HeroNation & 7);
         if (pick == 1)
         {
-            // 망명 — 다른 나라 왕궁에서만 뜻이 있다.
+            // 망명 — 다른 나라 왕궁에서만 뜻이 있다. 원본은 목록에서 흐리게 한다(0x00427EB1 · 가림 0x0049EF44 비트 1):
+            // 제 나라이거나, SNR0 장(0x0049F3EC)이 0 · 0xFF 가 아니고 변수 6 이 6 이상(칙명을 맡았다)이거나, 깃발 17 · 18 이 서 있으면.
             if (ours) { Note(" · 이미 이 나라를 섬기고 있습니다"); return; }
+            if (_host.Common is { } c && ((c.Chapter is not 0 and not 0xFF && c.GetVar(6) >= 6) || c.GetFlag(17) || c.GetFlag(18)))
+            {
+                Note(" · 왕명을 받드는 동안은 망명할 수 없습니다");
+                return;
+            }
             string name = nation < NationNames.Length ? NationNames[nation] : "이 나라";
             // 0x00427910 — 「아, %s공！ 잘 오셨네. 가신의 말로는 우리 나라에 충성을 맹세한다고？ 틀림없는가？」(0x1CA), 아니면 0x1CB, 그러면 0x1CC.
             var (hn, _) = _host.HeroName;
