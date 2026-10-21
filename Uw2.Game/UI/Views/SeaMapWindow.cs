@@ -428,6 +428,7 @@ public sealed class SeaMapWindow : Window
         int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items, keeper);
         if (pick < 0)
         {
+            if (b == BankBuilding) Say(0xA4, "감사합니다.");   // 0x0041E8E3
             if (b == ChurchBuilding) Say(0x60 + ChurchLines, IsMosque ? "당신에게 알라신의 은총이 깃드시길！" : "성부 성자 성신의 이름으로 아멘.");
             return;
         }
@@ -1511,20 +1512,25 @@ public sealed class SeaMapWindow : Window
             2 => Bank.MaxLoan(p.Balance, _host.HeroRank),
             _ => Bank.MaxRepay(p.Gold, p.Balance),
         };
+        // 출금(0x0041E540) — 잔고가 없으면 0x68, 돈이 599,999,900 을 넘으면 「더이상 인출할 수 없습니다.」(0x6B).
+        if (pick == 1 && p.Balance > 0 && p.Gold > PlayerState.MaxGold - 100) { Say(0x6B, "더이상 인출할 수 없습니다."); return; }
         if (most <= 0)
         {
-            Note(pick switch
+            var (id, text) = pick switch
             {
-                0 when p.Balance < 0 => M(0x66, "빚이 있으면 예금할 수 없습니다"),
-                0 when p.Gold <= Bank.DepositFloorGold => M(0x64, "1000 넘게 가져와야 예금할 수 있습니다"),
-                0 => M(0x65, "더는 맡길 수 없습니다"),
-                1 => M(0x68, "맡긴 돈이 없습니다"),
-                2 when p.Balance > 0 => M(0x6F, "예금이 있으면 빌릴 수 없습니다"),
-                2 => M(0x71, "더는 빌려 드릴 수 없습니다"),
-                _ => M(0x76, "갚을 빚이 없습니다"),
-            });
+                0 when p.Balance < 0 => (0x66, "예금은 빌린 돈을 상환한 뒤에 해주십시오."),
+                0 when p.Gold <= Bank.DepositFloorGold => (0x64, "저금할 정도의 금화는 없는데요."),
+                0 => (0x65, "더이상 예금은 할 수 없습니다."),
+                1 => (0x68, "현재 예금된 돈은 없습니다."),
+                2 when p.Balance > 0 => (0x6F, "아직 예금잔고가 있는데요."),
+                2 => (0x71, "당신의 신용으로는 더이상 대출할 수 없습니다."),
+                _ => (0x76, "차입금은 없는데요."),
+            };
+            Say(id, text);
             return;
         }
+        // 대출(0x0041E6BB) — 돈이 백만 닢 이상이면 「대출받을 필요는 없습니다만.」(0x70)을 하고 그래도 이어 간다.
+        if (pick == 2 && p.Gold >= 1_000_000) Say(0x70, "대출받을 필요는 없습니다만.");
         // 잔고 · 한도를 먼저 말하고(0x67 · 0x72 · 0x95) 얼마인지 묻는다(0x69 · 0x6C · 0x73 · 0x77) — 0x0041E4AA ~ 0x0041E7D5.
         if (pick == 1) Say(0x67, $"예금잔고는 금화 {p.Balance}닢입니다.", p.Balance);
         else if (pick == 2) Say(0x72, $"대출한도액은 금화 {most}닢입니다.", most);
@@ -1533,14 +1539,18 @@ public sealed class SeaMapWindow : Window
         string fallback = pick switch { 0 => "얼마나 예금하시겠습니까？", 1 => "얼마나 인출하시겠습니까？", 2 => "얼마나 빌리시겠습니까？", _ => "얼마나 상환하시겠습니까？" };
         int n = AmountDialog.Ask(this, MsgOr(ask, fallback, most).Replace("\\n", " ").Replace("\n", " "), most);
         if (n <= 0) return;
+        if (pick == 1 && (long)p.Gold + n > PlayerState.MaxGold) { Say(0x6D, "인출할 수 없습니다."); return; }   // 0x0041E5C3
         p.Transfer(pick is 0 or 3 ? n : -n);
-        Note(pick switch
+        switch (pick)
         {
-            0 => M(0x6A, $"예금 {n}", n),
-            1 => M(0x6E, $"출금 {n}", n),
-            2 => M(0x74, $"대출 {n}", n) + M(0x75, ""),
-            _ => M(0x78, $"상환 {n}"),
-        });
+            case 0: Say(0x6A, $"그럼 금화 {n}닢을 입금시키겠습니다. 이율은 월 3%입니다.", n); break;
+            case 1:
+                Say(0x6E, $"그럼 금화 {n}닢을 인출해 드리겠습니다.", n);
+                Say(0x67, $"예금잔고는 금화 {p.Balance}닢입니다.", p.Balance);   // 0x0041E5EF
+                break;
+            case 2: Say(0x74, $"그럼 금화 {n}닢을 빌려 드리겠습니다.", n); Say(0x75, "이율은 월 10%니까 계획적으로 이용해 주세요."); break;
+            default: Say(0x78, "확실히 돌려받았습니다."); break;
+        }
     }
 
     /// <summary>교역소 「투자」 · 조선소 「공업투자」 — 이달 투자에 더하고 주인공 나라의 몫을 올린다(<see cref="Economy.Invest"/>).</summary>
