@@ -272,16 +272,23 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.StartTables is not { } start) return;
         var p = _host.Player;
-        var costs = p.Ships.Select(s => Shipyard.RepairCost(start.ShipTypes[s.Type], s)).ToList();
-        if (costs.All(c => c == 0)) { Note(M(0xCC, "고칠 곳이 없습니다")); return; }
-        int pick = BuildingMenu.Ask(this, $"수리 — 돈 {p.Gold}",
-            p.Ships.Select((s, i) => $"{s.Name,-10} 내구 {s.Hull,3}/{s.MaxHull,-3} {(costs[i] > 0 ? costs[i].ToString() : "-"),6}").ToList());
-        if (pick < 0) return;
-        if (costs[pick] == 0) { Note(M(0xCC, "고칠 곳이 없습니다")); return; }
-        if (p.Gold < costs[pick]) { Note(M(0xCF, $"돈이 모자랍니다(수리 {costs[pick]})")); return; }
-        p.SetGold(p.Gold - costs[pick]);
-        Shipyard.Repair(start.ShipTypes[p.Ships[pick].Type], p.Ships[pick]);
-        Note($" · {p.Ships[pick].Name} 수리 {costs[pick]}");
+        // 배를 고르고(0x00429C40) 안 부서졌으면 「이 놈은 부서지지 않았는데.」(0xCC), 아니면 「수리하려면 금화 %u(가) 드는데, 괜찮겠소？」(0xCD) —
+        //   아니면 0xCE, 돈이 모자라면 0xCF. 끝나면 목록으로 돌아간다.
+        while (true)
+        {
+            var costs = p.Ships.Select(s => Shipyard.RepairCost(start.ShipTypes[s.Type], s)).ToList();
+            int pick = BuildingMenu.Ask(this, $"수리 — 돈 {p.Gold}",
+                p.Ships.Select((s, i) => $"{s.Name,-10} 내구 {s.Hull,3}/{s.MaxHull,-3} {(costs[i] > 0 ? costs[i].ToString() : "-"),6}").ToList());
+            if (pick < 0) return;
+            int cost = costs[pick];
+            if (cost == 0) { Say(0xCC, "이 놈은 부서지지 않았는데."); continue; }
+            if (MessageBox.Show(this, MsgOr(0xCD, $"수리하려면 금화 {cost}(가) 드는데, 괜찮겠소？", cost), p.Ships[pick].Name, MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+            { Say(0xCE, "수리하는 것이 좋을 것 같소만."); continue; }
+            if (p.Gold < cost) { Say(0xCF, "금화가 부족합니다."); continue; }
+            p.SetGold(p.Gold - cost);
+            Shipyard.Repair(start.ShipTypes[p.Ships[pick].Type], p.Ships[pick]);
+            Note($" · {p.Ships[pick].Name} 수리 {cost}");
+        }
     }
 
     /// <summary>조선소 「매각」 — 배 값의 반(<see cref="Shipyard.SellPrice"/>). 마지막 한 척은 못 판다.</summary>
