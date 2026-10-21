@@ -1007,27 +1007,34 @@ public sealed class SeaMapWindow : Window
         if (!ours) { Note(" · 이 나라의 왕궁은 당신을 맞지 않습니다"); return; }
         if (pick == 3)
         {
+            // 선박원조(0x00427B20) — 0x1CD 없음 · 0x213 함대 열 척 · 0x214 맡을 동료 없음, 받으면 0x1D0 · 이름(0x22B) · 0x1CF.
             int type = Palace.ShipAid(vm.Memory, nation);
-            if (type < 0 || _host.StartTables is not { } st || type >= st.ShipTypes.Count) { Note(M(0x1CD, "지금 내어 줄 배는 없다고 합니다")); return; }
-            if (_host.Player.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
+            if (type < 0 || _host.StartTables is not { } st || type >= st.ShipTypes.Count) { Say(0x1CD, "지금 내어 줄 배는 없다고 합니다."); return; }
+            if (_host.Player.Ships.Count >= SeaMapHost.MaxShips) { Say(0x213, "그대의 함대의 선박 수는 이미 １０척에 이르고 있어."); return; }
             int mate = _host.FreeMate;
-            if (mate < 0) { Note(" · 배를 맡을 항해사가 없습니다"); return; }
+            if (mate < 0) { Say(0x214, "선장으로 임명할 수 있는 동료가 없는 게 아니냐！"); return; }
+            string ship = type < st.Templates.Count ? st.Templates[type].Name ?? "" : "";
+            Say(0x1D0, $"폐하께선 {ship}급의 선박을 원조해 주시겠다고 합니다.", ship);
             if (!_host.AddShip(type, captain: mate)) return;
             Palace.TookShip(vm.Memory, nation);
-            string ship = type < st.Templates.Count ? st.Templates[type].Name ?? "" : "";
-            Note($" · {Josa(ship, "을", "를")} 받았습니다 · 선장 {_host.PersonName(mate)}");
+            string? named = TextDialog.Ask(this, MsgOr(0x22B, "배이름을 뭐라고 붙일까요？"), ship, 7);
+            if (!string.IsNullOrWhiteSpace(named)) _host.Player.Ships[^1].Name = named.Trim();
+            Say(0x1CF, "우리 나라를 위해 분발해 주십시오.");
+            Note($" · {Josa(_host.Player.Ships[^1].Name, "을", "를")} 받았습니다 · 선장 {_host.PersonName(mate)}");
             return;
         }
         if (pick != 2) { Note(" · 그것은 아직 없습니다"); return; }
         int gold = _host.Player.Gold;
         int got = Palace.TakeFunds(vm.Memory, nation, ref gold);
         _host.Player.SetGold(gold);
-        Note(got switch
+        // 자금원조(0x00427A60) — 0x1CD 없음 · 0x212 돈이 넘침, 받으면 「폐하께선 금화 %d000닢의 원조금을 주시겠다고 합니다.」(0x1CE) · 0x1CF.
+        if (got == 0) Say(0x1CD, "지금 내어 줄 자금은 없다고 합니다.");
+        else if (got < 0) Say(0x212, "더는 가질 수 없습니다.");
+        else
         {
-            0 => M(0x1CD, "지금 내어 줄 자금은 없다고 합니다"),
-            < 0 => " · 더는 가질 수 없습니다",
-            _ => $" · 자금 {got}을 받았습니다",
-        });
+            Say(0x1CE, $"폐하께선 금화 {got / 1000}000닢의 원조금을 주시겠다고 합니다.", got / 1000);
+            Say(0x1CF, "우리 나라를 위해 분발해 주십시오.");
+        }
     }
 
     /// <summary>
