@@ -164,4 +164,12 @@ public sealed class ScenarioDialog : Window
         d.ShowDialog();
         return Math.Max(0, d.Picked);
     }
+
+    /// <summary>그림과 대사 뒤에 예 · 아니오를 묻는다 — 창을 닫아 버리면 아니오.</summary>
+    public static bool Confirm(Window owner, FaceSheet? faces, IReadOnlyList<ScenarioVm.Line> before, ImageSource? picture = null)
+    {
+        var d = new ScenarioDialog(faces, before, ["예", "아니오"], picture) { Owner = owner };
+        d.ShowDialog();
+        return d.Picked == 0;
+    }
 }

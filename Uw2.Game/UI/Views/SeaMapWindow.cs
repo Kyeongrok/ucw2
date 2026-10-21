@@ -75,10 +75,16 @@ public sealed class SeaMapWindow : Window
         if (_host.HasMates && mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
         string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
         var p = _host.Player;
-        int pick = BuildingMenu.Ask(this, $"함선 건조 — 돈 {p.Gold} · 배 {p.Ships.Count}/{SeaMapHost.MaxShips}",
-            types.Select(t => $"{NameOf(t),-10} {start.ShipTypes[t].Price,6}").ToList());
-        if (pick < 0) return;
-        int type = types[pick], basePrice = start.ShipTypes[type].Price;
+        int type;
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, $"함선 건조 — 돈 {p.Gold} · 배 {p.Ships.Count}/{SeaMapHost.MaxShips}",
+                types.Select(t => $"{NameOf(t),-10} {start.ShipTypes[t].Price,6}").ToList());
+            if (pick < 0) return;
+            type = types[pick];
+            if (PitchShip(type, building: true)) break;
+        }
+        int basePrice = start.ShipTypes[type].Price;
         if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
         int industry = _host.CurrentPort >= 0 && _host.CurrentPort < eco.States.Count ? eco.States[_host.CurrentPort].Industry : 0;
         int grades = Shipyard.GradeChoices(type, industry);
@@ -136,7 +142,7 @@ public sealed class SeaMapWindow : Window
         if (_host.Scenario is not { } vm) return price;
         var m = vm.Memory;
         string ask = building ? MsgOr(0x100, $"새 배를 만드는 데는 금화 {price}닢이 들지.", price) : MsgOr(0xC2, $"이 배는 금화 {price}닢에 어떻소？", price);
-        var yes = MessageBox.Show(this, ask + "\n" + (building ? MsgOr(0xFD, "이 놈을 만들겠소？") : MsgOr(0xC1, "이 놈을 사겠소？")), "조선소", MessageBoxButton.YesNoCancel);
+        var yes = MessageBox.Show(this, ask, "조선소", MessageBoxButton.YesNoCancel);
         if (yes == MessageBoxResult.Cancel) return null;
         if (yes == MessageBoxResult.Yes) return price;
         int floor = price * (500 - HeroField(0x22)) / 1000;
@@ -160,6 +166,20 @@ public sealed class SeaMapWindow : Window
         }
         Say(0x35F, "손님에겐 못 당하겠네요.", offer);
         return offer;
+    }
+
+    /// <summary>
+    /// 고른 선종을 권한다(<c>0x00429257</c> · <c>0x00429B89</c>) — 배 그림과 함께 선종 말(표 <c>0x00458C28</c>, 선종 0 ~ 24 → 0xA8 ~ 0xC0)을
+    /// 띄우고 「이 놈을 만들겠소？」(0xFD) · 「이 놈을 사겠소？」(0xC1)를 묻는다. 아니오면 목록으로 돌아간다.
+    /// </summary>
+    private bool PitchShip(int type, bool building)
+    {
+        if (_devQuiet) return true;
+        var lines = new List<ScenarioVm.Line>();
+        if (type is >= 0 and <= 0xC0 - 0xA8 && _host.Messages is { } m && m[0xA8 + type].Length > 0)
+            lines.Add(new ScenarioVm.Line("", m[0xA8 + type]));
+        lines.Add(new ScenarioVm.Line("", building ? MsgOr(0xFD, "이 놈을 만들겠소？") : MsgOr(0xC1, "이 놈을 사겠소？")));
+        return ScenarioDialog.Confirm(this, _host.Faces, lines, _host.Graphs?.Get(ShipGraph(type)));
     }
 
     /// <summary>산 배에 이름을 붙인다(<c>0x00429800</c>) — 「이제 이 배는 당신 것이오. 배 이름을 붙여 주시오.」(0xC7), 일곱 자까지. 비우면 선종 이름 그대로.</summary>
@@ -189,10 +209,15 @@ public sealed class SeaMapWindow : Window
         if (mate < 0 && traded is { Captain: >= 0 }) mate = traded.Captain;
         if (_host.HasMates && mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
         string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
-        int pick = BuildingMenu.Ask(this, $"중고선 구입 — 돈 {p.Gold}",
-            used.Select(u => $"{NameOf(u.Type),-10} {start.ShipTypes[u.Type].Price,6}").ToList());
-        if (pick < 0) return;
-        var (slot, type) = used[pick];
+        int slot, type;
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, $"중고선 구입 — 돈 {p.Gold}",
+                used.Select(u => $"{NameOf(u.Type),-10} {start.ShipTypes[u.Type].Price,6}").ToList());
+            if (pick < 0) return;
+            (slot, type) = used[pick];
+            if (PitchShip(type, building: false)) break;
+        }
         if (Haggle(start.ShipTypes[type].Price, building: false) is not { } price) return;
         if (p.Gold + credit < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
         if (traded != null && !_host.RemoveShip(p.Ships.IndexOf(traded))) return;
