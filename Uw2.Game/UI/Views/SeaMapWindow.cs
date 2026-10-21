@@ -337,6 +337,15 @@ public sealed class SeaMapWindow : Window
             if (famous) Say(1, $"{name} {family}님이 아니십니까？", name, family);
             else Say(0, "어서 오세요！");
         }
+        // 들어설 때 인사 — 이벤트 변수 63 이 둘 다 0 일 때(0x0041E856). 은행은 베네치아(13)면 본점(0x61), 아니면 「%s 지점」(0x62).
+        bool quiet = (_host.Common?.GetVar(63) ?? 0) == 0 && (_host.Scenario?.GetVar(63) ?? 0) == 0;
+        if (quiet && b == BankBuilding)
+        {
+            if (_host.CurrentPort == 13) Say(0x61, "어서 오세요, 셜록은행 베네치아 본점입니다.");
+            else Say(0x62, $"어서 오세요, 셜록은행 {_host.SceneName} 지점입니다.", _host.SceneName);
+        }
+        if (b == ShipyardBuilding) Say(0x4D, "우리 조선소에 무슨 용건이 있는 거요？");   // 0x0042A980
+        if (b == FortuneBuilding) Say(0x12A, "점술관에 어서 오세요.");                     // 0x00428402
         int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items);
         if (pick < 0) return;
         if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
