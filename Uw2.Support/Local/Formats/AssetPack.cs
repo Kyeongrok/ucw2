@@ -164,9 +164,15 @@ public sealed class AssetPack
         string charPath = Find("CHAR.LZW");
         if (File.Exists(charPath))
         {
-            var first = LsArchive.ReadAll(charPath)[0];
-            var walk = WalkerSheet(first, out int ww, out int wh);
+            var chunks = LsArchive.ReadAll(charPath);
+            var walk = WalkerSheet(chunks[0], out int ww, out int wh);
             IndexedPng.Write(Path.Combine(outDir, "char.png"), walk, ww, wh, pal);
+            // 마지막 청크(일곱째, 24576 바이트)는 마을 사람 스물넷 장 — 걷는 여자 · 걷는 남자 여덟씩, 서 있는 이 넷 x 둘(0x004335F0 이 쓴다).
+            if (chunks.Length > FolkChunk)
+            {
+                var folk = WalkerSheet(chunks[FolkChunk], out int fw, out int fh, FolkPoses);
+                IndexedPng.Write(Path.Combine(outDir, "folk.png"), folk, fw, fh, pal);
+            }
         }
 
         // 글꼴 — 첫 메뉴에 쓰는 그것이다. Win95 이식판에는 없어 원판에서 가져온다.
@@ -223,6 +229,9 @@ public sealed class AssetPack
     /// <summary>사람 하나에 든 그림 수 — 네 쪽에 걸음이 둘씩이다.</summary>
     public const int CharPoses = 8;
 
+    /// <summary>마을 사람 그림 — <c>CHAR.LZW</c> 일곱째 청크, 스물넷 장.</summary>
+    public const int FolkChunk = 6, FolkPoses = 24;
+
     /// <summary>
     /// 사람 그림에서 비침으로 쓰는 색인. 그림의 바탕이 <b>검정(0)</b>이다.
     /// </summary>
@@ -250,12 +259,12 @@ public sealed class AssetPack
     /// 조각 넷을 붙여야 사람이 온전해지는 것은 <b>그려 보고</b> 굳혔다 — 조각 하나만 보면
     /// 사람이 왼쪽·오른쪽으로 잘려 있다.
     /// </remarks>
-    private static byte[] WalkerSheet(byte[] chunk, out int width, out int height)
+    private static byte[] WalkerSheet(byte[] chunk, out int width, out int height, int poses = CharPoses)
     {
         const int Q = 16, QBytes = Q * Q / 2;          // 조각 하나
-        int n = Math.Min(chunk.Length / (QBytes * 8), CharPoses);
+        int n = Math.Min(chunk.Length / (QBytes * 8), poses);
 
-        width = CharCols * CharW;
+        width = poses * CharW;
         height = CharH;
 
         var px = new byte[width * height];
@@ -451,6 +460,13 @@ public sealed class AssetPack
                 var w = IndexedPng.Read(charPath2);
                 walker = w.Pixels; walkerW = w.Width; walkerH = w.Height;
             }
+            string folkPath = Path.Combine(dir, "folk.png");
+            byte[] folk = []; int folkW = 0;
+            if (File.Exists(folkPath))
+            {
+                var f = IndexedPng.Read(folkPath);
+                if (f.Height == walkerH) { folk = f.Pixels; folkW = f.Width; }
+            }
 
             string shipPath = Path.Combine(dir, "ship.png");
             byte[] ship = File.Exists(shipPath) ? IndexedPng.Read(shipPath).Pixels : [];
@@ -529,6 +545,8 @@ public sealed class AssetPack
                 Ship = ship,
                 Walker = walker,
                 WalkerSize = (walkerW, walkerH),
+                Folk = folk,
+                FolkWidth = folkW,
                 Font = font,
             };
         }
@@ -615,6 +633,10 @@ public sealed class AssetPack
     /// <summary>사람 그림 판(16x32 장을 여덟씩 늘어놓은 것)과 그 크기.</summary>
     public byte[] Walker { get; private init; } = [];
     public (int W, int H) WalkerSize { get; private init; }
+
+    /// <summary>마을 사람 스물넷 장(<see cref="Walker"/> 와 같은 높이). 없으면 빈 것.</summary>
+    public byte[] Folk { get; private init; } = [];
+    public int FolkWidth { get; private init; }
 
     // ------------------------------------------------------------------ 잔손
 

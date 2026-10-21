@@ -61,6 +61,13 @@ public sealed class Walker
         Moving = false;
     }
 
+    /// <summary>자리를 그대로 옮긴다 — 마을 사람에게 막혀 되돌릴 때.</summary>
+    public void Put(double x, double y)
+    {
+        X = x; Y = y;
+        Moving = false;
+    }
+
     /// <summary>지금 자리(칸).</summary>
     public double X { get; private set; }
     public double Y { get; private set; }

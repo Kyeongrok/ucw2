@@ -1904,6 +1904,11 @@ public sealed class SeaMapWindow : Window
             _seaNote = name == "쥐 떼" ? M(0x1D9, "쥐 떼가 일었습니다") : M(0x1DA, $"{name}에 걸린 자가 있습니다");
             UpdateStatus();
         };
+        // 마을 사람과 부딪치면 말을 건다(0x004335F0).
+        _host.FolkMet += kind =>
+        {
+            foreach (var (id, args) in _host.FolkLines(kind, NationNames7)) Say(id, "", args);
+        };
         _host.ShipAdrift += name =>
         {
             _seaNote = M(0x150, $"제독님, {name}(가) 보이지 않습니다.", name);

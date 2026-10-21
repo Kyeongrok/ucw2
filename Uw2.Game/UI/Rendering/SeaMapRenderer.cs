@@ -128,6 +128,12 @@ public sealed unsafe class SeaMapRenderer : IDisposable
                 float2 s = (px - (at - float2(OtherInfo.y * 0.5, OtherInfo.z))) / OtherInfo.yz;
                 if (any(s < 0) || any(s >= 1)) continue;
                 if (f.z > 0.5) s.x = 1.0 - s.x;
+                if (f.w >= 0)
+                {
+                    float4 m = Ship.Load(int3(int2(float2(f.w * SpriteSrc.z, 0) + s * SpriteSrc.zw), 0));
+                    if (m.a > 0) return m;
+                    continue;
+                }
                 float4 c = Ship.Load(int3(int2(s * ShipSize.xy), 0));
                 if (c.a > 0) return float4(c.rgb * 0.78, 1);
             }
@@ -231,7 +237,13 @@ public sealed unsafe class SeaMapRenderer : IDisposable
     /// <summary>
     /// 남의 함대 자리(칩 눈금)를 건다 — 배 그림을 조금 어둡게 찍는다. <paramref name="w"/>·<paramref name="h"/> 는 화면 점.
     /// </summary>
-    public void SetOthers(IReadOnlyList<(float X, float Y, bool West)> fleets, float w, float h)
+    public void SetOthers(IReadOnlyList<(float X, float Y, bool West)> fleets, float w, float h) =>
+        SetOthers([.. fleets.Select(f => (f.X, f.Y, f.West, -1))], w, h);
+
+    /// <summary>
+    /// 그림 판의 한 장씩 찍는 것들(마을 사람) — <paramref name="Frame"/> 은 지금 그림 판(사람 판)의 장 번호, 장 크기는 사람 장과 같다. 어둡게 하지 않는다.
+    /// </summary>
+    public void SetOthers(IReadOnlyList<(float X, float Y, bool West, int Frame)> fleets, float w, float h)
     {
         var data = new float[MaxOthers * 4];
         int n = Math.Min(MaxOthers, fleets.Count);
@@ -240,7 +252,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
             data[i * 4] = fleets[i].X;
             data[i * 4 + 1] = fleets[i].Y;
             data[i * 4 + 2] = fleets[i].West ? 1 : 0;
-            data[i * 4 + 3] = 1;
+            data[i * 4 + 3] = fleets[i].Frame;
         }
         var old = _othersSrv;
         _othersSrv = CreateImmutable(data, MaxOthers, 1, Format.R32G32B32A32_Float, sizeof(float) * 4);
@@ -331,7 +343,7 @@ public sealed unsafe class SeaMapRenderer : IDisposable
         SetShipSprite(new uint[1], 1, 1);
         _arrowSrv = CreateImmutable(FlowArrows.Alpha, FlowArrows.AtlasWidth, FlowArrows.CellSize, Format.R8_UNorm, 1);
         SetFlow(new ushort[WindCurTable.Cols * WindCurTable.Rows]);
-        SetOthers([], 0, 0);
+        SetOthers(Array.Empty<(float, float, bool, int)>(), 0, 0);
     }
 
     /// <summary>

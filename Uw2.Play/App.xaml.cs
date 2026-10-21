@@ -34,6 +34,14 @@ public partial class App : Application
             t.Start();
             return;
         }
+        if (Array.IndexOf(e.Args, "--town-demo") >= 0)
+        {
+            // 개발 — 첫 주인공 고향 항구를 바로 띄운다(마을 사람 보기).
+            var map = new SeaMapWindow { Title = "대항해시대2 — 도시 시험", WindowState = WindowState.Maximized };
+            map.Show();
+            map.ShowHomePort(0);
+            return;
+        }
         if (Array.IndexOf(e.Args, "--import-smoke") is >= 0 and var ia && ia + 2 < e.Args.Length)
         {
             // 개발 — 원본 세이브 칸마다 들여 보고 적은 뒤 끝낸다.

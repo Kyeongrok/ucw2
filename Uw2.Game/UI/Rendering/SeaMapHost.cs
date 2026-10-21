@@ -131,6 +131,7 @@ public sealed partial class SeaMapHost : HwndHost
             _walkArt = pack.Walker;
             _walkArtW = pack.WalkerSize.W;
             _walkArtH = pack.WalkerSize.H;
+            JoinFolkSheet(pack.Folk, pack.FolkWidth);
         }
 
         if (pack.Ship.Length == AssetPack.ShipW * AssetPack.ShipH)
@@ -1233,6 +1234,8 @@ public sealed partial class SeaMapHost : HwndHost
         Walker = new Walker(_portMaps[port], bounds, _doors?.Of(port));
         if (!Walker.PlaceNear(PortMap.Size / 2.0, PortMap.Size * 0.72)) Walker = null;
         UseWalkerSprite(Walker != null);
+        SpawnFolk(port);
+        _folkFrame = null;
 
         // 항구 화면의 눈금은 <b>칸</b>이다(칩 눈금이 아니다). 칸 하나를 열여섯 점으로 낸다.
         CellsPerPixel = 1.0 / ChipSheet.Size;
@@ -1357,8 +1360,12 @@ public sealed partial class SeaMapHost : HwndHost
         _lastOrigin = origin;
 
         _renderer.ShowArrows = ShowArrows && CurrentPort < 0;
-        _renderer.ShowOthers = CurrentPort < 0 && Others.Count > 0;
-        if (_renderer.ShowOthers) PushOthers();
+        _renderer.ShowOthers = CurrentPort < 0 ? Others.Count > 0 : Walker != null;
+        if (_renderer.ShowOthers)
+        {
+            if (CurrentPort < 0) PushOthers();
+            else PushFolk();
+        }
         _renderer.RenderTo(_backBufferView, w, h, origin, CellsPerPixel, ShipRectAt(origin));
         _swapChain!.Present(1, PresentFlags.None);
         _dirty = false;
@@ -1434,6 +1441,13 @@ public sealed partial class SeaMapHost : HwndHost
     private void AdvanceWalker(double dt, int w, int h)
     {
         if (Walker == null) return;
+        // 마을 사람은 창이 떠 있지 않을 때만 걷는다.
+        if (Application.Current is not { } app || app.Windows.OfType<Window>().Count(x => x.IsVisible) <= 1)
+        {
+            var before0 = Folk.Export();
+            AdvanceFolk(dt);
+            if (!before0.AsSpan().SequenceEqual(Folk.Export())) _dirty = true;
+        }
 
         _carry += dt / Walker.TickSeconds;
         int ticks = (int)_carry;
@@ -1445,7 +1459,12 @@ public sealed partial class SeaMapHost : HwndHost
         int iy = (Keyboard.IsKeyDown(Key.Down) ? 1 : 0) - (Keyboard.IsKeyDown(Key.Up) ? 1 : 0);
         if (WalkInput != (0, 0)) (ix, iy) = WalkInput;
         bool before = Walker.Moving;
-        for (int i = 0; i < Math.Min(ticks, 8); i++) Walker.Step_(ix, iy);
+        for (int i = 0; i < Math.Min(ticks, 8); i++)
+        {
+            double fromX = Walker.X, fromY = Walker.Y;
+            Walker.Step_(ix, iy);
+            if (BumpFolk(fromX, fromY)) break;   // 마을 사람에게 막히면 말을 건다(0x00433094)
+        }
 
         // 문에 서면 그 건물에 든다 — 닫힌 시각이면 잠겨 있다. 건물 안은 아직 없어 알리기만 하고 한 칸 물러 나온다.
         // 도시의 시각은 걸어서는 흐르지 않는다 — 건물에 들 때만 흐른다(PassTimeInPort).
@@ -1528,7 +1547,7 @@ public sealed partial class SeaMapHost : HwndHost
         // 발이 밟은 칸에 닿게 놓는다. 자리는 칸 한가운데라 반 칸 아래가 칸 밑변이다.
         double foot = py + 0.5 / CellsPerPixel;
 
-        _renderer.SpriteFrame(Walker.Frame, Walker.SpriteW, Walker.SpriteH, AssetPack.CharCols);
+        _renderer.SpriteFrame(Walker.Frame, Walker.SpriteW, Walker.SpriteH, Math.Max(1, _walkArtW / Walker.SpriteW));
         return ((float)(px - dw / 2), (float)(foot - dh), dw, dh);
     }
 
