@@ -354,6 +354,7 @@ public sealed class SeaMapWindow : Window
         if (b == ShipyardBuilding) Say(0x4D, "우리 조선소에 무슨 용건이 있는 거요？");   // 0x0042A980
         if (quiet && b == InnBuilding) Say(0x42, "피곤하시지요？\n그럼 편히 쉬세요.");     // 0x0041F3AB
         if (quiet && b == GuildBuilding) Say(0x55, "무슨 용건이오？");                    // 0x0041EF8B
+        if (quiet && b == PubBuilding) PubGreeting();
         if (quiet && b == ItemBuilding)                                                   // 0x00420270 — 시각 12 ~ 17 틱(4 ~ 6 시)은 비밀 가게
         {
             if (_host.Fleet?.TimeOfDay is >= 12 and < 18) Say(0x2FC, "비밀 아이템 가게에 어서 오세요！\n흔히 볼 수 없는 진귀한 물건이 있지요.");
@@ -1509,6 +1510,26 @@ public sealed class SeaMapWindow : Window
                           : MsgOr(0x4A, $"나는 {nation} {kind}의 {rank}, {name}(이다).", nation, kind, rank, name);
         Say(-1, intro);
         return true;
+    }
+
+    /// <summary>
+    /// 주점 첫마디(<c>0x00426CF1</c>) — 이 항구에 마음을 준 여급(+0x12 의 8 과 0x40, <c>0x00426E10</c>)이 있으면 그 여급이 「어머！ %s씨. %s(는) 좀 어떠세요？」(0x11),
+    /// 없으면 주인이 「여어, 뱃사람！ 우리집 %s(는) 최고요.」(0x12) — 술은 항구 형편 +0x24.
+    /// </summary>
+    private void PubGreeting()
+    {
+        if (_host.Scenario is not { } vm || _host.Economy is not { } eco || _host.CurrentPort is < 0 or >= 100) return;
+        int kind = eco.StateBytes[_host.CurrentPort * Economy.StateSize + 0x24];
+        string drink = PubDrinks[Math.Clamp(kind, 0, PubDrinks.Length - 1)];
+        bool heroFlag = (Navigators.Get(vm.Memory, _host.HeroPersonNumber, 0x31) & 0x10) != 0;
+        int fond = heroFlag ? -1 : Enumerable.Range(0, Barmaids.Count).FirstOrDefault(i =>
+            Barmaids.Get(vm.Memory, i, Barmaids.Port) == _host.CurrentPort && (Barmaids.Get(vm.Memory, i, Barmaids.Flags) & 0x48) == 0x48, -1);
+        if (fond >= 0)
+        {
+            var (name, _) = _host.HeroName;
+            Say(0x11, $"어머！ {name}씨.\n{drink}(는) 좀 어떠세요？", name, drink);
+        }
+        else Say(0x12, $"여어, 뱃사람！\n우리집 {drink}(는) 최고요.", drink);
     }
 
     /// <summary>항구 형편 +0x24 갈래마다 주점 술(<c>0x00457148</c>, 11 바이트씩).</summary>
