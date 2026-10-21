@@ -76,9 +76,9 @@ public sealed class BattleWindow : Window
 
     /// <summary>판을 끝까지 치른다 — 닫히면 <see cref="Battle.Result"/> 가 차 있다.</summary>
     public static void Run(Window? owner, Battle b, GameMessages? msg, string title, Func<Battle.Ship, Duel.Fighter>? gear = null,
-                           Action<Window>? items = null)
+                           Action<Window>? items = null, Func<int, string>? names = null)
     {
-        var w = new BattleWindow(b, msg, title, gear, items) { Owner = owner };
+        var w = new BattleWindow(b, msg, title, gear, items) { Owner = owner, _names = names };
         if (owner == null) w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         w.ShowDialog();
     }
@@ -212,7 +212,7 @@ public sealed class BattleWindow : Window
         var (guns, board) = _b.Targets(f);
         Add("이동", () => BeginMove());
         Add("공격", () => BeginAttack(), guns.Count + board.Count > 0);
-        Add("정보", () => { _pick = Pick.Info; Say("볼 배를 고르세요."); });
+        Add("정보", ShowInfo);
         Add("작전", () => { _pick = Pick.Order; Say(Msg(0x305, "작전을 전달할 배를 선택해 주세요.")); },
             _b.Friends(f).Any(s => s != f && s.Alive));
         // ITEM(0x0040D690 → 0x0041F630) — 바다의 아이템 목록 그대로이고 차례는 안 끝난다.
@@ -406,6 +406,58 @@ public sealed class BattleWindow : Window
     {
         _log.Items.Add(line);
         _log.ScrollIntoView(line);
+    }
+
+    private Func<int, string>? _names;
+
+    private string NameOf(Battle.Captain c) => _names?.Invoke(c.Person) ?? $"#{c.Person}";
+
+    /// <summary>
+    /// 「정보」(<c>0x0040CD00</c>) — 목록 51(자함대 · 자함대인물 · 자함대선박 · 타함대 · 타함대인물 · 타함대선박 · 작전일람, 손표 <c>0x00457B08</c>).
+    /// 함대는 함대 칸(<c>0x00442A80</c>), 인물은 인물 칸(<c>0x00442630</c>), 선박은 고른 배의 칸이다. 판을 눌러 배 하나를 보는 것도 그대로 둔다.
+    /// </summary>
+    private void ShowInfo()
+    {
+        var f = _flag!;
+        string[] items = ["자함대", "자함대인물", "자함대선박", "타함대", "타함대인물", "타함대선박", "작전일람"];
+        int pick = BuildingMenu.Ask(this, "정보", items);
+        if (pick < 0) { _pick = Pick.Info; Say("볼 배를 고르세요."); return; }
+        var ours = _b.Friends(f).Where(s => !s.Wreck && !s.Left).ToList();
+        var theirs = _b.Enemies(f).Where(s => !s.Wreck && !s.Left).ToList();
+        var side = pick is < 3 or 6 ? ours : theirs;
+        string Fleet(List<Battle.Ship> ships)
+        {
+            var sb = new System.Text.StringBuilder();
+            if (ships.Count > 0) sb.AppendLine($"{NameOf(ships[0].Captain)} 함대");
+            foreach (var s in ships) sb.AppendLine($"{s.Name,-10} 선원 {s.Crew,4} · 내구 {s.Hull,3}/{s.MaxHull,-3} · 대포 {s.Guns,3}");
+            sb.AppendLine($"선원 총수 {ships.Sum(s => s.Crew)} · 총포문수 {ships.Sum(s => s.Guns)}");
+            return sb.ToString();
+        }
+        string Person(Battle.Captain c) =>
+            $"{NameOf(c)}\n항해 레벨 {c.NavLevel} · 전투 레벨 {c.BattleLevel}\n"
+            + $"통솔 {c.Stat(0)} · 항해술 {c.Stat(1)} · 지식 {c.Stat(2)} · 직감 {c.Stat(3)}\n용기 {c.Stat(4)} · 검술 {c.Stat(5)} · 매력 {c.Stat(6)}";
+        switch (pick % 3 + (pick == 6 ? 10 : 0))
+        {
+            case 0: MessageBox.Show(this, Fleet(side), Title); break;
+            case 1:
+            {
+                int k = BuildingMenu.Ask(this, items[pick], [.. side.Select(s => $"{NameOf(s.Captain)} — {s.Name}")]);
+                if (k >= 0) MessageBox.Show(this, Person(side[k].Captain), Title);
+                break;
+            }
+            case 2:
+            {
+                int k = BuildingMenu.Ask(this, items[pick], [.. side.Select(s => s.Name)]);
+                if (k >= 0) MessageBox.Show(this, Describe(side[k]), Title);
+                break;
+            }
+            default:
+                // 작전일람 — 배마다 공세 · 수세, 포격 · 돌격, 목표.
+                MessageBox.Show(this, string.Join("\n", ours.Select(s =>
+                    $"{s.Name,-10} {(Battle.Offensive(s) ? Msg(0x401, "공세").Trim() : Msg(0x402, "수세").Trim())} · "
+                    + $"{(s.Gunner ? Msg(0x405, "포격").Trim() : Msg(0x406, "돌격").Trim())} · 목표 {s.Target?.Name ?? "없음"}")), items[pick]);
+                break;
+        }
     }
 
     private static string Describe(Battle.Ship s) =>

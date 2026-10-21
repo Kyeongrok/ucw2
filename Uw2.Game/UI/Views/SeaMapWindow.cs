@@ -3069,7 +3069,7 @@ public sealed class SeaMapWindow : Window
             Say(id, $"{p.Name} {p.Family}(가) {(side == 3 ? "수비측" : "공격측")}의 원군으로서 전투에 가담했습니다.", p.Name, p.Family);
         }
         if (!fight) battle.Result = Engine.Sea.Battle.Outcome.EnemyLeft;
-        else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem);
+        else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem, _host.PersonName);
         f.SetTimeOfDay(battle.Time);
         var spoils = _host.CloseBattle(battle, enemy);
         if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
@@ -3198,7 +3198,7 @@ public sealed class SeaMapWindow : Window
             f.UnderSail = false;
             foreach (var (who, line) in _host.BattleDeserters)
                 ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(who, Deserter(line))]);
-            BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem);
+            BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem, _host.PersonName);
             f.SetTimeOfDay(battle.Time);
             var spoils = _host.CloseBattle(battle, enemy);
             if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
