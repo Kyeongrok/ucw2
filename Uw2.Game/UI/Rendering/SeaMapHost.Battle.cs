@@ -28,6 +28,34 @@ public sealed partial class SeaMapHost
         Aides = aides ?? [],
     };
 
+    /// <summary>
+    /// 일기토 채비(<c>0x00414E20</c>) — 주인공은 지닌 아이템 가운데 장비한 것: 갈래(&amp; 0xF)가 4 아래면 무기(갈래 · 세기 +0x12),
+    /// 6 이면 갑옷(세기를 더한다). 남 제독은 <see cref="Duel.NpcGear"/> 의 표에서 고른다.
+    /// </summary>
+    public Duel.Fighter DuelFighter(Battle.Ship s)
+    {
+        var c = s.Captain;
+        int style = 0, weapon = 0, armor = 0;
+        if (Scenario is { } vm)
+        {
+            var m = vm.Memory;
+            IEnumerable<ItemShop.Item> gear;
+            if (s.Player && c.Person == HeroPersonNumber)
+                gear = ItemShop.Owned(m).Where(i => ItemShop.IsEquipped(m, i)).Select(i => ItemShop.Get(m, i));
+            else
+            {
+                var (w, a) = Duel.NpcGear(c.BattleLevel, c.NavLevel);
+                gear = [ItemShop.Get(m, w), ItemShop.Get(m, a)];
+            }
+            foreach (var it in gear)
+            {
+                if (it.Group < 4) { style = it.Group; weapon = it.Power; }
+                else if (it.Group == 6) armor += it.Power;
+            }
+        }
+        return new Duel.Fighter(PersonName(c.Person), c.Stat(5), c.BattleLevel, style, weapon, armor);
+    }
+
     /// <summary>싸움 뒤 사람 기록에 돌려 적는다 — 능력치 · 전투 레벨 · 경험.</summary>
     private void StoreCaptain(Battle.Captain c)
     {

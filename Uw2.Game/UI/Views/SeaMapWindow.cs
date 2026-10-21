@@ -1960,7 +1960,7 @@ public sealed class SeaMapWindow : Window
         var battle = _host.OpenBattle(enemy);
         f.UnderSail = false;
         if (!fight) battle.Result = Engine.Sea.Battle.Outcome.EnemyLeft;
-        else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대");
+        else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter);
         f.SetTimeOfDay(battle.Time);
         var spoils = _host.CloseBattle(battle, enemy);
         if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)

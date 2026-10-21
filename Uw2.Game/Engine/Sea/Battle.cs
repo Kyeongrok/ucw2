@@ -541,7 +541,7 @@ public sealed class Battle
     /// 전투 경험(<c>0x00412500</c> → <c>0x0041A4C0</c>) — 경험(+0x28 낱말)이 min(레벨, 18)² x 30 을 넘을 때마다 레벨(+0x25)이 오른다(100 이 끝,
     /// 거기서는 경험을 0 으로). 한 번이라도 오르면 능력치 0 ~ 3 이 rand(3)씩(100 까지), 오른 레벨마다 용기 +rand(3) · 검술 +rand(2)(100 에서 자른다).
     /// </summary>
-    public int Experience(Captain c, int exp)
+    public int Experience(Captain c, int exp, bool duel = false)
     {
         int ups = 0;
         c.BattleExp = (short)(c.BattleExp + exp);
@@ -554,6 +554,7 @@ public sealed class Battle
         }
         if (ups == 0) return 0;
         for (int k = 0; k < 4; k++) c.Stats[k] += Math.Min(100 - c.Stats[k], _rand(3));
+        if (duel) return ups;
         for (int i = 0; i < ups; i++)
         {
             c.Stats[4] = Math.Min(100, c.Stats[4] + _rand(3));
@@ -707,17 +708,48 @@ public sealed class Battle
     /// <summary>작전 창 글(<c>0x0040D3D0</c>) — 공세 · 수세, 포격 · 돌격, 목표.</summary>
     public static bool Offensive(Ship s) => (s.Mode & 2) != 0;
 
-    /// <summary>일기토를 치를 수 있는지 — 화면이 일기토를 옮기기 전까지는 꺼 두고 백병전으로 친다.</summary>
+    /// <summary>일기토를 치를 수 있는지 — 일기토 화면이 있는 판만 켠다. 꺼 두면 남 기함도 백병전으로 친다.</summary>
     public bool Duels { get; set; }
 
     /// <summary>남이 제 기함에 일기토를 걸었다 — 화면이 일기토를 치르고 <see cref="DuelOver"/> 를 부른다.</summary>
     public (Ship By, Ship To)? DuelRequested { get; set; }
 
-    /// <summary>일기토 끝(<c>0x00414FC0</c>) — 주인공이 이기면 6, 지면 7.</summary>
-    public void DuelOver(bool playerWon)
+    /// <summary>
+    /// 일기토 줄(<c>0x004715AC</c>)을 주인공 쪽에서 잰 값 — 같은 상대(<c>0x004715B0</c>)와 다시 붙으면 이어지고, 바뀌면 100 에서 다시.
+    /// </summary>
+    public int DuelRope { get; private set; } = 100;
+    private Ship? _duelFoe;
+
+    /// <summary>
+    /// 일기토를 차린다(<c>0x00414FC0</c>) — 건 쪽이 줄의 200 쪽이다. 남이 걸면 줄을 뒤집어(<c>0x00412BF7</c>: 200 − 줄) 건넨다.
+    /// </summary>
+    public Duel OpenDuel(Ship challenger, Ship defender, Duel.Fighter a, Duel.Fighter b)
+    {
+        var foe = challenger.Player ? defender : challenger;
+        if (foe != _duelFoe) { DuelRope = 100; _duelFoe = foe; }
+        return new Duel(a, b, challenger.Player ? DuelRope : Duel.Full - DuelRope, _rand);
+    }
+
+    /// <summary>
+    /// 일기토 끝 — 줄이 끝까지 갔으면 판이 끝난다(주인공이 이기면 6, 지면 7). 스무 차례로 끝나면 줄만 남기고 싸움으로 돌아간다.
+    /// 주인공 경험은 이기면 상대 전투 레벨 x 10, 아니면 x 3(<c>0x004150C0</c>) — 레벨이 오르거나 상대 검술이 높으면 검술 · 용기 +rand(3).
+    /// </summary>
+    public void DuelOver(Duel duel, Ship challenger, Ship defender)
     {
         DuelRequested = null;
-        Result = playerWon ? Outcome.DuelWon : Outcome.DuelLost;
+        bool playerChallenged = challenger.Player;
+        DuelRope = playerChallenged ? duel.Rope : Duel.Full - duel.Rope;
+        var hero = playerChallenged ? challenger : defender;
+        var foe = playerChallenged ? defender : challenger;
+        bool won = DuelRope == Duel.Full;
+        int ups = Experience(hero.Captain, Duel.ExperienceFor(won, foe.Captain.BattleLevel), duel: true);
+        if (ups > 0 || foe.Captain.Stat(5) >= hero.Captain.Stat(5))
+        {
+            hero.Captain.Stats[5] = Math.Min(100, hero.Captain.Stats[5] + _rand(3));
+            hero.Captain.Stats[4] = Math.Min(100, hero.Captain.Stats[4] + _rand(3));
+        }
+        if (DuelRope == Duel.Full) Result = Outcome.DuelWon;
+        else if (DuelRope == 0) Result = Outcome.DuelLost;
     }
 
     /// <summary>그 칸의 위험(<c>0x00411B40</c>) — 그 칸을 쏠 수 있는 적의 거리 세기 + 거리 1 이면 백병 세기.</summary>

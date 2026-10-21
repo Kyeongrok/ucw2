@@ -15,7 +15,7 @@ namespace Uw2.Game.UI.Views;
 /// <remarks>
 /// 원본은 헥스를 한 칸씩 골라 길을 잇는다(<c>0x0040BD60</c>, 말 0x2FF · 0x300). 여기서는 갈 수 있는 칸(<see cref="Battle.Reach"/>)을
 /// 칠해 두고 닿을 칸을 누르면 꺾음이 가장 적은 길로 간다. 다 가면 칠 적을 고른다(<c>0x0040C510</c>, 말 0x304).
-/// 신호(제 기함 +0x16 의 비트만 뒤집고 읽는 데가 없다) · ITEM 과 일기토는 아직 없다.
+/// 신호(제 기함 +0x16 의 비트만 뒤집고 읽는 데가 없다) · ITEM 은 아직 없다.
 /// </remarks>
 public sealed class BattleWindow : Window
 {
@@ -42,9 +42,12 @@ public sealed class BattleWindow : Window
     private (List<Battle.Ship> Guns, List<Battle.Ship> Board) _targets = ([], []);
     private Battle.Ship? _flag;   // 명령을 기다리는 제 기함
 
-    private BattleWindow(Battle b, GameMessages? msg, string title)
+    private readonly Func<Battle.Ship, Duel.Fighter>? _gear;
+
+    private BattleWindow(Battle b, GameMessages? msg, string title, Func<Battle.Ship, Duel.Fighter>? gear = null)
     {
-        _b = b; _msg = msg;
+        _b = b; _msg = msg; _gear = gear;
+        b.Duels = gear != null;
         Title = title;
         SizeToContent = SizeToContent.WidthAndHeight;
         ResizeMode = ResizeMode.NoResize;
@@ -70,9 +73,9 @@ public sealed class BattleWindow : Window
     }
 
     /// <summary>판을 끝까지 치른다 — 닫히면 <see cref="Battle.Result"/> 가 차 있다.</summary>
-    public static void Run(Window? owner, Battle b, GameMessages? msg, string title)
+    public static void Run(Window? owner, Battle b, GameMessages? msg, string title, Func<Battle.Ship, Duel.Fighter>? gear = null)
     {
-        var w = new BattleWindow(b, msg, title) { Owner = owner };
+        var w = new BattleWindow(b, msg, title, gear) { Owner = owner };
         if (owner == null) w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         w.ShowDialog();
     }
@@ -133,6 +136,13 @@ public sealed class BattleWindow : Window
         }
         foreach (var h in _b.AiTurn(s)) Log(h);
         if (s.Left) Log($"{Who(s)} 이(가) 싸움에서 빠졌다.");
+        if (_b.DuelRequested is var (by, to))
+        {
+            // 남 기함이 걸었다(0x00412B98) — 원본 글은 일본어판 그대로 남은 「敵の提督が一騎討ちを仕掛けてきました」(0x00457E68)다.
+            _timer.Stop();
+            Duel(by, to, "적의 제독이 일기토를 걸어 왔습니다！");
+            _timer.Start();
+        }
         Draw();
     }
 
@@ -305,6 +315,19 @@ public sealed class BattleWindow : Window
             {
                 var t = _b.ShipAt(x, y);
                 if (t == null) break;
+                // 적 기함에 붙었으면 일기토를 묻는다(0x0040C5E0, 말 0x302) — 받아들이지 않으면(0x303) 백병전이다.
+                if (_gear != null && _targets.Board.Contains(t) && !_targets.Guns.Contains(t) && t.Slot == 0 && f.Slot == 0
+                    && MessageBox.Show(this, Msg(0x302, "적의 제독과 일기토를 하겠습니까？"), Title, MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    if (_b.DuelAccepted(f, t))
+                    {
+                        Duel(f, t, "일기토！");
+                        _moved = false;
+                        EndTurn();
+                        return;
+                    }
+                    MessageBox.Show(this, Msg(0x303, "적의 방해를 받았습니다."), Title);
+                }
                 Battle.Hit? hit = _targets.Guns.Contains(t) ? _b.Fire(f, t) : _targets.Board.Contains(t) ? _b.Board(f, t) : null;
                 if (hit is not { } h) break;
                 Log(h);
@@ -313,6 +336,17 @@ public sealed class BattleWindow : Window
                 return;
             }
         }
+        Draw();
+    }
+
+    /// <summary>일기토를 치르고 판에 돌려준다.</summary>
+    private void Duel(Battle.Ship challenger, Battle.Ship defender, string intro)
+    {
+        var duel = _b.OpenDuel(challenger, defender, _gear!(challenger), _gear!(defender));
+        DuelWindow.Run(this, duel, challenger.Player ? 0 : 1, intro);
+        _b.DuelOver(duel, challenger, defender);
+        Log(duel.Rope is 0 or Engine.Sea.Duel.Full ? $"일기토 — {(_b.Result == Battle.Outcome.DuelWon ? "적 제독을 쓰러뜨렸다！" : "제독이 쓰러졌다……")}"
+                                                    : "일기토는 승부를 가리지 못했다.");
         Draw();
     }
 
