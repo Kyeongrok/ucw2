@@ -83,7 +83,8 @@ public sealed class SeaMapWindow : Window
         int industry = _host.CurrentPort >= 0 && _host.CurrentPort < eco.States.Count ? eco.States[_host.CurrentPort].Industry : 0;
         int grades = Shipyard.GradeChoices(type, industry);
         int grade = BuildingMenu.Ask(this, $"{NameOf(type)} — 등급",
-            Enumerable.Range(0, grades).Select(g => $"등급 {g}  {Shipyard.BuildPrice(basePrice, g),6}").ToList());
+            Enumerable.Range(0, grades).Select(g => $"등급 {g}  {Shipyard.BuildPrice(basePrice, g),6}").ToList(),
+            _host.Graphs?.Get(ShipGraph(type)));
         if (grade < 0) return;
         if (Haggle(Shipyard.BuildPrice(basePrice, grade), building: true) is not { } price) return;
         if (p.Gold < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
@@ -2503,6 +2504,9 @@ public sealed class SeaMapWindow : Window
         MessageBox.Show(this, text.ToString(), "항해일지");
     }
 
+    /// <summary>선종 그림 번호 — 원본은 배 기록 +0x0F(선종)에 28 을 더한다(<c>0x00435300</c>).</summary>
+    private static int ShipGraph(int type) => 28 + type;
+
     private void ShowFleetInfo()
     {
         string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람", "함선정보", "항해일지"];
@@ -2512,16 +2516,18 @@ public sealed class SeaMapWindow : Window
         if (pick == 5) { CargoAdvice(); return; }
         if (pick == 6)
         {
-            // 목록 26 「함선정보」 — 배 기록을 하나씩(선종 · 등급 · 대포 · 선원 자리 · 짐칸 · 역풍 · 돛 · 내구).
-            var info = new System.Text.StringBuilder();
-            foreach (var sh in _host.Player.Ships)
-            {
-                string tn = _host.StartTables is { } t0 && sh.Type < t0.Templates.Count ? t0.Templates[sh.Type].Name ?? "" : "";
-                info.AppendLine($"{sh.Name} — {tn} · 등급 {sh.Grade}");
-                info.AppendLine($"    내구 {sh.Hull}/{sh.MaxHull} · 역풍 {sh.Upwind} · 돛 {sh.Sail} · 대포 {sh.Guns} · 선원 자리 {sh.MaxCrew} · 짐칸 {sh.Room}");
-                info.AppendLine($"    승무원비율 운항 {sh.SailShare}% · 파수 {sh.WatchShare}% · 갑판 {100 - sh.SailShare - sh.WatchShare}%");
-            }
-            MessageBox.Show(this, info.ToString(), "함선정보");
+            // 목록 26 「함선정보」 — 배를 하나 골라 그 배 그림(28 + 선종, 0x00435300)과 기록을 띄운다(0x00441FBF).
+            var ships = _host.Player.Ships;
+            if (ships.Count == 0) return;
+            int k = ships.Count == 1 ? 0 : BuildingMenu.Ask(this, "함선정보", ships.Select(x => x.Name).ToList());
+            if (k < 0) return;
+            var sh = ships[k];
+            string tn = _host.StartTables is { } t0 && sh.Type < t0.Templates.Count ? t0.Templates[sh.Type].Name ?? "" : "";
+            string info = $"{sh.Name}호 — {tn} · 등급 {sh.Grade}\n"
+                          + $"내구 {sh.Hull}/{sh.MaxHull} · 역풍 {sh.Upwind} · 돛 {sh.Sail} · 대포 {sh.Guns} · 선원 자리 {sh.MaxCrew} · 짐칸 {sh.Room}\n"
+                          + $"승무원비율 운항 {sh.SailShare}% · 파수 {sh.WatchShare}% · 갑판 {100 - sh.SailShare - sh.WatchShare}%";
+            if (_devQuiet) return;
+            ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", info)], _host.Graphs?.Get(ShipGraph(sh.Type)));
             return;
         }
         var p = _host.Player;
