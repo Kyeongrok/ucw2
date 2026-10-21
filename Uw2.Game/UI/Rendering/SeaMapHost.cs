@@ -1269,6 +1269,9 @@ public sealed partial class SeaMapHost : HwndHost
         return true;
     }
 
+    /// <summary>그 항구의 칩 벌 번호(<c>CHIP_NO.DAT</c>) — 2 는 이슬람 거리라 교회가 모스크다(<c>0x00421910</c>).</summary>
+    public int PortChipSet(int port) => _portChipNo != null && port is >= 0 and < PortChipNumbers.Count ? _portChipNo[port] : -1;
+
     /// <summary>지금 화면의 이름.</summary>
     public string SceneName =>
         CurrentPort < 0 ? "세계지도"

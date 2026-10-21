@@ -328,7 +328,14 @@ public sealed class SeaMapWindow : Window
             items = items.Take(4).ToList();   // 다섯째 「밀회」는 원본도 안 보인다(0x00427F13 push 4)
             if (!PalaceGate()) return;
         }
-        if (b == ChurchBuilding) _worshipped = false;
+        if (b == ChurchBuilding)
+        {
+            // 모스크(칩 벌 2)는 오스만(나라 2)만, 교회는 오스만이 아닌 이만 받는다(0x00421970, 말 0x322 · 0x5A).
+            bool mosque = _host.PortChipSet(_host.CurrentPort) == 2, ottoman = _host.HeroNation == 2;
+            if (mosque && !ottoman) { Say(0x322, "당신이 코란을 구하는 마음은 잘 알겠지만, 이교도는 삼가해 주세요."); return; }
+            if (!mosque && ottoman) { Say(0x5A, "당신의 깊은 신앙심은 잘 알겠습니다만, 이교도는 삼가해 주십시오."); return; }
+            _worshipped = false;
+        }
         if (b == PubBuilding) _pubMood = Pub.Mood(HeroField(Navigators.Stats + 6));
         // 교역소는 교역 명성이 1000 이상이면 이름으로 맞는다(0x0042174E — 말 1, 아니면 0).
         if (b == TradeBuilding && _host.Scenario is { } tvm)
