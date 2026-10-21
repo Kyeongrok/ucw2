@@ -1245,7 +1245,8 @@ public sealed class SeaMapWindow : Window
         if (!pub) items = items.Skip(1).Take(2).ToList();
         while (true)
         {
-            int pick = BuildingMenu.Ask(this, $"{name} — 호감 {Navigators.Get(m, nav, Navigators.Liking)}", items);
+            // 원본 「항해자정보」 는 소문이다 — 그 사람의 레벨 · 호감은 제목에 둔다(원본에 없는 보기).
+            int pick = BuildingMenu.Ask(this, $"{name} — 항해 Lv {Navigators.Get(m, nav, Navigators.NavLevel)} · 전투 Lv {Navigators.Get(m, nav, Navigators.BattleLevel)} · 호감 {Navigators.Get(m, nav, Navigators.Liking)}", items);
             if (pick < 0) return;
             if (!pub) pick++;                                   // 여관은 한턱내기가 없다
             if (pick == 0)
@@ -1261,14 +1262,7 @@ public sealed class SeaMapWindow : Window
                 if (_host.Common is { Chapter: not 0 } job && job.GetVar(6) == 11 && (job.GetVar(17) & 0xFF) == nav && job.GetVar(18) != 0)
                     SellMap(job.GetVar(18) & 0xFF);
             }
-            else if (pick == 1)
-            {
-                var stats = Enumerable.Range(0, 7).Select(k => Navigators.Get(m, nav, Navigators.Stats + k));
-                MessageBox.Show(this,
-                    $"{name}\n능력치 {string.Join(" · ", stats)}\n항해 레벨 {Navigators.Get(m, nav, Navigators.NavLevel)} · " +
-                    $"전투 레벨 {Navigators.Get(m, nav, Navigators.BattleLevel)}\n호감 {Navigators.Get(m, nav, Navigators.Liking)}",
-                    "항해자정보");
-            }
+            else if (pick == 1) NavigatorRumour(nav, port);
             else if (pick == 2)
             {
                 var answer = Navigators.Ask(m, nav, hero, _host.HeroRank, _host.Roll, out int wage, needLiking: pub);
@@ -1286,6 +1280,43 @@ public sealed class SeaMapWindow : Window
             }
             else { Note(" · 결투는 아직 없습니다"); return; }
         }
+    }
+
+    /// <summary>항구 형편 +0x24 갈래마다 주점 술(<c>0x00457148</c>, 11 바이트씩).</summary>
+    private static readonly string[] PubDrinks = ["럼주", "와인", "위스키", "브랜디", "진", "맥주", "보드카", "테킬라"];
+
+    /// <summary>
+    /// 「항해자정보」(<c>0x00425410</c>) — 조합 「희귀한 물건」 일에서 지도를 가진 이면 지도를 판다(<c>0x00424FD0</c>). 아니면 항구
+    /// p = min(99, 여기 + rand(8)) − min(rand(4), p) 에서 일자리 없는 항해자(사람 +0x2D = p, +0x31 &amp; 0x20)를 앞에서부터 찾아
+    /// 「%s항에서 %s(라는) 항해사가 일자리를 얻지 못하고 있던데.」(0x23A), 없으면 0x23B. p 가 여기면 「이 항구의 %s(는) 마음에 들었소？」(0x2F, 그 항구 술).
+    /// </summary>
+    private void NavigatorRumour(int nav, int here)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        if (_host.Common is { Chapter: not 0 } job && job.GetVar(6) == 11 && (job.GetVar(17) & 0xFF) == nav)
+        {
+            SellMap(job.GetVar(18) & 0xFF);
+            return;
+        }
+        int p = Math.Min(0x63, _host.Roll(8) + here);
+        p -= Math.Min(_host.Roll(4), p);
+        string PortName(int k) => _host.Ports is { } pt && k < pt.Ports.Count ? pt.Ports[k].Name : $"#{k}";
+        if (p == here)
+        {
+            int cls = _host.Economy is { } eco && here < eco.States.Count ? eco.StateBytes[here * Economy.StateSize + 0x24] : 0;
+            string drink = PubDrinks[Math.Clamp(cls, 0, PubDrinks.Length - 1)];
+            Say(0x2F, $"이 항구의 {drink}(는) 마음에 들었소？", drink);
+            return;
+        }
+        int found = Enumerable.Range(0, Navigators.People)
+            .FirstOrDefault(i => Navigators.Get(m, i, Navigators.Port) == p && (Navigators.Get(m, i, Navigators.Kind) & 0x20) != 0, -1);
+        if (found >= 0)
+        {
+            string who = _host.PersonName(found);
+            Say(0x23A, $"{PortName(p)}항에서 {who}(라는) 항해사가 일자리를 얻지 못하고 있던데.", PortName(p), who);
+        }
+        else Say(0x23B, $"{PortName(p)}항엔 괜찮은 녀석이 없었다고 하던데.", PortName(p));
     }
 
     /// <summary>나라 이름 — 나라 표 차례(서울 리스본 · 세빌리아 · 이스탄불 · 런던 · 제노바 · 암스테르담).</summary>
