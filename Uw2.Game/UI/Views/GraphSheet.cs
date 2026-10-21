@@ -22,6 +22,9 @@ public sealed class GraphSheet(AssetPack pack)
     /// <summary>주인공(사람 표 차례 0 ~ 5)의 엔딩 그림 — 없으면 null.</summary>
     public ImageSource? Ending(int hero) => ToImage(pack.Ending(hero));
 
+    /// <summary>엔딩 차례 그림(<c>ending/NAME.png</c>, <see cref="Npk.EndingPictures"/>) — 없으면 null.</summary>
+    public ImageSource? EndingPicture(string name) => ToImage(pack.EndingPicture(name));
+
     /// <summary>시나리오 그림(<c>event/F-N.png</c>) — 없으면 null.</summary>
     public ImageSource? Event(int file, int n)
     {

@@ -4177,6 +4177,8 @@ public sealed class SeaMapWindow : Window
         var ending = _host.Graphs?.Ending(_host.HeroPersonNumber);
         if (ScenarioDialog.Confirm(this, _host.Faces, [new ScenarioVm.Line("", MsgOr(0x2EA, "엔딩 이후의 데이터를 저장하겠습니다."))], ending))
             SaveToSlot();
+        // 저장 뒤 엔딩 차례(0x004043D7 → 0x00404700) — 공작 엔딩(0xF)도 같은 손을 탄다.
+        if (!_devQuiet && _host.Graphs is { } gs) EndingWindow.Play(this, gs, _host.HeroPersonNumber);
         _over = true;
         _host.Sailing = false;
         Ended?.Invoke();
