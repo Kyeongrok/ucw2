@@ -1984,7 +1984,7 @@ public sealed class SeaMapWindow : Window
             Say(id, $"{p.Name} {p.Family}(가) {(side == 3 ? "수비측" : "공격측")}의 원군으로서 전투에 가담했습니다.", p.Name, p.Family);
         }
         if (!fight) battle.Result = Engine.Sea.Battle.Outcome.EnemyLeft;
-        else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter);
+        else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem);
         f.SetTimeOfDay(battle.Time);
         var spoils = _host.CloseBattle(battle, enemy);
         if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
@@ -2058,7 +2058,7 @@ public sealed class SeaMapWindow : Window
             f.UnderSail = false;
             foreach (var (who, line) in _host.BattleDeserters)
                 ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(who, Deserter(line))]);
-            BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter);
+            BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter, UseItem);
             f.SetTimeOfDay(battle.Time);
             var spoils = _host.CloseBattle(battle, enemy);
             if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
@@ -2129,19 +2129,20 @@ public sealed class SeaMapWindow : Window
     /// 「아이템」 — 가진 것을 골라 목록 33(장비 · 사용, <c>0x0041F630</c>). 쓰기는 갈래마다 다르다(<c>0x0041F8F0</c>):
     /// 7 사분의 · 육분의 · 경위의는 지금 자리(경위도), 8 의 회중시계는 시각, 9 의 쥐약 · 성스런 향유 · 라임 주스는 쓰고 없어진다.
     /// </summary>
-    private void UseItem()
+    private void UseItem(Window? owner = null)
     {
+        var w = owner ?? this;
         if (_host.Scenario is not { } vm) return;
         var m = vm.Memory;
         var owned = ItemShop.Owned(m);
         if (owned.Count == 0) { Note(" · 가진 아이템이 없습니다"); return; }
-        int pick = BuildingMenu.Ask(this, "아이템", owned.Select(i =>
+        int pick = BuildingMenu.Ask(w, "아이템", owned.Select(i =>
             ItemShop.Get(m, i).Name + (ItemShop.IsEquipped(m, i) ? " (장비)" : "")).ToList());
         if (pick < 0) return;
         int item = owned[pick];
         var it = ItemShop.Get(m, item);
-        ShowItem(item);
-        int how = BuildingMenu.Ask(this, it.Name, ["장  비", "사  용"]);
+        ShowItem(item, w);
+        int how = BuildingMenu.Ask(w, it.Name, ["장  비", "사  용"]);
         if (how < 0) return;
         if (how == 0)
         {
@@ -2195,15 +2196,16 @@ public sealed class SeaMapWindow : Window
             default: said = "특별히 아무일도 일어나지 않았다"; break;
         }
         if (usedUp) { int none = 0; ItemShop.Sell(m, item, 0, ref none); }
-        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(it.Name, said)]);
+        ScenarioDialog.Play(w, _host.Faces, [new ScenarioVm.Line(it.Name, said)]);
     }
 
     /// <summary>아이템 하나의 풀이(<c>ITEM.MES</c>)와 그림(KAO 발견물 판 0x55 + 아이템 +0x0F, <c>0x0041F4F4</c>).</summary>
-    private void ShowItem(int item)
+    private void ShowItem(int item, Window? owner = null)
     {
+        var w = owner ?? this;
         if (_host.Scenario is not { } vm || _host.ItemNotes?[item] is not { Length: > 0 } note) return;
         int pic = vm.Memory.Read(ScenarioMemory.At(ItemShop.Table, item, 0x0F), false);
-        ScenarioDialog.Play(this, _host.Faces,
+        ScenarioDialog.Play(w, _host.Faces,
             [new ScenarioVm.Line(ItemShop.Get(vm.Memory, item).Name, note, Face: pic > 0 ? FaceSheet.FindFirst + 0x55 + pic : -1)]);
     }
 

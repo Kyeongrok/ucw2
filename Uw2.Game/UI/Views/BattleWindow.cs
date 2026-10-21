@@ -15,7 +15,7 @@ namespace Uw2.Game.UI.Views;
 /// <remarks>
 /// 원본은 헥스를 한 칸씩 골라 길을 잇는다(<c>0x0040BD60</c>, 말 0x2FF · 0x300). 여기서는 갈 수 있는 칸(<see cref="Battle.Reach"/>)을
 /// 칠해 두고 닿을 칸을 누르면 꺾음이 가장 적은 길로 간다. 다 가면 칠 적을 고른다(<c>0x0040C510</c>, 말 0x304).
-/// 신호(제 기함 +0x16 의 비트만 뒤집고 읽는 데가 없다) · ITEM 은 아직 없다.
+/// 신호는 제 기함 +0x16 의 비트만 뒤집고 읽는 데가 없어 두었다.
 /// </remarks>
 public sealed class BattleWindow : Window
 {
@@ -43,10 +43,11 @@ public sealed class BattleWindow : Window
     private Battle.Ship? _flag;   // 명령을 기다리는 제 기함
 
     private readonly Func<Battle.Ship, Duel.Fighter>? _gear;
+    private readonly Action<Window>? _items;
 
-    private BattleWindow(Battle b, GameMessages? msg, string title, Func<Battle.Ship, Duel.Fighter>? gear = null)
+    private BattleWindow(Battle b, GameMessages? msg, string title, Func<Battle.Ship, Duel.Fighter>? gear = null, Action<Window>? items = null)
     {
-        _b = b; _msg = msg; _gear = gear;
+        _b = b; _msg = msg; _gear = gear; _items = items;
         b.Duels = gear != null;
         Title = title;
         SizeToContent = SizeToContent.WidthAndHeight;
@@ -73,9 +74,10 @@ public sealed class BattleWindow : Window
     }
 
     /// <summary>판을 끝까지 치른다 — 닫히면 <see cref="Battle.Result"/> 가 차 있다.</summary>
-    public static void Run(Window? owner, Battle b, GameMessages? msg, string title, Func<Battle.Ship, Duel.Fighter>? gear = null)
+    public static void Run(Window? owner, Battle b, GameMessages? msg, string title, Func<Battle.Ship, Duel.Fighter>? gear = null,
+                           Action<Window>? items = null)
     {
-        var w = new BattleWindow(b, msg, title, gear) { Owner = owner };
+        var w = new BattleWindow(b, msg, title, gear, items) { Owner = owner };
         if (owner == null) w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         w.ShowDialog();
     }
@@ -185,6 +187,8 @@ public sealed class BattleWindow : Window
         Add("정보", () => { _pick = Pick.Info; Say("볼 배를 고르세요."); });
         Add("작전", () => { _pick = Pick.Order; Say(Msg(0x305, "작전을 전달할 배를 선택해 주세요.")); },
             _b.Friends(f).Any(s => s != f && s.Alive));
+        // ITEM(0x0040D690 → 0x0041F630) — 바다의 아이템 목록 그대로이고 차례는 안 끝난다.
+        if (_items != null) Add("ITEM", () => _items(this));
         Add("정선", () =>
         {
             if (MessageBox.Show(this, Msg(0x307, "아무 것도 안해도 좋습니까？"), Title, MessageBoxButton.YesNo) == MessageBoxResult.Yes) EndTurn();
