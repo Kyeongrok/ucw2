@@ -88,17 +88,10 @@ public sealed class PlayerState
     }
 
     /// <summary>
-    /// 물 · 식량으로 버틸 날(출항 때 항해일지 · 0x3A ~ 0x3C 셈) — 배마다 하루에 선원 x 비율 / 100 + 1 을 먹는다. 물 · 식량 가운데 짧은 쪽.
+    /// 물 · 식량으로 버틸 날(출항 <c>0x00422B82</c>) — min(물 합, 식량 합) / 선원 합(0 이면 1). 출항 말 0x3A ~ 0x3D 와 항해일지가 쓴다.
     /// </summary>
-    public int SupplyDays
-    {
-        get
-        {
-            int water = Ships.Sum(s => s.Supplies[0]), food = Ships.Sum(s => s.Supplies[1]);
-            int dw = Math.Max(1, Ships.Sum(s => s.Crew * WaterRate / 100 + 1)), df = Math.Max(1, Ships.Sum(s => s.Crew * FoodRate / 100 + 1));
-            return Math.Min(water / dw, food / df);
-        }
-    }
+    public int SupplyDays =>
+        Math.Min(Ships.Sum(s => s.Supplies[0]), Ships.Sum(s => s.Supplies[1])) / Math.Max(1, Ships.Sum(s => s.Crew));
 
     public int Gold { get; private set; }
     public List<Ship> Ships { get; } = [];

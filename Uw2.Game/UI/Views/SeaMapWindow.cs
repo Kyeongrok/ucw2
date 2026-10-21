@@ -3280,7 +3280,7 @@ public sealed class SeaMapWindow : Window
         var log = new System.Text.StringBuilder();
         try
         {
-            PutToSea();
+            PutToSea(check: false);
             var f = _host.Fleet ?? throw new InvalidOperationException("함대가 없습니다");
             var enemy = _host.Others.Where(o => !o.Docked && o.Slots.Count > 0)
                 .OrderBy(o => Math.Abs(o.X - f.X) + Math.Abs(o.Y - f.Y)).First();   // 고향에서 가장 가까운 — 뭍이 보이는 판
@@ -3307,8 +3307,20 @@ public sealed class SeaMapWindow : Window
         System.IO.File.WriteAllText(outPath, log.ToString());
     }
 
-    private void PutToSea()
+    private void PutToSea(bool check = true)
     {
+        // 출항 셈(0x004229A0) — 선원 없는 배가 있으면 못 뜬다(0x39). 버틸 날이 0 이면 0x3B, 10 아래 0x3C, 180 넘으면 0x3A, 그 사이는 「약 %d일」(0x3D).
+        if (check && _host.CurrentPort >= 0)
+        {
+            var p = _host.Player;
+            if (p.Ships.Any(s => s.Crew == 0)) { Say(0x39, "이것으론 꼼짝도 못합니다."); return; }
+            int days = p.SupplyDays;
+            if (days == 0) { Say(0x3B, "이걸론 굶어 죽을 겁니다."); return; }
+            string ask = days < 10 ? MsgOr(0x3C, "이걸론 그다지 오래 버티지 못합니다만, 출항하겠습니까？")
+                       : days > 180 ? MsgOr(0x3A, "６개월 이상 항해할 수 있습니다. 출항하겠습니까？")
+                       : MsgOr(0x3D, $"약 {days}일 항해할 수 있습니다. 출항하겠습니까？", days);
+            if (MessageBox.Show(this, ask.Replace("\\n", "\n"), "출항",MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        }
         int from = _host.CurrentPort >= 0 ? _host.CurrentPort : _homePort;
         _host.ShowWorld();
         _portPick.SelectedIndex = -1;
