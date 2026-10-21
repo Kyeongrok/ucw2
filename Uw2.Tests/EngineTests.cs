@@ -50,6 +50,24 @@ public class EngineTests
     }
 
     [Fact]
+    public void EstimateDaysSumsTicksPerCellAndRoundsUp()
+    {
+        var ship = new ShipSailing(4, 80, 70, false, 10, 100, 5, 0, 50, 1, 75);
+        // 순풍은 풍속 4 · 5 의 가운데 — 칸 하나에 120 / (빠르기 둘의 합) 틱
+        int fair2 = Sailing.FleetSpeed([ship], 0, 0, 4) + Sailing.FleetSpeed([ship], 0, 0, 5);
+        int perDay = 72 * fair2 / 120;
+        var fair = Enumerable.Repeat((0, 0, 4, 0, 0), perDay).ToList();
+        Assert.Equal(1, Sailing.EstimateDays([ship], fair));
+        Assert.Equal(2, Sailing.EstimateDays([ship], [.. fair, (0, 0, 4, 0, 0)]));
+        // 뒤에서 미는 해류는 빠르고, 맞서는 해류는 느리다
+        var with = Enumerable.Repeat((0, 0, 4, 0, 3), 200).ToList();
+        var against = Enumerable.Repeat((0, 0, 4, 4, 3), 200).ToList();
+        Assert.True(Sailing.EstimateDays([ship], with) < Sailing.EstimateDays([ship], against));
+        Assert.Equal(0, Sailing.EstimateDays([ship], []));
+        Assert.Equal(int.MaxValue, Sailing.EstimateDays([], [(0, 0, 4, 0, 0)]));
+    }
+
+    [Fact]
     public void DateRollsLikeTheOriginal()
     {
         var d = GameDate.NewGame;

@@ -19,26 +19,73 @@ public sealed partial class SeaMapHost
     /// <summary>항이동 중인 항구, 아니면 -1.</summary>
     public int AutoPort => _autoPort;
 
-    /// <summary>그 항구로 항이동을 건다. 뱃길이 없으면 false.</summary>
-    public bool StartAutopilot(int port)
+    /// <summary>마지막으로 짠 길 — 같은 자리에서 같은 항구면 다시 찾지 않는다(어림 뒤 바로 출발할 때).</summary>
+    private (int Port, int X, int Y, List<(int X, int Y)> Route, bool Cells)? _plan;
+
+    /// <summary>
+    /// 그 항구까지 길을 짠다. 제 함대가 설 수 있는 칸으로 찾고(SeaPath, 칸마다 따라간다), 못 찾으면 남 함대 뱃길 그래프로.
+    /// 길이 없으면 null.
+    /// </summary>
+    private (List<(int X, int Y)> Route, bool Cells)? PlanRoute(int port)
     {
-        if (Fleet is not { } f || Ports is not { } pt || port < 0 || port >= pt.Ports.Count) return false;
-        _autoRoute.Clear();
+        if (Fleet is not { } f || Ports is not { } pt || port < 0 || port >= pt.Ports.Count) return null;
+        int fx = (int)f.X, fy = (int)f.Y;
+        if (_plan is { } p && p.Port == port && p.X == fx && p.Y == fy) return (p.Route, p.Cells);
         var goal = (pt.Ports[port].X, pt.Ports[port].Y);
-        // 제 함대가 설 수 있는 칸으로 길을 찾아(SeaPath) 칸마다 따라간다. 못 찾으면 남 함대 뱃길 그래프로.
-        _autoReach = 2;
-        if (SeaPath.Find((x, y) => f.CanSail(x, y), ((int)f.X, (int)f.Y), goal) is { Count: > 0 } path)
+        List<(int X, int Y)> route;
+        bool cells;
+        if (SeaPath.Find((x, y) => f.CanSail(x, y), (fx, fy), goal) is { Count: > 0 } path)
         {
-            _autoRoute.AddRange(path);
-            _autoReach = 0;
+            route = [.. path];
+            cells = true;
         }
         else if (Routes is { } g)
         {
-            foreach (int n in g.Path(g.Nearest((int)f.X, (int)f.Y), g.Nearest(goal.Item1, goal.Item2)))
-                _autoRoute.Add((g.Nodes[n].X, g.Nodes[n].Y));
-            _autoRoute.Add(goal);
+            route = [.. g.Path(g.Nearest(fx, fy), g.Nearest(goal.Item1, goal.Item2)).Select(n => (g.Nodes[n].X, g.Nodes[n].Y)), goal];
+            cells = false;
         }
-        else return false;
+        else return null;
+        _plan = (port, fx, fy, route, cells);
+        return (route, cells);
+    }
+
+    /// <summary>
+    /// 그 항구까지 어림 날 — 짠 길을 칸 걸음으로 풀어 칸마다 이달 표 바람으로 <see cref="Uw2.Game.Engine.Sea.Sailing.EstimateDays"/> 를 셈한다.
+    /// 길이 없으면 -1. 보급 경고에 쓴다(원본에는 없다).
+    /// </summary>
+    public int AutopilotDays(int port)
+    {
+        if (Fleet is not { } f || PlanRoute(port) is not { } plan) return -1;
+        var page = WindCurTable.WindPageOf(f.Month);
+        ReadOnlySpan<int> dirs = [7, 0, 1, 6, 8, 2, 5, 4, 3];
+        var steps = new List<(int, int, int, int, int)>();
+        int x = (int)f.X, y = (int)f.Y;
+        foreach (var next in plan.Route)
+        {
+            // 마디 사이(남 함대 뱃길)는 여러 칸이라 한 칸씩 다가간다.
+            while (x != next.X || y != next.Y)
+            {
+                int dx = next.X - x;
+                if (dx > ChipMap.Width / 2) dx -= ChipMap.Width;
+                if (dx < -ChipMap.Width / 2) dx += ChipMap.Width;
+                int sx = Math.Sign(dx), sy = Math.Sign(next.Y - y);
+                var (wd, ws) = Wind is { } w ? WindCurTable.Split(w.At(page, x, y)) : (0, 0);
+                var (cd, cs) = Wind?.Current(x, y) ?? (0, 0);
+                steps.Add((dirs[(sy + 1) * 3 + sx + 1], wd, ws, cd, cs));
+                x = ((x + sx) % ChipMap.Width + ChipMap.Width) % ChipMap.Width;
+                y += sy;
+            }
+        }
+        return Uw2.Game.Engine.Sea.Sailing.EstimateDays(f.Ships, steps);
+    }
+
+    /// <summary>그 항구로 항이동을 건다. 뱃길이 없으면 false.</summary>
+    public bool StartAutopilot(int port)
+    {
+        if (Fleet is not { } f || PlanRoute(port) is not { } plan) return false;
+        _autoRoute.Clear();
+        _autoRoute.AddRange(plan.Route);
+        _autoReach = plan.Cells ? 0 : 2;
         _autoLeg = 0; _autoStall = 0; _autoNewLeg = true; _autoBest = int.MaxValue;
         _autoPort = port;
         _portAsked = -1;

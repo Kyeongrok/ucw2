@@ -116,6 +116,32 @@ public static class Sailing
     public static int Knots(int speed) => (speed + 1) / 2;
 
     /// <summary>
+    /// 칸 걸음들을 가는 데 드는 날 어림 — 걸음마다 그 칸 표 바람과 뱃머리로 함대 빠르기를 셈하고(돌풍 <see cref="Gust"/> 은 0 과 +1 의 가운데),
+    /// 해류를 <c>0x00448BC0</c> 처럼 축마다 더해 칸 하나(60 걸음)에 드는 틱을 (끝수째) 모은 뒤 하루 틱으로 나눠 올림한다.
+    /// 대각 걸음은 두 축 가운데 느린 쪽이 칸을 넘을 때다. 원본에는 없는 셈이다(항이동 보급 경고용) — 날씨는 안 본다.
+    /// 배가 없으면 <see cref="int.MaxValue"/>.
+    /// </summary>
+    public static int EstimateDays(IReadOnlyList<ShipSailing> ships,
+                                   IEnumerable<(int Heading, int WindDir, int WindSpeed, int CurDir, int CurSpeed)> steps)
+    {
+        if (ships.Count == 0) return int.MaxValue;
+        double ticks = 0;
+        foreach (var (heading, windDir, windSpeed, curDir, curSpeed) in steps)
+        {
+            // 빠르기 x2 로 셈해 돌풍 반 칸을 버리지 않는다.
+            int speed2 = FleetSpeed(ships, heading, windDir, windSpeed) + FleetSpeed(ships, heading, windDir, Math.Min(7, windSpeed + 1));
+            var (hx, hy) = WindCurTable.Vector(heading);
+            var (cx, cy) = WindCurTable.Vector(curDir);
+            int progress2 = int.MaxValue;
+            if (hx != 0) progress2 = Math.Min(progress2, speed2 + 2 * hx * cx * curSpeed);
+            if (hy != 0) progress2 = Math.Min(progress2, speed2 + 2 * hy * cy * curSpeed);
+            progress2 = Math.Max(1, progress2);   // 거스르는 해류가 더 세도 언젠가는 바람이 바뀐다 — 아주 느리게 친다
+            ticks += 2.0 * CellUnits / progress2;
+        }
+        return (int)Math.Ceiling(ticks / Fleet.TicksPerDay);
+    }
+
+    /// <summary>
     /// 표 바람을 흔든다 — <c>0x00418E80</c>. 세기는 0~1 을 더해 7 에서 자르고, 방위는 열다섯에 한 번꼴로
     /// 한 칸 돈다(<c>rand(5)/4 x (rand(3)-1)</c>).
     /// </summary>

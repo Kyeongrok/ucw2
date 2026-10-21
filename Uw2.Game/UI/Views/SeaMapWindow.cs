@@ -3322,6 +3322,15 @@ public sealed class SeaMapWindow : Window
         if (known.Count == 0) { Note(" · 아는 항구가 없습니다"); return; }
         int pick = BuildingMenu.Ask(this, "항이동 — 어느 항구로", [.. known.Select(p => pt.Ports[p].Name)]);
         if (pick < 0) return;
+        // 보급 경고(원본에는 없다) — 어림 날이 물 · 식량으로 버틸 날보다 길면 묻는다.
+        int days = _host.AutopilotDays(known[pick]);
+        if (days < 0) { Note(" · 그 항구로 가는 뱃길을 못 찾았습니다"); return; }
+        int left = _host.Player.SupplyDays;
+        if (days > left && !_devQuiet)
+        {
+            string ask = $"{pt.Ports[known[pick]].Name}까지 어림 {days}일 걸리는데, 물 · 식량은 {left}일 치뿐입니다.\n그래도 가겠습니까？";
+            if (MessageBox.Show(this, ask, "항이동", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        }
         if (!_host.StartAutopilot(known[pick])) { Note(" · 그 항구로 가는 뱃길을 못 찾았습니다"); return; }
         Note($" · {pt.Ports[known[pick]].Name}(으)로 항이동을 시작합니다");
     }
@@ -4336,11 +4345,12 @@ public sealed class SeaMapWindow : Window
                 foreach (var s in _host.Player.Ships) { s.Crew = s.MaxCrew; s.Supplies[0] = s.Supplies[1] = 600; }
                 _host.SyncLoad();
                 _host.Fleet?.ResetDaysAtSea();
+                int est = _host.AutopilotDays(port);
                 var (ticks, track) = _host.DevAutopilotRun(port, Fleet.TicksPerDay * 120);
                 if (ticks < 0) log.AppendLine($"  짠 길 {string.Join(" ", _host.DevRoute(10).Take(40))}");
                 if (ticks < 0) foreach (var line in _host.DevTrace.Skip(3).Take(14)) log.AppendLine("  " + line);
                 _host.DevTrace.Clear();
-                log.AppendLine($"{name}({port}) — {(ticks >= 0 ? $"{ticks} 틱({ticks / Fleet.TicksPerDay} 일)" : "못 닿음")} · 자리 {string.Join(" ", track.Take(40))}");
+                log.AppendLine($"{name}({port}) — {(ticks >= 0 ? $"{ticks} 틱({ticks / Fleet.TicksPerDay} 일)" : "못 닿음")} · 어림 {est} 일 · 자리 {string.Join(" ", track.Take(40))}");
                 if (ticks < 0) break;
             }
         }
