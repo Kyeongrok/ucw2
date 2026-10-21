@@ -3739,8 +3739,7 @@ public sealed class SeaMapWindow : Window
         if (pick < 0) return;
         var ship = p.Ships[pick + 1];
         // 「%s(를) 처분하겠습니다. 좋습니까？」(0xEA, 0x00446D27)
-        if (MessageBox.Show(this, MsgOr(0xEA, $"{ship.Name}(를) 처분하겠습니다.
-좋습니까？", ship.Name), "함선처분", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (MessageBox.Show(this, MsgOr(0xEA, $"{ship.Name}(를) 처분하겠습니다.\n좋습니까？", ship.Name), "함선처분", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         if (_host.RemoveShip(pick + 1)) Note($" · {ship.Name}{(KoreanBatchim(ship.Name) ? "을" : "를")} 처분했습니다");
     }
 
