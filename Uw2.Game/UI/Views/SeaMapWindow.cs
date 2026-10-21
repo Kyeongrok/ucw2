@@ -534,7 +534,7 @@ public sealed class SeaMapWindow : Window
     private void JobInfo(int maid) => JobInfoFor(maid);
 
     /// <summary>
-    /// 여급 함대 조사(일 3, <c>0x00425FC0</c>) — 맡긴 것이 없으면 나라(0x216) · 함대 갈래(0x217)를 받아 맡기고 걸릴 날을 말한다(0x218).
+    /// 여급 함대 조사(일 4 · 12, <c>0x00425FC0</c>) — 맡긴 것이 없으면 나라(0x216) · 함대 갈래(0x217)를 받아 맡기고 걸릴 날을 말한다(0x218).
     /// 날이 남았으면 0x219, 다 지났으면 그 나라 · 갈래의 함대마다 제독과 자리를 알린다(0x21A ~ 0x22A, <c>0x00426160</c>).
     /// 바다에 없는 함대는 「전멸」(0x22C). 하는 일은 움직임 갈래(+0x1B)마다 0x21E · 0x226 · 0x227 · 0x21F · 0x225 · 0x224, 짐이 있으면 0x220.
     /// 날은 바다에서 하루가 갈 때마다 준다.
@@ -612,7 +612,18 @@ public sealed class SeaMapWindow : Window
         string Region(int market) => MsgOr(0x181 + market, "");
         switch (kind)
         {
-            case 3: ProbeFleet(maid); return;
+            // 일 4 · 12 는 함대 조사(0x00426428 → 0x00426040).
+            case 4 or 12: ProbeFleet(maid); return;
+            // 일 3 은 그 항구 자리(0x0042650F) — 「%s항은 」(0x24E) + 북위 · 동경 + 「근처예요.」(0x252).
+            case 3 when port < ports.Ports.Count:
+            {
+                var (north, lat, east, lon) = Pub.Degrees(ports.Ports[port].X, ports.Ports[port].Y);
+                SayText(MsgOr(0x24E, $"{ports.Ports[port].Name}항은 ", ports.Ports[port].Name)
+                        + MsgOr(north ? 0x7E : 0x7F, $"{(north ? "북위" : "남위")} {lat}도, ", lat)
+                        + MsgOr(east ? 0x80 : 0x81, $"{(east ? "동경" : "서경")} {lon}도", lon)
+                        + MsgOr(0x252, "근처예요."));
+                return;
+            }
             case 5: Say(0x24D, "주점 손님 중에 아는 사람이 있을지도 모르죠."); return;
             case 9: Say(0x24A, "그 항구의 교역소나 조선소에 투자하는 것이 좋겠지요."); return;
             case 10: Say(0x24B, "부락 주민들의 힘을 빌리면 발견할 수 있을 지도 모르겠네요."); return;
