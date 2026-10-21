@@ -1430,6 +1430,8 @@ public sealed class SeaMapWindow : Window
         if (amount <= 0) return;
         int bought = p.Buy(good, amount, price);
         _host.SyncLoad();
+        if (bought > 0 && _host.Fleet is { } lf)   // 항해일지 — 교역품 구입(0x00420AA3)
+            _host.Log.Add(lf.Date.Year, lf.Date.Month, lf.Date.Day, Logbook.Bought, good, (bought * price) >> 16, (bought * price) & 0xFFFF, bought);
         Note($" · {eco.GoodsNames[good]} {bought}통을 {bought * price}에 샀습니다");
     }
 
@@ -2115,11 +2117,39 @@ public sealed class SeaMapWindow : Window
     /// 「함대」 — 목록 26(자함대정보 · 함선정보 · 인물정보 · 주인공정보 · 적하정보 …) 가운데 넷을 글로 보인다.
     /// 원본은 그림 창(목록 47 의 머리 글)이다.
     /// </summary>
+    /// <summary>
+    /// 「항해일지」(<c>0x00444690</c>) — 적힌 줄을 날짜와 함께 늘어놓는다(원본은 한 쪽에 일곱 줄). 해전 줄은 남 함대 번호 / 10 이 나라,
+    /// 번호 % 10 이 0 이면 함 · 1 ~ 4 상선 · 그 밖 전함(목록 0x34), 60 넘으면 해적 함, 끝은 목록 0x35.
+    /// </summary>
+    private void ShowLogbook()
+    {
+        var log = _host.Log.Entries;
+        if (log.Count == 0) { Note(" · 항해일지가 비어 있습니다"); return; }
+        string[] kinds = _host.Menus?.Lists is { Count: > 0x34 } l34 ? [.. l34[0x34]] : ["함", "상선", "전함"];
+        string[] ends = _host.Menus?.Lists is { Count: > 0x35 } l35 ? [.. l35[0x35]] : [", 승리했다", "했지만, 일몰로 인해 무승부다", "했지만,도망칠수밖에 없었다"];
+        string PortName(int k) => _host.Ports is { } pt && k >= 0 && k < pt.Ports.Count ? pt.Ports[k].Name : $"#{k}";
+        string Line(Logbook.Entry e) => e.Type switch
+        {
+            Logbook.Arrived => MsgOr(0x16E, $"우리 함대는 {e.A}일간의 항해를 끝내고 {PortName(e.B)}에 기항했다.", e.A, PortName(e.B)),
+            Logbook.Departed => MsgOr(0x16F, $"우리 함대는 {e.A}일분의 물자를 갖추어 {PortName(e.B)}항을 떠났다.", e.A, PortName(e.B)),
+            Logbook.Battle => MsgOr(0x345, "", NationNames7[Math.Min(6, e.A / 10)],
+                                    kinds[e.A >= 60 ? 0 : e.A % 10 == 0 ? 0 : e.A % 10 < 5 ? 1 : 2], ends[Math.Clamp(e.B, 0, ends.Length - 1)]),
+            Logbook.Found => MsgOr(0x17D, $"{PortName(e.A)}항을 발견했다.", PortName(e.A)),
+            Logbook.Bought => MsgOr(0x180, "", _host.Economy is { } eco && e.A < eco.GoodsNames.Count ? eco.GoodsNames[e.A] : "?", (e.B << 16) + e.C, e.D),
+            _ => "",
+        };
+        var text = new System.Text.StringBuilder();
+        foreach (var e in log.Reverse())
+            text.AppendLine($"{1501 + e.Year}년 {e.Month + 1}월 {e.Day + 1}일  {Line(e).Replace("\\n", " ").Replace("\n", " ")}");
+        MessageBox.Show(this, text.ToString(), "항해일지");
+    }
+
     private void ShowFleetInfo()
     {
-        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람", "함선정보"];
+        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람", "함선정보", "항해일지"];
         int pick = BuildingMenu.Ask(this, "함대", items);
         if (pick < 0) return;
+        if (pick == 7) { ShowLogbook(); return; }
         if (pick == 5) { CargoAdvice(); return; }
         if (pick == 6)
         {
@@ -3237,6 +3267,7 @@ public sealed class SeaMapWindow : Window
                 foreach (var s in p.Ships)
                     log.AppendLine($"    {s.Name}({s.Type}) 선원 {s.Crew}/{s.MaxCrew} 내구 {s.Hull}/{s.MaxHull} 대포 {s.Mounted}/{s.Guns}({s.GunKind}) 선장 {(s.Captain < 0 ? "-" : _host.PersonName(s.Captain))} 사기 {s.Morale} 보급 {string.Join("/", s.Supplies)} 짐 {string.Join(",", s.Cargo.Where(c => c.Good >= 0).Select(c => $"{c.Good}x{c.Amount}"))}");
                 foreach (var (port, s) in p.Docked) log.AppendLine($"    도크 {port}: {s.Name}");
+                foreach (var e in _host.Log.Entries.TakeLast(3)) log.AppendLine($"    일지 {1501 + e.Year}.{e.Month + 1}.{e.Day + 1} 갈래 {e.Type} ({e.A}, {e.B}, {e.C}, {e.D})");
                 log.AppendLine($"    시나리오 장 {_host.Scenario?.Chapter}.{_host.Scenario?.Section} · SNR0 {_host.Common?.Chapter}.{_host.Common?.Section} · 남 함대 {_host.Others.Count} · 동료 {(_host.Scenario is { } vm ? Navigators.Mates(vm.Memory).Count() : 0)}");
             }
         }

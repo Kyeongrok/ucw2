@@ -50,11 +50,15 @@ public sealed partial class SeaMapHost
                 Gain(person, status is 2 or 3 ? lead : crew, PersonName(person));
             }
         }
+        Log.Add(Fleet.Date.Year, Fleet.Date.Month, Fleet.Date.Day, Logbook.Arrived, days, port);   // 0x0041AA1D
         Fleet.UnderSail = false;
         if (port >= SmallPortFirst) EnterSmallPort(port);
         else ShowPort(port);
         return notes;
     }
+
+    /// <summary>항해일지(<see cref="Logbook"/>).</summary>
+    public Logbook Log { get; } = new();
 
     /// <summary>100 부터는 작은 항구 — 도시를 걷지 않고 목록 57(출항 · 보급 · 명명)만 뜬다(<c>0x00423CBB</c> → <c>0x00424090</c>).</summary>
     public const int SmallPortFirst = 100;

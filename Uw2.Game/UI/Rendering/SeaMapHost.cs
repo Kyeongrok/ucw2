@@ -538,6 +538,7 @@ public sealed partial class SeaMapHost : HwndHost
             MonsterSlots = Monsters != null ? [.. Monsters.Slots] : null,
             MonsterNext = Monsters?.Next ?? 0,
             Npcs = [.. Others.Select(o => o.Export())],
+            Logbook = Log.Export(),
             NpcReserve = FleetReserve.ToDictionary(r => r.Key, r => r.Value.SelectMany(x => (int[])[x.Crew, x.Durability, x.MaxDurability, x.Upwind, x.Sail, x.Field6, x.Ship, x.Flags]).ToArray()),
         };
         string where = CurrentPort >= 0 ? SceneName : "바다";
@@ -586,6 +587,7 @@ public sealed partial class SeaMapHost : HwndHost
         if (save.Scenario != null) Scenario?.Import(save.Scenario);
         if (save.Common != null) Common?.Import(save.Common);
         SyncPortNames();
+        Log.Import(save.Logbook);
         // 발견물 · 임자 표가 생기기 전 세이브 — 표가 비었으면 새 게임처럼 채운다.
         if (Scenario is { } sv)
         {
@@ -1073,6 +1075,7 @@ public sealed partial class SeaMapHost : HwndHost
     private void Crew(Fleet fleet)
     {
         fleet.Ships.Clear();
+        Log.Import(null);
         if (StartTables is not { } start) return;
         SpawnOthers(fleet, start.Fleets, -1);
         // 첫 배는 그 주인공 시나리오(SNRn.DAT)의 첫 이벤트가 주는 선종이다 — 배 주기 명령 F9.
@@ -1162,6 +1165,7 @@ public sealed partial class SeaMapHost : HwndHost
         var p = Ports.Ports[port];
         if (!Fleet.PlaceNearSea(p.X, p.Y)) return false;
         Fleet.ResetDaysAtSea();
+        Log.Add(Fleet.Date.Year, Fleet.Date.Month, Fleet.Date.Day, Logbook.Departed, Player.SupplyDays, port);   // 0x00422C1F
 
         Fleet.Heading = 0;
         Fleet.UnderSail = true;

@@ -50,7 +50,7 @@ public sealed class OriginalSave
         (17, StartData.ItemOffset, 0x7D0, 0x004608E0),
     ];
 
-    public sealed record Slot(int Number, string Label, byte[] Body)
+    public sealed record Slot(int Number, string Label, byte[] Body, byte[] Log)
     {
         public int Year => Body[5];
         public int Month => Body[6];
@@ -80,7 +80,8 @@ public sealed class OriginalSave
             if (at + BodySize > d.Length) break;
             var label = Encoding.ASCII.GetString(d, 1 + i * LabelSize, 11).TrimEnd('\0').Trim();
             if (label.Length == 0) continue;
-            slots[i] = new Slot(i, label, d.AsSpan(at, BodySize).ToArray());
+            byte[] log = at + SlotSize <= d.Length ? d.AsSpan(at + BodySize, SlotSize - BodySize).ToArray() : [];
+            slots[i] = new Slot(i, label, d.AsSpan(at, BodySize).ToArray(), log);   // 몸통 뒤 0x300 은 항해일지(0x0046E498)
         }
         return new OriginalSave(slots);
     }

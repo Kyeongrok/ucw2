@@ -79,6 +79,7 @@ public sealed partial class SeaMapHost
                                   OriginalSave.CommonVars, OriginalSave.CommonPointers);
         save.Summary = $"{HeroName.Name} {HeroName.Family} · 원본 {slot.Label}";
 
+        save.Logbook = slot.Log;
         Restore(save);
         var fleets = StartData.ParseFleets(b.AsSpan(StartData.FleetOffset, StartData.FleetSize * StartData.FleetCount).ToArray());
         SpawnOthers(Fleet, fleets, fleetNo);

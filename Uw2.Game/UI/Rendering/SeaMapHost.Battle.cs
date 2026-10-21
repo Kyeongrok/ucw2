@@ -205,6 +205,15 @@ public sealed partial class SeaMapHost
     /// </summary>
     public Spoils CloseBattle(Battle b, NpcFleet enemy)
     {
+        // 항해일지 — 이김 0 · 일몰 1 · 물러남 2(0x0040AEEE · 0x0040AD30 · 0x0040AD92)
+        int logResult = b.Result switch
+        {
+            Battle.Outcome.Sunset => 1,
+            Battle.Outcome.PlayerLeft or Battle.Outcome.Surrendered or Battle.Outcome.PlayerSunk or Battle.Outcome.DuelLost => 2,
+            _ => 0,
+        };
+        if (Fleet is { } lf && b.Result != Battle.Outcome.Event)
+            Log.Add(lf.Date.Year, lf.Date.Month, lf.Date.Day, Logbook.Battle, enemy.Index, logResult);
         foreach (var s in b.SideShips(HeroSide))
         {
             if (s.Tag is not PlayerState.Ship ship) continue;
