@@ -1007,13 +1007,15 @@ public sealed class SeaMapWindow : Window
             else Say(0x148, "우선 행동에 옮기세요.");
             return;
         }
-        // 동료운(0x00428340) — 0x318 뒤 동료를 고르면 그 운(+0x23) / 25 로 말 0x4E 부터.
-        Say(0x318, "누구의 운세를 볼까요？");
+        // 동료운(0x00428340) — 0x318 뒤 동료를 고르면 그 운(+0x23) / 25 로 말 0x4E 부터, 이어 호감(+0x2B) / 25 로 0x319 부터
+        // (「떠나 버리겠지요」 ~ 「절대적인 충성심」).
+        Say(0x318, "점치고 싶은 상대의 이름을 가르쳐 주세요.");
         var mates = Navigators.Mates(vm.Memory).Select(t => t.Person).ToList();
         if (mates.Count == 0) { Note(" · 동료가 없습니다"); return; }
         int who = BuildingMenu.Ask(this, "동료운", mates.Select(_host.PersonName).ToList());
         if (who < 0) return;
-        Say(0x4E + Navigators.Get(vm.Memory, mates[who], Church.Luck) / 25, "평범한 운세인 것 같군요.");
+        Say(0x4E + Navigators.Get(vm.Memory, mates[who], Church.Luck) / 25, "당신 동료의 운세는 대체로 평범하다고 말씀드릴 수 있겠죠.");
+        Say(0x319 + Navigators.Get(vm.Memory, mates[who], Navigators.Liking) / 25, "그는 당신에게 마음을 열기 시작했습니다.");
     }
 
     /// <summary>
