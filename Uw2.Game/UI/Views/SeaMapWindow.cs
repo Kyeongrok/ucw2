@@ -2763,6 +2763,23 @@ public sealed class SeaMapWindow : Window
     /// <summary>선종 그림 번호 — 원본은 배 기록 +0x0F(선종)에 28 을 더한다(<c>0x00435300</c>).</summary>
     private static int ShipGraph(int type) => 28 + type;
 
+    /// <summary>기능 이름 — 사람 +0x30 의 0x10 · 8 · 4 · 2 · 1(원본 표 <c>0x004573E8</c> 은 일본어 그대로다).</summary>
+    private static readonly string[] SkillNames = ["측량술", "지도작성술", "포술", "회계술", "교섭술"];
+
+    /// <summary>
+    /// 인물정보 칸(<c>0x004427DE</c>)의 나머지 — 나이(+0x2A, 0x382), 항해 · 전투 경험(+0x26 · +0x28 낱말, 0x387 · 0x389),
+    /// 국적(+0x31 &amp; 0xF, 0x38A), 기능(+0x30, 0x38B).
+    /// </summary>
+    private string PersonDetail(ScenarioMemory m, int person)
+    {
+        int Word(int f) => m.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, person, f), true);
+        int age = Navigators.Get(m, person, 0x2A), skills = Navigators.Get(m, person, SkillField);
+        int nation = Navigators.Get(m, person, Navigators.Kind) & 0xF;
+        var has = SkillNames.Where((_, i) => (skills & (0x10 >> i)) != 0).ToList();
+        return $"나이 {age}세 · 항해 경험 {Word(0x26)} · 전투 경험 {Word(0x28)} · 국적 {(nation < NationNames7.Length ? NationNames7[nation] : "없음")}"
+               + $" · 기능 {(has.Count > 0 ? string.Join(" · ", has) : "없음")}";
+    }
+
     /// <summary>
     /// 자함대정보 끝 줄(<c>0x00442C60</c>) — 제독(0x397) · 항해 · 전투 레벨(0x398 · 0x399), 그리고 가장 느린 배의 선회력(+4) · 추진력(+5),
     /// 가장 낮은 내구, 선원 · 단 대포 합, 전투력 합(0x39A ~ 0x39C). 배 하나의 전투력은 갑판 선원(300 까지) + 내구 x 2
@@ -2881,6 +2898,7 @@ public sealed class SeaMapWindow : Window
                     string role = Get(person, Navigators.Status) == Navigators.Captain ? "선장" : "쉬는 중";
                     sb.AppendLine($"{_host.PersonName(person)} — {role} · 급여 {wage} · 호감 {Get(person, Navigators.Liking)}");
                     sb.AppendLine($"    능력치 {string.Join(" · ", stats)} · 항해 {Get(person, Navigators.NavLevel)} · 전투 {Get(person, Navigators.BattleLevel)}");
+                    sb.AppendLine("    " + PersonDetail(vm.Memory, person));
                 }
                 if (sb.Length == 0) sb.AppendLine("동료가 없습니다.");
                 break;
@@ -2894,6 +2912,7 @@ public sealed class SeaMapWindow : Window
                 sb.AppendLine($"명성 교역 {trade} · 해적 {pirate} · 모험 {adventure}");
                 sb.AppendLine($"능력치 {string.Join(" · ", stats)}");
                 sb.AppendLine($"항해 레벨 {Get(hero, Navigators.NavLevel)} · 전투 레벨 {Get(hero, Navigators.BattleLevel)} · 운 {Get(hero, Church.Luck)}");
+                if (vm != null) sb.AppendLine(PersonDetail(vm.Memory, hero));
                 // 원본 주인공정보(0x00443230)는 소지금을 금화(나머지 1만) · 금괴(1만 닢 하나)로 가르고(0x38F · 0x390),
                 // 나라마다 공헌도(주인공 표 +6 + 나라, 0x393)를 늘어놓는다.
                 sb.AppendLine($"소지금 금화 {p.Gold % 10000} · 금괴 {p.Gold / 10000}{BalanceText()}");
