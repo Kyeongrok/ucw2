@@ -585,6 +585,7 @@ public sealed partial class SeaMapHost : HwndHost
         SyncLoad();
         if (save.Scenario != null) Scenario?.Import(save.Scenario);
         if (save.Common != null) Common?.Import(save.Common);
+        SyncPortNames();
         // 발견물 · 임자 표가 생기기 전 세이브 — 표가 비었으면 새 게임처럼 채운다.
         if (Scenario is { } sv)
         {
@@ -600,7 +601,13 @@ public sealed partial class SeaMapHost : HwndHost
         }
         if (save.PortStates.Length > 0) Economy?.RestoreStates(save.PortStates);
         Fleet.Import(save.Fleet);
-        if (save.Port >= 0) ShowPort(save.Port);
+        if (save.Port >= SmallPortFirst)
+        {
+            ShowWorld();
+            CenterOnShip();
+            EnterSmallPort(save.Port);
+        }
+        else if (save.Port >= 0) ShowPort(save.Port);
         else
         {
             ShowWorld();

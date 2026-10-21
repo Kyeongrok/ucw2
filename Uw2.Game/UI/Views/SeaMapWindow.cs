@@ -2362,7 +2362,9 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     private void EnterPortFromSea(int port)
     {
-        if (_host.Fleet is not { } f || _host.CurrentPort >= 0) return;
+        if (_host.Fleet is not { } f) return;
+        if (_host.CurrentPort >= SeaMapHost.SmallPortFirst) { SmallPortMenu(); return; }
+        if (_host.CurrentPort >= 0) return;
         if (port < 0) port = _host.PortBeside();
         if (port < 0) { Note(" · 바로 옆에 항구가 없습니다"); return; }
         string name = _host.Ports is { } pt && port < pt.Ports.Count ? pt.Ports[port].Name : $"#{port}";
@@ -2372,7 +2374,7 @@ public sealed class SeaMapWindow : Window
             return;
         }
         var notes = _host.Arrive(port);
-        _portPick.SelectedIndex = port;
+        if (port < SeaMapHost.SmallPortFirst) _portPick.SelectedIndex = port;
         Retitle();
         foreach (var line in notes) Say(-1, line);
         foreach (var (mate, wage) in _host.MatesWantingToStay())
@@ -2388,6 +2390,37 @@ public sealed class SeaMapWindow : Window
                 Note($" · {Josa(who, "이", "가")} {name}에 남았습니다");
             }
         }
+        if (port >= SeaMapHost.SmallPortFirst) SmallPortMenu();
+    }
+
+    /// <summary>
+    /// 작은 항구(100 부터) — 목록 57(출항 · 보급 · 명명, 손표 <c>0x004589A0</c>)만 뜬다. 닫으면 「입항」 단추로 다시 연다.
+    /// </summary>
+    private void SmallPortMenu()
+    {
+        string[] items = _host.Menus?.Lists is { Count: > 57 } l ? [.. l[57]] : ["출  항", "보  급", "명  명"];
+        while (_host.CurrentPort >= SeaMapHost.SmallPortFirst)
+        {
+            int pick = BuildingMenu.Ask(this, _host.SceneName, items);
+            if (pick < 0) return;
+            if (pick == 0) { PutToSea(); return; }
+            if (pick == 1) ShowSupplies();
+            else NamePort();
+        }
+    }
+
+    /// <summary>
+    /// 「명명」(<c>0x00423B90</c>) — 「이 항구에 애칭을 붙여 주는 거요？」(0x39E), 여덟 바이트까지. 같은 이름이 있으면 0x39F, 붙이면 「%s항」(0x3A0).
+    /// </summary>
+    private void NamePort()
+    {
+        int port = _host.CurrentPort;
+        string? name = TextDialog.Ask(this, MsgOr(0x39E, "이 항구에 애칭을 붙여 주는 거요？"), _host.SceneName, 4);
+        if (string.IsNullOrWhiteSpace(name)) return;
+        name = name.Trim();
+        if (!_host.RenamePort(port, name)) { Say(0x39F, "앗！ 같은 이름의 항구가 있는데？ 다른 이름을 붙여 주시오."); return; }
+        Say(0x3A0, $"{name}항", name);
+        Retitle();
     }
 
     /// <summary>
@@ -3028,8 +3061,8 @@ public sealed class SeaMapWindow : Window
             save.Port = original.Port;
         }
         else _host.Restore(save);
-        if (save.Port >= 0) _portPick.SelectedIndex = save.Port;
-        else
+        if (save.Port is >= 0 and < SeaMapHost.SmallPortFirst) _portPick.SelectedIndex = save.Port;
+        else   // 바다 또는 작은 항구(세계지도를 그대로 본다)
         {
             _portPick.SelectedIndex = -1;
             _host.CellsPerPixel = 1.0 / 6;

@@ -62,7 +62,15 @@ public sealed class PortTable
     /// <summary>어느 파일에서 읽었는지.</summary>
     public string Source { get; }
 
-    private PortTable(List<Port> ports, string source) { Ports = ports; Source = source; }
+    private PortTable(List<Port> ports, string source) { _ports = ports; Ports = ports; Source = source; }
+
+    private readonly List<Port> _ports;
+
+    /// <summary>이름을 바꾼다 — 작은 항구 「명명」(<c>0x00423B90</c>).</summary>
+    public void Rename(int index, string name)
+    {
+        if (index >= 0 && index < _ports.Count) _ports[index] = _ports[index] with { Name = name };
+    }
 
     /// <summary>구워 둔 목록에서 바로 만든다.</summary>
     public static PortTable FromPorts(IEnumerable<Port> ports) => new([.. ports], "asset");

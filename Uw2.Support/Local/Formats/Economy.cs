@@ -380,9 +380,9 @@ public sealed class Economy
     /// </summary>
     public int SupplyPrice(int port, int kind)
     {
-        if (port < 0 || port >= States.Count) return 0;
-        var s = States[port];
-        int food = s.PriceIndex[2] + 50, other = s.PriceIndex[9] + 50;
+        if (port < 0 || port >= PortTable.Expected) return 0;
+        // 100 넘는 작은 항구는 형편이 없어 고정 기록(0x00459D00, 값 지수 모두 50)을 쓴다(0x00435EB6).
+        int food = (port < States.Count ? States[port].PriceIndex[2] : 50) + 50, other = (port < States.Count ? States[port].PriceIndex[9] : 50) + 50;
         return kind switch
         {
             1 => food * 20 / 100,

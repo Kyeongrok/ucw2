@@ -51,8 +51,54 @@ public sealed partial class SeaMapHost
             }
         }
         Fleet.UnderSail = false;
-        ShowPort(port);
+        if (port >= SmallPortFirst) EnterSmallPort(port);
+        else ShowPort(port);
         return notes;
+    }
+
+    /// <summary>100 부터는 작은 항구 — 도시를 걷지 않고 목록 57(출항 · 보급 · 명명)만 뜬다(<c>0x00423CBB</c> → <c>0x00424090</c>).</summary>
+    public const int SmallPortFirst = 100;
+
+    /// <summary>작은 항구에 든다 — 세계지도를 그대로 두고 항구 번호만 세운다.</summary>
+    private void EnterSmallPort(int port)
+    {
+        CurrentPort = port;
+        AtSea = false;
+        Walker = null;
+        Player.Rats = Player.Scurvy = false;
+        _dirty = true;
+    }
+
+    /// <summary>
+    /// 「명명」(<c>0x00423B90</c>) — 작은 항구에 애칭(여덟 바이트)을 붙인다. 같은 이름의 항구가 있으면 false(말 0x39F).
+    /// 이름은 시나리오 기억의 항구 표(+4)에도 적어 세이브에 남는다.
+    /// </summary>
+    public bool RenamePort(int port, string name)
+    {
+        if (Ports is not { } pt || port < 0 || port >= pt.Ports.Count || name.Length == 0) return false;
+        if (pt.Ports.Any(p => p.Index != port && p.Name == name)) return false;
+        pt.Rename(port, name);
+        if (Scenario is { } vm)
+        {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            var bytes = System.Text.Encoding.GetEncoding(949).GetBytes(name);
+            for (int i = 0; i < 17; i++)
+                vm.Memory.Write(ScenarioMemory.At(ScenarioMemory.PortTable, port, 4 + i), i < bytes.Length && i < 16 ? bytes[i] : 0, false);
+        }
+        return true;
+    }
+
+    /// <summary>세이브를 들인 뒤 — 시나리오 기억의 작은 항구 이름(명명한 것)을 항구 표로 되돌린다.</summary>
+    private void SyncPortNames()
+    {
+        if (Ports is not { } pt || Scenario is not { } vm) return;
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        var cp949 = System.Text.Encoding.GetEncoding(949);
+        for (int p = SmallPortFirst; p < pt.Ports.Count; p++)
+        {
+            var raw = Enumerable.Range(0, 16).Select(i => (byte)vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PortTable, p, 4 + i), false)).TakeWhile(b => b != 0).ToArray();
+            if (raw.Length > 0) pt.Rename(p, cp949.GetString(raw));
+        }
     }
 
     /// <summary>
