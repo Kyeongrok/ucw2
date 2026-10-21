@@ -15,6 +15,9 @@ public static class Sound
     /// </summary>
     public const int Cannon = 0, Melee = 1, Storm = 4, Monster = 5, Shore = 6, BattleStart = 8, Victory = 9;
 
+    /// <summary>레벨 오름(<c>0x0041A894</c>, 소리 0x13) · 일기토 한 차례(<c>0x004142FF</c>, 0x0E · 0x0F).</summary>
+    public const int LevelUp = 7, DuelHit = 2, DuelHitOther = 3;
+
     private static readonly List<MediaPlayer> _live = [];
 
     /// <summary>자산 폴더 — <c>sound</c> 가 그 아래에 있다. 없으면 소리를 내지 않는다.</summary>

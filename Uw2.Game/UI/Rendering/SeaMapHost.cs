@@ -926,6 +926,9 @@ public sealed partial class SeaMapHost : HwndHost
     /// <summary>시나리오가 엔딩(F4)에 닿았을 때 — 엔딩 번호를 넘긴다.</summary>
     public event Action<int>? StoryEnded;
 
+    /// <summary>누군가의 레벨이 올랐다 — 원본은 알림 손(<c>0x0041A7C0</c>)에서 소리 0x13 을 낸다(<c>0x0041A894</c>).</summary>
+    public event Action? LevelledUp;
+
     /// <summary>엔딩을 봤는지(<see cref="SaveGame.StoryOver"/>).</summary>
     public bool StoryOver { get; set; }
 

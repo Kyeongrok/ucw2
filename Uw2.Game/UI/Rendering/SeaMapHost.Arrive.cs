@@ -40,6 +40,7 @@ public sealed partial class SeaMapHost
             {
                 var (ups, raised) = Navigators.SailExperience(vm.Memory, person, amount, Roll);
                 if (ups == 0) return;
+                LevelledUp?.Invoke();
                 notes.Add($"{who}의 항해레벨이 올라갔습니다"
                           + (raised.Count > 0 ? $" — {string.Join(" ", raised.Select(k => stats[k]))} 이 올라갔습니다" : ""));
             }

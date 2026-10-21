@@ -2617,6 +2617,7 @@ public sealed class SeaMapWindow : Window
         _host.Painted += UpdateStatus;
         _host.SeaDay += OnSeaDay;
         _host.GameOver += OnGameOver;
+        _host.LevelledUp += () => { if (!_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.LevelUp); };
         _host.Ambushed += Defend;
         _host.MonsterMet += _ => { if (!_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Monster); };   // 0x00447FAB
         _host.MonsterMet += kind => ScenarioDialog.Play(this, _host.Faces,

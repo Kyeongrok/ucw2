@@ -153,6 +153,8 @@ public sealed class DuelWindow : Window
         int attackerSide = _duel.Attacker;
         int attack = attacking ? mine : theirs, defend = attacking ? theirs : mine;
         int dmg = attacking ? _duel.Exchange(mine, theirs) : _duel.Exchange(theirs, mine);
+        // 한 차례마다 칼 소리 — 원본은 치는 쪽에 따라 0x0E · 0x0F(0x004142FF).
+        Uw2.Game.UI.Audio.Sound.Play(attacking ? Uw2.Game.UI.Audio.Sound.DuelHit : Uw2.Game.UI.Audio.Sound.DuelHitOther);
         var at = _duel.Sides[attacking ? _me : other];
         string move = attacking ? $"{Attacks[mine]} ↔ {Defenses[theirs]}" : $"{Attacks[theirs]} ↔ {Defenses[mine]}";
         _log.Text = $"{at.Name}: {move} — " + (dmg == 0 ? "빗나갔다！" : $"{dmg} 의 타격");
