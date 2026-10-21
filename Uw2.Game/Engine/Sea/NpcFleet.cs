@@ -94,8 +94,33 @@ public sealed class NpcFleet
     /// <summary>항구에 들어 있는지.</summary>
     public bool Docked => DaysInPort > 0;
 
+    /// <summary>항구에 든 채로 시작한다 — 그만큼 머문 뒤 할 일을 고른다.</summary>
+    public void StayInPort(int days)
+    {
+        _route.Clear();
+        _leg = 0;
+        DaysInPort = Math.Max(1, days);
+    }
+
+    /// <summary>
+    /// 떠날 때 뭍(항구) 위면 둘레 바다 칸으로 옮긴다(<c>0x0043B230</c> 이 항구 둘레 열두 자리를 찾는다).
+    /// </summary>
+    private void PutToSea()
+    {
+        if (_sea.CanSail(_cellX, _cellY)) return;
+        for (int r = 1; r <= 4; r++)
+            for (int dy = -r; dy <= r; dy++)
+                for (int dx = -r; dx <= r; dx++)
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r && _sea.CanSail(_cellX + dx, _cellY + dy))
+                    {
+                        _cellX += dx; _cellY += dy;
+                        return;
+                    }
+    }
+
     private void Plan((int X, int Y) target)
     {
+        PutToSea();
         _route.Clear();
         _leg = 0;
         var nodes = _graph.Path(_graph.Nearest(_cellX, _cellY), _graph.Nearest(target.X, target.Y));
@@ -347,8 +372,11 @@ public sealed class NpcFleet
         if (dx > ChipMap.Width / 2) dx -= ChipMap.Width;
         if (dx < -ChipMap.Width / 2) dx += ChipMap.Width;
         int dy = goal.Y - _cellY;
-        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) <= 1)
+        // 원본은 자리가 같아야 닿는다(0x0043B1B0). 우리 바다 셈은 뭍 칸(항구)에 못 서므로 한 칸 곁이면 닿은 것으로 치고,
+        // 이틀을 한 칩도 못 나가면(뭍에 막혔으면) 그 마디를 건너뛴다.
+        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) <= 1 || _stall >= StallTicks)
         {
+            _stall = 0;
             if (++_leg >= _route.Count && !Retarget()) DaysInPort = _rng.Next(8) + 8;   // 0x004184B0 의 rand(8)+8
             _newLeg = true;
             return;
@@ -358,13 +386,19 @@ public sealed class NpcFleet
         Heading = steer;
 
         int speed = Speed(wind, current);
-        if (speed == 0) return;
-        foreach (int dir in (int[])[Heading, Heading + 1, Heading - 1])
-        {
-            var (hx, hy) = WindCurTable.Vector(dir & 7);
-            if (_sea.Advance(ref _cellX, ref _cellY, ref _subX, ref _subY, hx * speed, hy * speed)) return;
-        }
+        int was = _cellX << 12 | _cellY;
+        if (speed > 0)
+            foreach (int dir in (int[])[Heading, Heading + 1, Heading - 1])
+            {
+                var (hx, hy) = WindCurTable.Vector(dir & 7);
+                if (_sea.Advance(ref _cellX, ref _cellY, ref _subX, ref _subY, hx * speed, hy * speed)) break;
+            }
+        _stall = (_cellX << 12 | _cellY) == was ? _stall + 1 : 0;
     }
+
+    /// <summary>한 칩도 못 나간 틱 수 — <see cref="StallTicks"/> 가 되면 막힌 것으로 친다.</summary>
+    private int _stall;
+    private const int StallTicks = Fleet.TicksPerDay * 2;
 
     private int Speed((int Dir, int Speed) wind, (int Dir, int Speed) current)
     {

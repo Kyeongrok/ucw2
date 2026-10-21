@@ -906,12 +906,14 @@ public sealed partial class SeaMapHost : HwndHost
         fleet.Ships.Clear();
         if (StartTables is not { } start) return;
         Others.Clear();
-        // 뭍 위 자리(항구에 든 함대)는 빼고 바다에 나온 함대만 띄운다. 고향은 +0x1C, 갈 데는 +0x04 · +0x06 이다.
+        // 바다에 나온 함대는 갈 데(+0x04 · +0x06)로 가고, 뭍 위 자리(항구에 든 함대)는 그 항구에 머물다(rand(8) + 8 날) 할 일을 고른다.
         if (Routes is { } routes && Ports is { } ports)
-            foreach (var f in start.Fleets.Where(f => f.Active && f.ShipCount > 0 && fleet.CanSail(f.X, f.Y)))
+            foreach (var f in start.Fleets.Where(f => f.Active && f.ShipCount > 0 && f.Admiral != 0xFF))
             {
                 var home = f.Home < ports.Ports.Count ? (ports.Ports[f.Home].X, ports.Ports[f.Home].Y) : (f.TargetX, f.TargetY);
-                Others.Add(new NpcFleet(fleet, routes, _npcRng, f, start, home, (f.TargetX, f.TargetY)) { World = this });
+                var npc = new NpcFleet(fleet, routes, _npcRng, f, start, home, (f.TargetX, f.TargetY)) { World = this };
+                if (!fleet.CanSail(f.X, f.Y)) npc.StayInPort(_npcRng.Next(8) + 8);
+                Others.Add(npc);
             }
         _othersScale = -1;
         // 첫 배는 그 주인공 시나리오(SNRn.DAT)의 첫 이벤트가 주는 선종이다 — 배 주기 명령 F9.
