@@ -53,4 +53,26 @@ public class NpcMissionTests
         Assert.Contains(modes, m => m is 1 or 2);          // 상선이 투자 · 사들이기에 나선다
         Assert.Contains(modes, m => m is >= 4 and <= 8);   // 해군 · 해적이 누군가를 쫓는다
     }
+
+    [Fact]
+    public void State_round_trips_through_json()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, AssetPack.FolderName))) dir = dir.Parent;
+        var pack = AssetPack.Load(Path.Combine(dir!.FullName, AssetPack.FolderName))!;
+        var start = pack.Start!;
+        var sea = new Fleet(WorldMap.FromCells(pack.Cells), pack.ToChipMap(), null);
+        var f = start.Fleets[1];
+        var a = new NpcFleet(sea, pack.Routes!, new Random(1), f, start, (f.TargetX, f.TargetY), (f.TargetX, f.TargetY))
+        {
+            Mode = 5, Goal = 42, Gold = 77,
+        };
+        a.Slots.RemoveAt(0);
+        string json = System.Text.Json.JsonSerializer.Serialize(a.Export());
+        var b = new NpcFleet(sea, pack.Routes!, new Random(1), f, start, (f.TargetX, f.TargetY), (f.TargetX, f.TargetY));
+        b.Restore(System.Text.Json.JsonSerializer.Deserialize<NpcFleet.State>(json)!);
+        Assert.Equal((5, 42, 77), (b.Mode, b.Goal, b.Gold));
+        Assert.Equal(a.Slots, b.Slots);
+        Assert.Equal((a.X, a.Y), (Math.Floor(b.X) + 0.5, Math.Floor(b.Y) + 0.5));
+    }
 }

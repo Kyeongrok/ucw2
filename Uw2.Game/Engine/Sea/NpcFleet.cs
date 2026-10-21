@@ -94,6 +94,48 @@ public sealed class NpcFleet
     /// <summary>항구에 들어 있는지.</summary>
     public bool Docked => DaysInPort > 0;
 
+    /// <summary>세이브에 담는 남 함대 — 자리 · 할 일 · 돈 · 짐 · 배 칸(아홉 값씩) · 갈 데.</summary>
+    public sealed class State
+    {
+        public int Index { get; set; }
+        public int CellX { get; set; }
+        public int CellY { get; set; }
+        public int Heading { get; set; }
+        public int Mode { get; set; }
+        public int Goal { get; set; }
+        public int Gold { get; set; }
+        public int[] Items { get; set; } = [];
+        public int CargoGood { get; set; } = -1;
+        public int CargoAmount { get; set; }
+        public int DaysInPort { get; set; }
+        public int[] Slots { get; set; } = [];
+        public int TargetX { get; set; } = -1;
+        public int TargetY { get; set; } = -1;
+    }
+
+    public State Export() => new()
+    {
+        Index = Index, CellX = _cellX, CellY = _cellY, Heading = Heading, Mode = Mode, Goal = Goal, Gold = Gold,
+        Items = [.. Items], CargoGood = CargoGood, CargoAmount = CargoAmount, DaysInPort = DaysInPort,
+        Slots = [.. Slots.SelectMany(s => (int[])[s.Crew, s.Durability, s.MaxDurability, s.Upwind, s.Sail, s.Field6, s.Ship, s.Flags])],
+        TargetX = _route.Count > 0 ? _route[^1].X : -1, TargetY = _route.Count > 0 ? _route[^1].Y : -1,
+    };
+
+    public void Restore(State st)
+    {
+        _cellX = st.CellX; _cellY = st.CellY;
+        Heading = st.Heading; Mode = st.Mode; Goal = st.Goal; Gold = st.Gold;
+        for (int i = 0; i < Items.Length && i < st.Items.Length; i++) Items[i] = st.Items[i];
+        CargoGood = st.CargoGood; CargoAmount = st.CargoAmount;
+        Slots.Clear();
+        for (int i = 0; i + 8 <= st.Slots.Length; i += 8)
+            Slots.Add(new StartData.Slot(st.Slots[i], st.Slots[i + 1], st.Slots[i + 2], st.Slots[i + 3], st.Slots[i + 4],
+                                         st.Slots[i + 5], st.Slots[i + 6], st.Slots[i + 7]));
+        if (st.TargetX >= 0) Plan((st.TargetX, st.TargetY));
+        else { _route.Clear(); _leg = 0; }
+        DaysInPort = st.DaysInPort;
+    }
+
     /// <summary>항구에 든 채로 시작한다 — 그만큼 머문 뒤 할 일을 고른다.</summary>
     public void StayInPort(int days)
     {

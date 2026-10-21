@@ -526,6 +526,7 @@ public sealed partial class SeaMapHost : HwndHost
             Survey = Survey.Export(),
             MonsterSlots = Monsters != null ? [.. Monsters.Slots] : null,
             MonsterNext = Monsters?.Next ?? 0,
+            Npcs = [.. Others.Select(o => o.Export())],
         };
         string where = CurrentPort >= 0 ? SceneName : "바다";
         save.Summary = $"{HeroName.Name} {HeroName.Family} · {Fleet?.Date} · {where} · 돈 {Player.Gold}";
@@ -544,6 +545,13 @@ public sealed partial class SeaMapHost : HwndHost
         Survey = Survey.Import(save.Survey);
         Monsters = LoadMonsters();
         Monsters?.Restore(save.MonsterSlots, save.MonsterNext);
+        if (save.Npcs != null)
+        {
+            var byIndex = Others.ToDictionary(o => o.Index);
+            Others.Clear();
+            foreach (var st in save.Npcs)
+                if (byIndex.TryGetValue(st.Index, out var npc)) { npc.Restore(st); Others.Add(npc); }
+        }
         Fleet.Ships.Clear();
         foreach (var s in Player.Ships)
         {
