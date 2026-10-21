@@ -2574,6 +2574,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("세계지도", (_, _) => { _host.ShowWorld(); _portPick.SelectedIndex = -1; Retitle(); }));
         bar.Children.Add(Button("출항", (_, _) => PutToSea()));
         bar.Children.Add(Button("저장", (_, _) => SaveToSlot()));
+        bar.Children.Add(Button("중단", (_, _) => QuitToTitle()));
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
         bar.Children.Add(Button("편성", (_, _) => Organize()));
         bar.Children.Add(Button("지휘", (_, _) => Command()));
@@ -4163,6 +4164,17 @@ public sealed class SeaMapWindow : Window
         ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", $"{name} {family}의 이야기는 여기서 막을 내린다.")], ending);
         if (MessageBox.Show(this, MsgOr(0x2EA, "엔딩 이후의 데이터를 저장하겠습니다."), "엔딩", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             SaveToSlot();
+        _over = true;
+        _host.Sailing = false;
+        Ended?.Invoke();
+        Close();
+    }
+
+    /// <summary>목록 20 「중단」(<c>0x00416C7B</c>) — 「게임을 끝내겠습니다.」(0x3BE)에 그러면 끝 깃발 0x80 으로 제목에 돌아간다.</summary>
+    private void QuitToTitle()
+    {
+        if (_over) return;
+        if (MessageBox.Show(this, MsgOr(0x3BE, "게임을 끝내겠습니다."), "중단", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         _over = true;
         _host.Sailing = false;
         Ended?.Invoke();
