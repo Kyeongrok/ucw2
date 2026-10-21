@@ -341,17 +341,24 @@ public sealed partial class SeaMapHost : HwndHost
 
     private double _othersScale = -1;
     private bool _othersMoved = true;
+    private bool _othersHidden;
     private readonly Random _npcRng = new();
 
-    /// <summary>남의 함대 자리를 렌더러에 올린다. 눈금이 바뀌었거나 움직였을 때만 다시 짓는다.</summary>
+    /// <summary>
+    /// 남의 함대 자리를 렌더러에 올린다. 눈금이 바뀌었거나 움직였거나 날씨로 가림이 바뀌었을 때만 다시 짓는다.
+    /// 폭풍 · 안개(조짐 때부터)에는 제 함대만 그린다 — 원본도 그때는 함대 일흔을 도는 고리를 건너뛴다(<c>0x00433E77</c> → <c>0x004340E0</c>).
+    /// </summary>
     private void PushOthers()
     {
         double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale;
-        if (Math.Abs(scale - _othersScale) < 1e-9 && !_othersMoved) return;
+        bool hidden = Fleet?.Weather.Current is Weather.Kind.Storm or Weather.Kind.Fog;
+        if (Math.Abs(scale - _othersScale) < 1e-9 && !_othersMoved && hidden == _othersHidden) return;
         _othersScale = scale;
         _othersMoved = false;
+        _othersHidden = hidden;
         // 제 배와 같은 자리 잡기 — 함대 자리가 그림 가로 한가운데 · 밑변이다. 항구에 든 함대는 안 그린다.
-        var list = Others.Where(f => !f.Docked).Select(f => ((float)f.X, (float)f.Y, f.Heading is > 4)).ToList();
+        var list = hidden ? []
+            : Others.Where(f => !f.Docked).Select(f => ((float)f.X, (float)f.Y, f.Heading is > 4)).ToList();
         _renderer.SetOthers(list, (float)(_shipW * scale), (float)(_shipH * scale));
     }
 
