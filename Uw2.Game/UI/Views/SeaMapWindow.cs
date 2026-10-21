@@ -71,12 +71,13 @@ public sealed class SeaMapWindow : Window
             return;
         }
         var types = eco.Buildable(_host.CurrentPort, start.ShipTypes);
-        if (types.Count == 0) { _doorNote = " · 이 조선소는 배를 지을 수 없습니다"; UpdateStatus(); return; }
+        if (types.Count == 0) { Say(0xFB, "우리집은 새 배는 안 만들지."); return; }   // 0x00428982
         // 새 배를 맡을 동료가 있어야 한다(0x00429180, 말 0xA6).
         int mate = _host.FreeMate;
         if (_host.HasMates && mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
         string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
         var p = _host.Player;
+        Say(0xFC, "호오, 새 배를 만든다니 제법이군.");   // 0x00428A0B
         int type;
         while (true)
         {
@@ -90,10 +91,16 @@ public sealed class SeaMapWindow : Window
         if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
         int industry = _host.CurrentPort >= 0 && _host.CurrentPort < eco.States.Count ? eco.States[_host.CurrentPort].Industry : 0;
         int grades = Shipyard.GradeChoices(type, industry);
-        int grade = BuildingMenu.Ask(this, $"{NameOf(type)} — 등급",
-            Enumerable.Range(0, grades).Select(g => $"등급 {g}  {Shipyard.BuildPrice(basePrice, g),6}").ToList(),
-            _host.Graphs?.Get(ShipGraph(type)));
-        if (grade < 0) return;
+        // 선체 재질(0x00429A00) — 「선체의 재질은 무엇으로 하겠소？」(0xFE) 뒤 「이 놈으로 좋겠소？」(0xFF), 아니면 다시 고른다.
+        int grade;
+        while (true)
+        {
+            grade = BuildingMenu.Ask(this, $"{NameOf(type)} — " + MsgOr(0xFE, "선체의 재질은 무엇으로 하겠소？"),
+                Enumerable.Range(0, grades).Select(g => $"등급 {g}  {Shipyard.BuildPrice(basePrice, g),6}").ToList(),
+                _host.Graphs?.Get(ShipGraph(type)));
+            if (grade < 0) return;
+            if (_devQuiet || MessageBox.Show(this, MsgOr(0xFF, "이 놈으로 좋겠소？"), NameOf(type), MessageBoxButton.YesNo) == MessageBoxResult.Yes) break;
+        }
         if (Haggle(Shipyard.BuildPrice(basePrice, grade), building: true) is not { } price) return;
         if (p.Gold < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
         int days = _host.OrderShip(type, grade);
