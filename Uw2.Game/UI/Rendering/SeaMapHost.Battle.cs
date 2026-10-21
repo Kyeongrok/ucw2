@@ -97,7 +97,7 @@ public sealed partial class SeaMapHost
     /// 이기면(2 · 4 · 6) 명성 200 + min(적 제독 전투 레벨, 30) x min(그것, 15) x 덤을 얻는다(<c>0x0040B025</c>, 50000 까지).
     /// 적 기함이 쓰러지면 그 함대는 바다에서 빠진다. 돌려주는 것은 얻은 명성.
     /// </summary>
-    public int CloseBattle(Battle b, NpcFleet enemy)
+    public Spoils CloseBattle(Battle b, NpcFleet enemy)
     {
         foreach (var s in b.SideShips(0))
         {
@@ -122,6 +122,11 @@ public sealed partial class SeaMapHost
                 enemy.Slots.Add(slot with { Crew = s.Crew, Durability = s.Hull, MaxDurability = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail });
         if (b.Result is Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon || enemy.Slots.Count == 0) Others.Remove(enemy);
 
+        var prizes = new List<Battle.Ship>();
+        int gold = 0;
+        string? item = null;
+        if (b.Result is Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon)
+            (gold, item, prizes) = Plunder(b, enemy);
         int fame = 0;
         if (b.Result is (Battle.Outcome.EnemyLeft or Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon) && Scenario is { } vm)
         {
@@ -134,6 +139,63 @@ public sealed partial class SeaMapHost
         SyncLoad();
         if (b.Result is Battle.Outcome.PlayerSunk or Battle.Outcome.DuelLost)
             Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndBattle));
-        return fame;
+        return new Spoils(fame, gold, item, prizes);
+    }
+
+    /// <summary>싸움 뒤 얻은 것 — 명성 · 금화 · 아이템 이름 · 나포할 수 있는 배.</summary>
+    public sealed record Spoils(int Fame, int Gold, string? Item, List<Battle.Ship> Prizes);
+
+    /// <summary>
+    /// 노획(<c>0x0040B1F0</c>) — 금화 (함대 +0x24 낱말 + 1) x 100(말 0x230), 아이템 함대 +0x1D(0x231, 지닌 것이 스물 아래일 때).
+    /// 나포할 배(<c>0x0040B320</c>)는 내구가 남은 적 배 가운데 <b>화면 칸(13 x 12) 안</b>에 있는 것(<c>0x0040DCD0</c>) — 화면은 제 기함을 따른다.
+    /// </summary>
+    private (int Gold, string? Item, List<Battle.Ship> Prizes) Plunder(Battle b, NpcFleet enemy)
+    {
+        var start = StartTables!;
+        int Byte(int field) =>
+            Scenario is { } vm ? vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.FleetTable, enemy.Index, field), false)
+            : enemy.Index * StartData.FleetSize + field < start.FleetBytes.Length ? start.FleetBytes[enemy.Index * StartData.FleetSize + field] : 0;
+        int gold = ((Byte(0x24) | Byte(0x25) << 8) + 1) * 100;
+        Player.SetGold(Player.Gold + gold);
+        string? item = null;
+        int it = Byte(0x1D);
+        if (it != 0xFF && Scenario is { } m && ItemShop.Owned(m.Memory).Count < ItemShop.OwnedSlots && ItemShop.Give(m.Memory, it))
+            item = ItemShop.Get(m.Memory, it).Name;
+
+        var f = b.PlayerFlagship;
+        int vx = Math.Clamp((f?.X ?? 0) - 6, 0, Battle.Width - 13), vy = Math.Clamp((f?.Y ?? 0) - 6, 0, Battle.Height - 12);
+        var prizes = b.SideShips(1).Where(s => s.Hull > 0 && s.X >= vx && s.X < vx + 13 && s.Y >= vy && s.Y < vy + 12).ToList();
+        return (gold, item, prizes);
+    }
+
+    /// <summary>
+    /// 나포한 배를 맡을 사람(<c>0x0043CA90</c>) — 주인공이 배를 안 맡고 있으면 주인공(-1), 그리고 처지가 2 보다 큰 동료(쉬는 이 · 자리에 앉은 이).
+    /// </summary>
+    public List<int> PrizeCaptains()
+    {
+        var list = new List<int>();
+        if (Player.Ships.All(s => s.Captain != -1)) list.Add(-1);
+        if (Scenario is { } vm)
+            list.AddRange(Navigators.Mates(vm.Memory).Select(t => t.Person).Where(p => Navigators.Get(vm.Memory, p, Navigators.Status) > Navigators.Captain));
+        return list;
+    }
+
+    /// <summary>
+    /// 나포(<c>0x0040B810</c>) — 배 칸을 베끼고 선원은 min(그 배 선원 / 10, 선원 자리), 보급 · 짐은 비우고 승무원비율 50 · 25, 사기 60.
+    /// 맡은 동료는 처지 2(선장)가 된다. 이름은 화면이 받는다(말 0x22D, 일곱 자).
+    /// </summary>
+    public bool TakePrize(Battle.Ship prize, int captain, string name)
+    {
+        if (StartTables is not { } start || prize.Tag is not StartData.Slot slot) return false;
+        int type = start.GuessType(slot);
+        if (!AddShip(type, captain: captain)) return false;
+        var ship = Player.Ships[^1];
+        ship.Name = name;
+        ship.Crew = Math.Min(prize.Crew / 10, ship.MaxCrew);
+        ship.Hull = prize.Hull; ship.MaxHull = prize.MaxHull; ship.Upwind = prize.Upwind; ship.Sail = prize.Sail;
+        ship.GunKind = prize.GunKind; ship.Mounted = Math.Min(prize.Guns, Math.Max(ship.Guns, prize.Guns));
+        if (Fleet != null && Fleet.Ships.Count == Player.Ships.Count) Fleet.Ships[^1] = Fleet.Ships[^1] with { Crew = ship.Crew };
+        SyncLoad();
+        return true;
     }
 }

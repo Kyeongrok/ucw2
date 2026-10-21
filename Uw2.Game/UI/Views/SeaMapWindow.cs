@@ -1962,8 +1962,48 @@ public sealed class SeaMapWindow : Window
         if (!fight) battle.Result = Engine.Sea.Battle.Outcome.EnemyLeft;
         else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대");
         f.SetTimeOfDay(battle.Time);
-        int fame = _host.CloseBattle(battle, enemy);
-        if (fame > 0) Note($" · 명성 +{fame}");
+        var spoils = _host.CloseBattle(battle, enemy);
+        if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
+        {
+            var st = _host.StartTables!;
+            var hp = st.People[Math.Clamp(_host.HeroPersonNumber, 0, st.People.Count - 1)];
+            var d = f.Date;
+            Say(0x341, $"적의 기함은 깃발을 내리고 항복의사를 표시했다. {hp.Name} {hp.Family}(는) {NationNames7[Math.Min(6, enemy.Nation)]}함대를 섬멸한 것이다.",
+                hp.Name, hp.Family, NationNames7[Math.Min(6, enemy.Nation)], 1501 + d.Year, d.Month + 1, d.Day + 1);
+            string loot = MsgOr(0x230, $"전리품으로서 금화 {spoils.Gold}닢, ", spoils.Gold)
+                          + (spoils.Item != null ? MsgOr(0x231, $"그리고 {spoils.Item}을(를) ", spoils.Item) : "")
+                          + MsgOr(0x232, "손에 넣었습니다.");
+            Say(-1, loot.Trim());
+            TakePrizes(spoils.Prizes);
+        }
+        if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
+    }
+
+    /// <summary>
+    /// 나포(<c>0x0040B320</c>) — 맡을 사람 수 · 남은 배 칸(열 − 척 수) · 후보 가운데 작은 만큼, 0x22E 뒤 배를 고르고 이름(0x22D)을 붙인다.
+    /// 고르지 않으면 0x22F 로 그만둘지 묻는다.
+    /// </summary>
+    private void TakePrizes(List<Engine.Sea.Battle.Ship> prizes)
+    {
+        var captains = _host.PrizeCaptains();
+        int room = Math.Min(Math.Min(captains.Count, prizes.Count), SeaMapHost.MaxShips - _host.Player.Ships.Count);
+        while (room > 0 && prizes.Count > 0 && captains.Count > 0)
+        {
+            int pick = BuildingMenu.Ask(this, MsgOr(0x22E, $"적 선박을 {prizes.Count}척 나포했습니다.", prizes.Count, room).Replace("\n", " "),
+                                        [.. prizes.Select(p => $"{p.Name} 선원 {p.Crew} 내구 {p.Hull}/{p.MaxHull}")]);
+            if (pick < 0)
+            {
+                if (MessageBox.Show(this, MsgOr(0x22F, "이것으로 끝내도 좋겠습니까？"), "나포", MessageBoxButton.YesNo) == MessageBoxResult.Yes) return;
+                continue;
+            }
+            var prize = prizes[pick];
+            string name = TextDialog.Ask(this, MsgOr(0x22D, "배에 이름을 붙여 주십시오."), prize.Name, 7) ?? prize.Name;
+            if (!_host.TakePrize(prize, captains[0], name)) return;
+            Note($" · {name} 나포");
+            captains.RemoveAt(0);
+            prizes.RemoveAt(pick);
+            room--;
+        }
     }
 
     /// <summary>
