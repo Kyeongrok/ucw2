@@ -930,9 +930,10 @@ public sealed partial class SeaMapHost : HwndHost
         return Ports is { } pt && port >= 0 && port < pt.Ports.Count ? pt.Ports[port].Nation & 7 : Economy.NoNation;
     }
 
-    /// <summary>하루 끝의 항구 편 · 쇠락 · 짓는 배(<see cref="Nations.PortsDay"/>).</summary>
+    /// <summary>하루 끝(<c>0x004178C0</c>) — 여급 표, 항구 편 · 쇠락 · 짓는 배(<see cref="Nations.PortsDay"/>).</summary>
     private void PortsDay()
     {
+        if (Scenario is { } sv) Uw2.Game.Engine.Town.Barmaids.NewDay(sv.Memory);   // 0x00417E50
         if (Economy is not { } eco || Scenario is not { } vm) return;
         Nations.PortsDay(eco.StateBytes,
             p => vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PortTable, p, 0x15), false),
@@ -1318,7 +1319,6 @@ public sealed partial class SeaMapHost : HwndHost
             if (Fleet.DaysAtSea != day)
             {
                 foreach (var npc in Others) npc.NewDay();
-                if (Scenario != null) Uw2.Game.Engine.Town.Barmaids.NewDay(Scenario.Memory);
                 int today = Fleet.DaysAtSea;
                 Dispatcher.BeginInvoke(() => SeaDay?.Invoke(today));
             }
@@ -1342,7 +1342,6 @@ public sealed partial class SeaMapHost : HwndHost
             foreach (var npc in Others) npc.Step(Fleet.LastWind, Fleet.LastCurrent);
             if (!day) continue;
             foreach (var npc in Others) npc.NewDay();
-            if (Scenario != null) Uw2.Game.Engine.Town.Barmaids.NewDay(Scenario.Memory);
         }
         _othersMoved = true;
         _dirty = true;
