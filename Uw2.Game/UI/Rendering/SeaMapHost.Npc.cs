@@ -98,25 +98,44 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
 
     /// <summary>
     /// 제독 고르기(<c>0x0042B3E0</c>) — 둘에 하나는 쉬는 사람(6 ~ 119)에서: 나라 함대는 그 나라(+0x31 &amp; 0xF)이고 0x10 이 없고 0x20 이 있으며
-    /// 함대(+0x2C)가 없는 사람, 해적은 함대가 없고 +0x2F &amp; 3 이 2 이상이고 0x20 이 있는 사람. 나머지 하나는 새 사람을 지어낸다(<c>0x0042AE30</c>) —
-    /// 우리는 이름 표를 아직 안 옮겨 그 달은 내보내지 않는다. 고르면 +0x2C = 함대, +0x2D = 0xFF, +0x2E = 1.
+    /// 함대(+0x2C)가 없는 사람, 해적은 함대가 없고 +0x2F &amp; 3 이 2 이상이고 0x20 이 있는 사람. 나머지 하나는 0x20 이 없는 첫 칸에
+    /// 새 사람을 지어낸다(<see cref="Navigators.Forge"/>). 고르면 +0x2C = 함대, +0x2D = 0xFF, +0x2E = 1.
     /// </summary>
     private int PickAdmiral(ScenarioMemory m, int index, int nation)
     {
-        if (Roll(2) != 0) return -1;
+        if (Roll(2) != 0)
+        {
+            // 새 사람 — 사람 표에서 0x20 이 없는 첫 칸(6 ~ 119)을 지어낸다.
+            for (int p = 6; p < Navigators.People; p++)
+                if ((Navigators.Get(m, p, Navigators.Kind) & 0x20) == 0)
+                {
+                    if (NameTable == null) return -1;
+                    Navigators.Forge(m, p, nation, Roll(2), NameTable, Roll);
+                    return Appoint(p);
+                }
+            return -1;
+        }
         for (int p = 6; p < Navigators.People; p++)
         {
             int kind = Navigators.Get(m, p, Navigators.Kind);
             if (Navigators.Get(m, p, Navigators.Fleet) != 0xFF || (kind & 0x20) == 0) continue;
             bool fits = index < 60 ? (kind & 0x0F) == nation && (kind & 0x10) == 0 : (Navigators.Get(m, p, Navigators.Mood) & 3) >= 2;
             if (!fits) continue;
+            return Appoint(p);
+        }
+        return -1;
+
+        int Appoint(int p)
+        {
             Navigators.Set(m, p, Navigators.Fleet, index);
             Navigators.Set(m, p, Navigators.Port, 0xFF);
             Navigators.Set(m, p, Navigators.Status, 1);
             return p;
         }
-        return -1;
     }
+
+    /// <summary>새 사람 이름 표(<c>NAME.TBL</c>, 26 바이트 x 96 — 나라마다 열여섯, 이름 13 · 성 13).</summary>
+    public byte[]? NameTable { get; private set; }
 
     /// <summary>
     /// 함대가 쓰러졌다(<c>0x0040A9A0</c>) — 제독은 함대를 잃고(+0x2C = 0xFF, +0x2E = 0, +0x2D = rand(42)) 배 칸은 다 빈다.

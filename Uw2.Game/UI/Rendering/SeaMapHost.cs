@@ -99,6 +99,8 @@ public sealed partial class SeaMapHost : HwndHost
         if (pack.Faces.Length > 0) Faces = new FaceSheet(pack.Faces, pack.FacesWidth, pack.Finds, pack.FindsWidth);
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
+        if (AssetPack.FindFolder() is { } nameDir && File.Exists(Path.Combine(nameDir, "name.tbl")))
+            NameTable = File.ReadAllBytes(Path.Combine(nameDir, "name.tbl"));
         Routes = pack.Routes;
         _economyBase = pack.Economy;
         Economy = _economyBase?.Clone();
@@ -164,6 +166,7 @@ public sealed partial class SeaMapHost : HwndHost
         catch { _economyBase = null; }
         Economy = _economyBase?.Clone();
         _scenarioDir = gameDir;
+        try { NameTable = File.ReadAllBytes(Path.Combine(gameDir, "NAME.TBL")); } catch { NameTable = null; }
         try { StartTables = StartData.Load(Path.Combine(gameDir, "SDATA.DAT")); }
         catch { StartTables = null; }  // 없으면 배를 못 띄울 뿐 지도는 돈다
 
@@ -875,8 +878,19 @@ public sealed partial class SeaMapHost : HwndHost
     public int Roll(int n) => n < 2 ? 0 : _npcRng.Next(n);
 
     /// <summary>사람 이름 — 「이름 성」.</summary>
-    public string PersonName(int person) =>
-        StartTables is { } st && person >= 0 && person < st.People.Count ? $"{st.People[person].Name} {st.People[person].Family}".Trim() : $"#{person}";
+    public string PersonName(int person)
+    {
+        // 게임 중에 지어낸 사람(0x0042AE30)이 있으니 시나리오 기억의 사람 표를 먼저 읽는다.
+        if (Scenario is { } vm && person >= 0 && person < Uw2.Game.Engine.Town.Navigators.People)
+        {
+            var raw = new byte[26];
+            for (int i = 0; i < 26; i++) raw[i] = (byte)vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, person, i), false);
+            var cp949 = System.Text.Encoding.GetEncoding(949);
+            string name = cp949.GetString(raw, 0, 13).Split(' ')[0], family = cp949.GetString(raw, 13, 13).Split(' ')[0];
+            if (name.Length + family.Length > 0) return $"{name} {family}".Trim();
+        }
+        return StartTables is { } st && person >= 0 && person < st.People.Count ? $"{st.People[person].Name} {st.People[person].Family}".Trim() : $"#{person}";
+    }
 
     /// <summary>주인공 작위 — 시나리오 기억 표 1 +0x0D. 새 게임은 0 이고 시나리오가 올린다.</summary>
     public int HeroRank =>
