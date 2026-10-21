@@ -713,6 +713,18 @@ public sealed partial class SeaMapHost : HwndHost
     }
 
     /// <summary>
+    /// 선박원조로 받은 배를 이 항구 도크에 바로 넣는다(<c>0x00427C14</c> → <c>0x0043DEA0</c>) — 선원 · 선장 없이. 도크가 차면 null.
+    /// </summary>
+    public PlayerState.Ship? DockNewShip(int type, int port)
+    {
+        if (StartTables is not { } start || type < 0 || type >= start.ShipTypes.Count || Player.DockRoom(port) == 0) return null;
+        var ship = NewShip(start, type, crew: 0);
+        ship.Captain = -1;
+        Player.Docked.Add((port, ship));
+        return ship;
+    }
+
+    /// <summary>
     /// 「보관」 — 배를 도크에 맡긴다. 선원은 내리고(<c>0x00423419</c> 이 해고한다) 선장은 쉬게 한다. 기함(0)은 못 맡긴다.
     /// </summary>
     public bool DockShip(int index, int port)

@@ -1205,13 +1205,16 @@ public sealed class SeaMapWindow : Window
             int mate = _host.FreeMate;
             if (mate < 0) { Say(0x214, "선장으로 임명할 수 있는 동료가 없는 게 아니냐！"); return; }
             string ship = type < st.Templates.Count ? st.Templates[type].Name ?? "" : "";
+            if (_host.Player.DockRoom(_host.CurrentPort) == 0) { Say(0x120, "이제 도크는 꽉 차있습니다."); return; }
             Say(0x1D0, $"폐하께선 {ship}급의 선박을 원조해 주시겠다고 합니다.", ship);
-            if (!_host.AddShip(type, captain: mate)) return;
+            // 받은 배는 이 항구 도크에 든다(0x00427C14) — 이름을 붙이고 「배는 조선소에 맡겨 두겠어요.」(0x228). 「배비」로 꺼낸다.
+            if (_host.DockNewShip(type, _host.CurrentPort) is not { } aid) return;
             Palace.TookShip(vm.Memory, nation);
             string? named = TextDialog.Ask(this, MsgOr(0x22B, "배이름을 뭐라고 붙일까요？"), ship, 7);
-            if (!string.IsNullOrWhiteSpace(named)) _host.Player.Ships[^1].Name = named.Trim();
+            if (!string.IsNullOrWhiteSpace(named)) aid.Name = named.Trim();
+            Say(0x228, "배는 조선소에 맡겨 두겠어요.");
             Say(0x1CF, "우리 나라를 위해 분발해 주십시오.");
-            Note($" · {Josa(_host.Player.Ships[^1].Name, "을", "를")} 받았습니다 · 선장 {_host.PersonName(mate)}");
+            Note($" · {Josa(aid.Name, "을", "를")} 받아 도크에 맡겼습니다");
             return;
         }
         if (pick != 2) { Note(" · 그것은 아직 없습니다"); return; }
