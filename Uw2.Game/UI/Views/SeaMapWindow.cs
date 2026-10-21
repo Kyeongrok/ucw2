@@ -287,7 +287,11 @@ public sealed class SeaMapWindow : Window
         if (b == NpcBuilding) { AtPatron(); return; }
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
-        if (b == PalaceBuilding) items = items.Take(4).ToList();   // 다섯째 「밀회」는 원본도 안 보인다(0x00427F13 push 4)
+        if (b == PalaceBuilding)
+        {
+            items = items.Take(4).ToList();   // 다섯째 「밀회」는 원본도 안 보인다(0x00427F13 push 4)
+            if (!PalaceGate()) return;
+        }
         if (b == ChurchBuilding) _worshipped = false;
         if (b == PubBuilding) _pubMood = Pub.Mood(HeroField(Navigators.Stats + 6));
         // 교역소는 교역 명성이 1000 이상이면 이름으로 맞는다(0x0042174E — 말 1, 아니면 0).
@@ -1329,6 +1333,29 @@ public sealed class SeaMapWindow : Window
             }
             else { Note(" · 결투는 아직 없습니다"); return; }
         }
+    }
+
+    /// <summary>작위 이름(<c>0x00457328</c>, 9 바이트씩) — 0 없음 · 1 사작 … 9 공작.</summary>
+    private static readonly string[] Titles = ["", "사작", "준훈작사", "훈작사", "준남작", "남작", "자작", "백작", "후작", "공작"];
+
+    /// <summary>
+    /// 왕궁 문(<c>0x00427DC0</c>) — 작위가 없고 나라가 있는 주인공은 남의 나라 왕궁, 또는 제 나라라도 SNR0 깃발(<c>0x0049F3E2</c> &amp; 6,
+    /// 깃발 17 · 18)이 없으면 「평민은 왕궁에 못 들어간다. 어서 물러가라！」(0x54). 들면 작위가 있으면 「잘 오셨습니다. %s %s님」(0x1BC, 성 · 작위),
+    /// 없으면 0x240. 들어가면 참.
+    /// </summary>
+    private bool PalaceGate()
+    {
+        int rank = _host.HeroRank, nation = _host.HeroNation;
+        bool favoured = _host.Common is { } c && (c.GetFlag(17) || c.GetFlag(18));
+        if (rank == 0 && nation < 6 && (_host.PortNation(_host.CurrentPort) != nation || !favoured))
+        {
+            Say(0x54, "평민은 왕궁에 못 들어간다. 어서 물러가라！");
+            return false;
+        }
+        var (_, family) = _host.HeroName;
+        if (rank > 0) Say(0x1BC, $"잘 오셨습니다. {family} {Titles[Math.Min(rank, 9)]}님,\n어서 안으로 들어 오세요.", family, Titles[Math.Min(rank, 9)]);
+        else Say(0x240, "평민은 왕궁에 들어갈 수 없는 것이 원칙이지만, 폐하께서 당신에게 흥미를 가지고 계시니, 특별히 들여보내 주겠소.");
+        return true;
     }
 
     /// <summary>처지(+0x2E)마다 직함(<c>0x004572D8</c>, 11 바이트씩).</summary>
