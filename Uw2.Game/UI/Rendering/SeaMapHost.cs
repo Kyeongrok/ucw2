@@ -1569,7 +1569,7 @@ public sealed partial class SeaMapHost : HwndHost
             if (BumpFolk(fromX, fromY)) break;   // 마을 사람에게 막히면 말을 건다(0x00433094)
         }
 
-        // 문에 서면 그 건물에 든다 — 닫힌 시각이면 잠겨 있다. 건물 안은 아직 없어 알리기만 하고 한 칸 물러 나온다.
+        // 문에 서면 그 건물에 든다 — 닫힌 시각이면 잠겨 있다. 건물 목록(창 쪽 BuildingEntered)을 다 보면 한 칸 물러 나온다.
         // 도시의 시각은 걸어서는 흐르지 않는다 — 건물에 들 때만 흐른다(PassTimeInPort).
         if (Walker.Moving && Walker.Building is int building and >= 0)
         {
