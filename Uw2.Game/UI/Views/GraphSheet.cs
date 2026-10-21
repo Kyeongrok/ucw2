@@ -16,8 +16,16 @@ public sealed class GraphSheet(AssetPack pack)
     public ImageSource? Get(int n)
     {
         if (_cache.TryGetValue(n, out var hit)) return hit;
+        return _cache[n] = ToImage(pack.Graph(n));
+    }
+
+    /// <summary>주인공(사람 표 차례 0 ~ 5)의 엔딩 그림 — 없으면 null.</summary>
+    public ImageSource? Ending(int hero) => ToImage(pack.Ending(hero));
+
+    private static ImageSource? ToImage(IndexedPng.Image? picture)
+    {
         ImageSource? made = null;
-        if (pack.Graph(n) is { } img)
+        if (picture is { } img)
         {
             var bgra = new uint[img.Width * img.Height];
             for (int i = 0; i < bgra.Length; i++)
@@ -29,6 +37,6 @@ public sealed class GraphSheet(AssetPack pack)
             bmp.Freeze();
             made = bmp;
         }
-        return _cache[n] = made;
+        return made;
     }
 }

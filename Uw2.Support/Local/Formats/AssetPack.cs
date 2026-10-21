@@ -55,6 +55,7 @@ namespace Uw2.Support.Local.Formats;
 ///       faces.png        1024x640 얼굴 64x80 백스물여덟을 16 x 8 로(값 = 색인 0~7)
 ///       finds.png        768x384  발견물 48x48 백스물여덟을 16 x 8 로
 ///     graph/NN.png                GRAPH.DAT 그림 예순아홉(NPK016) — 저마다 제 빛깔 열여섯(<see cref="Npk"/>)
+///     ending/heroN.png            주인공 여섯의 엔딩 그림(END.DAT · 빛깔은 KOUKAI2.EXE)
 /// </code>
 /// </remarks>
 public sealed class AssetPack
@@ -135,6 +136,7 @@ public sealed class AssetPack
         BakeScenario(gameDirectory, outDir);
         if (File.Exists(Find("KAO.LZW"))) BakeKao(Find("KAO.LZW"), outDir);
         if (File.Exists(Find("GRAPH.DAT"))) BakeGraph(Find("GRAPH.DAT"), outDir);
+        if (File.Exists(Find("END.DAT")) && File.Exists(Find("KOUKAI2.EXE"))) BakeEndings(Find("END.DAT"), Find("KOUKAI2.EXE"), outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
         IndexedPng.Write(Path.Combine(outDir, "port", "chipno.png"),
@@ -371,6 +373,30 @@ public sealed class AssetPack
         var pics = Npk.ReadAll(File.ReadAllBytes(graphPath));
         for (int i = 0; i < pics.Count; i++)
             IndexedPng.Write(Path.Combine(dir, $"{i:D2}.png"), pics[i].Pixels, pics[i].Width, pics[i].Height, pics[i].Palette);
+    }
+
+    /// <summary>주인공 여섯의 엔딩 그림을 <c>ending/heroN.png</c> 로 굽는다(<see cref="Npk.HeroEndings"/>).</summary>
+    public static void BakeEndings(string endPath, string exePath, string outDir)
+    {
+        string dir = Path.Combine(outDir, "ending");
+        Directory.CreateDirectory(dir);
+        var end = File.ReadAllBytes(endPath);
+        var exe = File.ReadAllBytes(exePath);
+        for (int i = 0; i < Npk.HeroEndings.Length; i++)
+        {
+            var (at, pva) = Npk.HeroEndings[i];
+            var pal = Npk.ExePalette(exe.AsSpan(Npk.DataFileOffset(pva), 48));
+            var pic = Npk.DecodeBare(end.AsSpan(at), pal);
+            IndexedPng.Write(Path.Combine(dir, $"hero{i}.png"), pic.Pixels, pic.Width, pic.Height, pic.Palette);
+        }
+    }
+
+    /// <summary><c>ending/heroN.png</c> — 없으면 null.</summary>
+    public IndexedPng.Image? Ending(int hero)
+    {
+        if (Folder is null || hero < 0) return null;
+        string path = Path.Combine(Folder, "ending", $"hero{hero}.png");
+        return File.Exists(path) ? IndexedPng.Read(path) : null;
     }
 
     /// <summary>

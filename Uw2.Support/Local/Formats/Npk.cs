@@ -81,6 +81,54 @@ public static class Npk
         return new Picture(w, h, px, pal);
     }
 
+    /// <summary>
+    /// 빛깔 없는 꼴 — <c>END.DAT</c> · <c>OPEN.DAT</c>. 머리는 12 바이트(<c>NPK016</c>, 가로 +6, 세로 +8, 머리까지 친 길이 +0x0A)이고
+    /// 몸은 같은 꼴이다(<c>0x0042E060</c> → <c>0x00449FD1</c>). 빛깔은 실행 파일에 따로 있다(<see cref="ExePalette"/>).
+    /// </summary>
+    public static Picture DecodeBare(ReadOnlySpan<byte> data, byte[] palette)
+    {
+        if (data.Length < 12 || !data[..Magic.Length].SequenceEqual(Magic))
+            throw new InvalidDataException("NPK016 이 아닙니다");
+        int w = BinaryPrimitives.ReadUInt16LittleEndian(data[6..]);
+        int h = BinaryPrimitives.ReadUInt16LittleEndian(data[8..]);
+        var rows = Unpack(data[12..], w, h);
+        int stride = (w + 3) / 4 * 4;
+        var px = new byte[w * h];
+        for (int y = 0; y < h; y++) rows.AsSpan(y * stride, w).CopyTo(px.AsSpan(y * w));
+        return new Picture(w, h, px, palette);
+    }
+
+    /// <summary>
+    /// 실행 파일의 빛깔 48 바이트(<c>0x0042E1E0</c> 이 받는 것) — 칸마다 (B, R, G) 순 0~15 다. RGB 로 바꾼다.
+    /// </summary>
+    public static byte[] ExePalette(ReadOnlySpan<byte> brg)
+    {
+        var pal = new byte[16 * 3];
+        for (int k = 0; k < 16; k++)
+        {
+            pal[k * 3] = (byte)((brg[k * 3 + 1] & 15) * 17);
+            pal[k * 3 + 1] = (byte)((brg[k * 3 + 2] & 15) * 17);
+            pal[k * 3 + 2] = (byte)((brg[k * 3] & 15) * 17);
+        }
+        return pal;
+    }
+
+    /// <summary>
+    /// 주인공(사람 표 차례 0 ~ 5)마다 엔딩 그림 — <c>END.DAT</c> 의 자리와 빛깔 자리(VA). <c>0x00405B50</c> 의 갈래표다.
+    /// </summary>
+    public static readonly (int Offset, int PaletteVa)[] HeroEndings =
+    [
+        (0x2C7F0, 0x4545C0),   // 조안 — 누워 책을 읽는다
+        (0x05DF1, 0x4545F0),   // 카탈리나 — 깃펜을 문다
+        (0x00000, 0x456D00),   // 옷토 — 뒷짐을 지고 기댄다
+        (0x1C086, 0x456D00),   // 에르네스트 — 차를 내오는 이와 함께
+        (0x280B6, 0x454620),   // 피에트로 — 책상에 엎드린다
+        (0x0F50D, 0x456D00),   // 알 — 둘이서 책을 본다
+    ];
+
+    /// <summary>실행 파일 <c>.data</c> 의 VA 를 파일 자리로(<c>KOUKAI2.EXE</c> — 0x454000 이 0x52200 에 놓인다).</summary>
+    public static int DataFileOffset(int va) => va - 0x454000 + 0x52200;
+
     /// <summary>몸을 푼다 — 줄 너비는 4 의 배수로 올린 것이다. 모자라는 바이트는 0 으로 친다.</summary>
     public static byte[] Unpack(ReadOnlySpan<byte> src, int w, int h)
     {
