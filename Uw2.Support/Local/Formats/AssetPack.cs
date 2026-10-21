@@ -169,8 +169,9 @@ public sealed class AssetPack
         string sdata = Find("SDATA.DAT");
         if (File.Exists(sdata)) BakeStart(sdata, outDir);
 
-        // 배 그림 — 리스본 부두에 매인 배를 오려 낸다.
+        // 배 그림 — 리스본 부두에 매인 배를 오려 낸다. 바다 배 그림 판(DATA1.LZW 11번 뒤쪽)이 있으면 그것을 쓴다.
         BakeShip(maps, sets, Path.Combine(outDir, "ship.png"));
+        BakeSeaShips(Find("DATA1.LZW"), Path.Combine(outDir, "seaships.png"));
 
         // 사람 그림 — 도시에서 걷는 그것이다. CHAR.LZW 청크 하나가 사람 하나다.
         string charPath = Find("CHAR.LZW");
@@ -202,6 +203,42 @@ public sealed class AssetPack
             var glyphs = GameFont.Load(fnt).ToSheet(out int fw, out int fh);
             IndexedPng.Write(Path.Combine(outDir, "font.png"), glyphs, fw, fh, InkPalette());
         }
+    }
+
+    /// <summary>
+    /// 바다 배 그림 판 — <c>DATA1.LZW</c> 11번 청크(49,152 B)의 <c>0x4000</c> 부터 32 x 32 서른두 장. 장마다 그림 0x200(한 바이트에 두 점,
+    /// 높은 네 비트가 왼쪽) 다음 가림 0x200(0 · 0xF, 0xF 가 비침). 원본은 바다에서 이 청크를 담개 <c>0x0046F8B0</c> 에 얹고
+    /// <c>0x4000 + 벌 x 0x2000 + (쪽 x 2 + 걸음) x 0x400</c> 을 그린다(<c>0x00433F1A</c> · <c>0x0043405A</c>, 찍개 <c>0x004017E0</c>).
+    /// 벌: 0 제 노배 · 1 제 돛배 · 2 남 노배 · 3 남 돛배. 쪽은 뱃머리 여덟을 <see cref="SeaShipFacing"/> 로 넷에 모은다.
+    /// </summary>
+    public const int SeaShipChunk = 11, SeaShipFirst = 0x4000, SeaShipSize = 32, SeaShipCount = 32, SeaShipSheetW = SeaShipSize * SeaShipCount;
+
+    /// <summary>뱃머리 0 ~ 7 → 그림 쪽 0 ~ 3(<c>0x00459C70</c> = 0 1 1 1 2 3 3 3).</summary>
+    public static ReadOnlySpan<byte> SeaShipFacing => [0, 1, 1, 1, 2, 3, 3, 3];
+
+    /// <summary>바다 배 그림 판의 장 번호 — 벌 x 8 + 쪽 x 2 + 걸음(시각 &amp; 1, <c>0x00434044</c>).</summary>
+    public static int SeaShipFrame(int set, int heading, int step) => set * 8 + SeaShipFacing[heading & 7] * 2 + (step & 1);
+
+    private static void BakeSeaShips(string data1Path, string path)
+    {
+        if (!File.Exists(data1Path)) return;
+        var chunks = LsArchive.ReadAll(data1Path);
+        if (chunks.Length <= SeaShipChunk) return;
+        var d = chunks[SeaShipChunk];
+        if (d.Length < SeaShipFirst + SeaShipCount * 0x400) return;
+        var px = new byte[SeaShipSheetW * SeaShipSize];
+        for (int k = 0; k < SeaShipCount; k++)
+        {
+            int o = SeaShipFirst + k * 0x400;
+            for (int i = 0; i < 0x200; i++)
+            {
+                byte b = d[o + i], m = d[o + 0x200 + i];
+                int y = i * 2 / SeaShipSize, x = i * 2 % SeaShipSize;
+                px[y * SeaShipSheetW + k * SeaShipSize + x] = (m >> 4) == 0xF ? Transparent : (byte)(b >> 4);
+                px[y * SeaShipSheetW + k * SeaShipSize + x + 1] = (m & 0xF) == 0xF ? Transparent : (byte)(b & 0xF);
+            }
+        }
+        IndexedPng.Write(path, px, SeaShipSheetW, SeaShipSize, GamePalette.SeaScreenRgb);
     }
 
     /// <summary>배 그림이 놓인 자리 — 리스본(0번) 항구지도의 칸이다.</summary>
@@ -672,6 +709,8 @@ public sealed class AssetPack
 
             string shipPath = Path.Combine(dir, "ship.png");
             byte[] ship = File.Exists(shipPath) ? IndexedPng.Read(shipPath).Pixels : [];
+            string seaShipPath = Path.Combine(dir, "seaships.png");
+            byte[] seaShips = File.Exists(seaShipPath) ? IndexedPng.Read(seaShipPath).Pixels : [];
 
             string fontPath = Path.Combine(dir, "font.png");
             GameFont? font = null;
@@ -746,6 +785,7 @@ public sealed class AssetPack
                 Wind = wind.Pixels,
                 Ports = [.. ports.Select(p => new PortTable.Port(p.Index, p.Name, p.X, p.Y, p.Nation))],
                 Ship = ship,
+                SeaShips = seaShips,
                 Walker = walker,
                 WalkerSize = (walkerW, walkerH),
                 Folk = folk,
@@ -837,6 +877,9 @@ public sealed class AssetPack
 
     /// <summary>배 그림(64 x 80 색인). <see cref="Transparent"/> 는 비침이다.</summary>
     public byte[] Ship { get; private init; } = [];
+
+    /// <summary>바다 배 그림 판(<see cref="SeaShipSheetW"/> x 32 색인, 장 서른둘). 구워 두지 않았으면 빈 것.</summary>
+    public byte[] SeaShips { get; private init; } = [];
 
     /// <summary>사람 그림 판(16x32 장을 여덟씩 늘어놓은 것)과 그 크기.</summary>
     public byte[] Walker { get; private init; } = [];

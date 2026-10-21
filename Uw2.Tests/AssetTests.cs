@@ -29,6 +29,20 @@ public class AssetTests
     }
 
     [Fact]
+    public void SeaShipSheetComesFromData1Chunk11()
+    {
+        // DATA1.LZW 11번 0x4000 부터 32 x 32 서른두 장(0x00433F1A) — 벌 넷 x 쪽 넷 x 걸음 둘.
+        Assert.Equal(AssetPack.SeaShipSheetW * AssetPack.SeaShipSize, Pack.SeaShips.Length);
+        Assert.Contains(Pack.SeaShips, v => v == AssetPack.Transparent);
+        Assert.Contains(Pack.SeaShips, v => v != AssetPack.Transparent);
+        // 뱃머리 0 북 → 쪽 0, 1 ~ 3 → 1, 4 → 2, 5 ~ 7 → 3(0x00459C70). 남 돛배(벌 3) 서쪽 둘째 걸음은 마지막 장.
+        Assert.Equal(0, AssetPack.SeaShipFrame(0, 0, 0));
+        Assert.Equal(1 * 8 + 1 * 2 + 1, AssetPack.SeaShipFrame(1, 2, 25));
+        Assert.Equal(2 * 8 + 2 * 2, AssetPack.SeaShipFrame(2, 4, 0));
+        Assert.Equal(AssetPack.SeaShipCount - 1, AssetPack.SeaShipFrame(3, 7, 1));
+    }
+
+    [Fact]
     public void NpcSlotTypeComesFromTheShipRecord()
     {
         var start = Pack.Start!;

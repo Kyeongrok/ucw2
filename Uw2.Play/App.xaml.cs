@@ -58,6 +58,17 @@ public partial class App : Application
             t.Start();
             return;
         }
+        if (Array.IndexOf(e.Args, "--sea-demo") >= 0)
+        {
+            // 개발 — 첫 주인공 고향 앞바다에 배를 띄운다(바다 배 그림 · 남 함대 보기).
+            var map = new SeaMapWindow { Title = "대항해시대2 — 바다 시험" };
+            map.Show();
+            map.ShowHomePort(0);
+            var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            t.Tick += (_, _) => { t.Stop(); map.DevPutToSea(); };
+            t.Start();
+            return;
+        }
         if (Array.IndexOf(e.Args, "--town-demo") >= 0)
         {
             // 개발 — 첫 주인공 고향 항구를 바로 띄운다(마을 사람 보기).

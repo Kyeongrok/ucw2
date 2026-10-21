@@ -4343,6 +4343,9 @@ public sealed class SeaMapWindow : Window
     /// 개발 — 새 게임에서 고향을 떠나 바다에 나온 남 함대 곁에 서서 「공격」 판을 차리고, 제 기함까지 남 배 생각으로 끝까지 돌린 뒤
     /// 뒤끝을 셈해 <paramref name="outPath"/> 에 적는다(<c>Uw2Play.exe --battle-smoke 파일</c>). 판 그림은 <paramref name="shotPath"/> 에 뜬다.
     /// </summary>
+    /// <summary>개발 — 확인 없이 출항한다(<c>Uw2Play.exe --sea-demo</c>).</summary>
+    public void DevPutToSea() => PutToSea(check: false);
+
     public void DevAutopilotSmoke(string outPath)
     {
         var log = new System.Text.StringBuilder();

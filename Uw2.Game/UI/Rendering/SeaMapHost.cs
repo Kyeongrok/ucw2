@@ -148,7 +148,14 @@ public sealed partial class SeaMapHost : HwndHost
             JoinFolkSheet(pack.Folk, pack.FolkWidth);
         }
 
-        if (pack.Ship.Length == AssetPack.ShipW * AssetPack.ShipH)
+        if (pack.SeaShips.Length == AssetPack.SeaShipSheetW * AssetPack.SeaShipSize)
+        {
+            _shipArt = pack.SeaShips;
+            _shipW = AssetPack.SeaShipSize;
+            _shipH = AssetPack.SeaShipSize;
+            _seaShips = true;
+        }
+        else if (pack.Ship.Length == AssetPack.ShipW * AssetPack.ShipH)
         {
             _shipArt = pack.Ship;
             _shipW = AssetPack.ShipW;
@@ -301,8 +308,10 @@ public sealed partial class SeaMapHost : HwndHost
             FleetReady?.Invoke(Fleet);
         }
         if (_shipArt.Length > 0)
-            _renderer.SetShipSprite(_shipArt, _shipW, _shipH, _screenPalette,
-                                    AssetPack.Transparent);
+        {
+            _renderer.SetShipSprite(_shipArt, ShipSheetW, _shipH, _screenPalette, AssetPack.Transparent);
+            ShipPose();
+        }
         _worldCells = _renderer.Cells;
         _worldW = _renderer.MapW;
         _worldH = _renderer.MapH;
@@ -357,9 +366,12 @@ public sealed partial class SeaMapHost : HwndHost
         _othersMoved = false;
         _othersHidden = hidden;
         // 제 배와 같은 자리 잡기 — 함대 자리가 그림 가로 한가운데 · 밑변이다. 항구에 든 함대는 안 그린다.
+        int step = Fleet?.TimeOfDay ?? 0;
         var list = hidden ? []
-            : Others.Where(f => !f.Docked).Select(f => ((float)f.X, (float)f.Y, f.Heading is > 4)).ToList();
-        _renderer.SetOthers(list, (float)(_shipW * scale), (float)(_shipH * scale));
+            : Others.Where(f => !f.Docked).Select(f => _seaShips
+                ? ((float)f.X, (float)f.Y, false, AssetPack.SeaShipFrame(f.SailsOnly ? 3 : 2, f.Heading, step))
+                : ((float)f.X, (float)f.Y, f.Heading is > 4, -1)).ToList();
+        _renderer.SetOthers(list, (float)(_shipW * scale * SeaShipScale), (float)(_shipH * scale * SeaShipScale));
     }
 
     /// <summary>선종 · 사람 표(<c>SDATA.DAT</c>). 없으면 배를 띄우지 못한다.</summary>
@@ -1226,6 +1238,9 @@ public sealed partial class SeaMapHost : HwndHost
     /// <summary>배 그림 한 변을 몇 배로 늘려 그릴지.</summary>
     public double ShipScale { get; set; } = 1;
 
+    /// <summary>바다 배 그림 판(32 x 32)은 부두에서 오린 그림(64 x 80)보다 작아 두 배로 찍는다.</summary>
+    private double SeaShipScale => _seaShips ? 2 : 1;
+
     private byte[] _shipArt = [];
     private int _shipW, _shipH;
     private TimeSpan _lastTick;
@@ -1260,9 +1275,31 @@ public sealed partial class SeaMapHost : HwndHost
             _renderer.SetShipSprite(_walkArt, _walkArtW, _walkArtH, _screenPalette,
                                     AssetPack.CharClear);
         else if (!walker && _shipArt.Length > 0)
-            _renderer.SetShipSprite(_shipArt, _shipW, _shipH, _screenPalette,
-                                    AssetPack.Transparent);
+        {
+            _renderer.SetShipSprite(_shipArt, ShipSheetW, _shipH, _screenPalette, AssetPack.Transparent);
+            ShipPose();
+            return;
+        }
         _renderer.ShipFacesWest = false;
+    }
+
+    /// <summary>바다 배 그림이 판(장 서른둘)이면 참 — 아니면 부두에서 오린 한 장이다.</summary>
+    private bool _seaShips;
+
+    /// <summary>배 그림 판의 너비 — 판이면 장 서른둘, 아니면 한 장.</summary>
+    private int ShipSheetW => _seaShips ? AssetPack.SeaShipSheetW : _shipW;
+
+    /// <summary>
+    /// 제 배 그림 장을 고른다 — 판이면 벌(기함이 돛만 쓰는 배면 1, 노 젓는 배면 0) · 뱃머리 · 걸음(시각 &amp; 1)으로(<c>0x00433F1A</c>),
+    /// 한 장이면 서쪽으로 갈 때 뒤집는다. 원본은 평소 벌을 <c>[0x0046F8AC]</c> 에서 가져오는데 폭풍 · 안개 때 고르는 셈(노 비트)과 같이 둔다.
+    /// </summary>
+    private void ShipPose()
+    {
+        if (Fleet == null || _walkerSprite) return;
+        if (!_seaShips) { _renderer.ShipFacesWest = Fleet.Heading > Fleet.DirCount / 2; return; }
+        _renderer.ShipFacesWest = false;
+        int set = Fleet.Ships.Count > 0 && !Fleet.Ships[0].Oars ? 1 : 0;
+        _renderer.SpriteFrame(AssetPack.SeaShipFrame(set, Fleet.Heading, Fleet.TimeOfDay), _shipW, _shipH, AssetPack.SeaShipCount);
     }
 
     /// <summary>
@@ -1557,7 +1594,7 @@ public sealed partial class SeaMapHost : HwndHost
             }
             _othersMoved = true;
         }
-        _renderer.ShipFacesWest = Fleet.Heading > Fleet.DirCount / 2;
+        ShipPose();
         FollowShip(w, h);
         _dirty = true;
     }
@@ -1669,7 +1706,7 @@ public sealed partial class SeaMapHost : HwndHost
         double py = (Fleet.Y - origin.Y) / CellsPerPixel;
 
         // 확대할수록 배도 커지되 너무 작아지지도 크지도 않게 잡는다.
-        double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale;
+        double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale * SeaShipScale;
         float dw = (float)(_shipW * scale), dh = (float)(_shipH * scale);
         return ((float)(px - dw / 2), (float)(py - dh), dw, dh);
     }

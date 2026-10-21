@@ -55,6 +55,10 @@ public sealed class NpcFleet
             var t = start.ShipTypes[start.TypeOf(s)];
             return new ShipSailing(t.SailKind, s.Sail, s.Upwind, false, 0, 0, 0, 0, 0, 0, 0);
         })];
+        // 기함(첫 배 칸 +7 = 함대 +0x32)의 배 기록 +0x10 비트 0x10 — 돛만 쓰는 배인지(바다 그림 벌, 0x00434024).
+        var flag = record.Slots.FirstOrDefault(s => s.Present);
+        int t0 = flag.Ship - StartData.ShipTemplateFirst;
+        SailsOnly = t0 >= 0 && t0 < start.Templates.Count && !start.Templates[t0].Oars;
         _home = home; _away = target;
         Goal = record.Home;
         int fo = record.Index * StartData.FleetSize;
@@ -75,6 +79,9 @@ public sealed class NpcFleet
 
     /// <summary>배 칸(함대 +0x2B) — 해전이 선원 · 내구를 깎는다. 다 잃으면 함대가 바다에서 빠진다.</summary>
     public List<StartData.Slot> Slots { get; }
+
+    /// <summary>기함이 돛만 쓰는 배인지 — 바다 그림 벌 3(아니면 노 젓는 배 2)을 고른다.</summary>
+    public bool SailsOnly { get; }
 
     /// <summary>해적 함대(60 ~ 69) — 나라 6.</summary>
     public bool Pirate => Index >= 60;
