@@ -710,6 +710,7 @@ public sealed class SeaMapWindow : Window
         if (who < 0) { Say(0x3A5, "제독님, 이 건물엔 열쇠가 잠겨 있어 들어갈 수 없습니다."); return; }   // 0x00422949
         string name = Patrons.Name(m, who);
         int kind = Patrons.KindOf(m, who);
+        if (kind is 2 or 3) { TeachSkill(kind == 2); return; }   // 측량술 선생(0x00422590) · 포술 선생(0x00422750)
         if (kind is not (Patrons.Noble or Patrons.Scholar)) { Note($" · {name}"); return; }
         var (hero, family) = _host.HeroName;
         if (kind == Patrons.Scholar) Say(0x1ED, "내게 뭔가 용건이 있습니까？");
@@ -805,6 +806,60 @@ public sealed class SeaMapWindow : Window
         p.SetGold(p.Gold - price);
         Navigators.Set(vm.Memory, _host.HeroPersonNumber, SkillField, HeroField(SkillField) | Cartography);
         Note(" · 지도작성술을 익혔습니다");
+    }
+
+    /// <summary>
+    /// 기능을 가르치는 이(「NPC」 임자 갈래 2 · 3) — 측량술(<c>0x00422590</c>, 능력치 항해술 · 지식 · 직감이 70 · 80 · 70 이상, 기능 비트 0x10, 말 0x2EE · 0x2EF · 0x2F0 · 0x1F8 · 0x1F9 · 0x2F1)과
+    /// 포술(<c>0x00422750</c>, 통솔 · 지식 · 용기 75 · 65 · 80, 비트 4, 말 0x2E7 · 0x2E8 · 0x2E9 · 0x2EB · 0x2EC · 0x2ED). 값은 지도작성술과 같은
+    /// min(60000, (5000 / (매력 / 5 + 1) + 200) x 100)(0x1F7).
+    /// </summary>
+    private void TeachSkill(bool surveying)
+    {
+        if (_host.Scenario is not { } vm) return;
+        string[] stats = ["통솔력", "항해술", "지식", "직감", "용기", "검술", "매력"];
+        int[] which = surveying ? [1, 2, 3] : [0, 2, 4];
+        int[] need = surveying ? [70, 80, 70] : [75, 65, 80];
+        int bit = surveying ? 0x10 : 0x04;
+        string bye() => surveying ? MsgOr(0x2F1, "별들이 항해의 길잡이가 되어 주겠지요.") : MsgOr(0x2ED, "목숨을 소중히 하게.");
+        string offer = surveying ? MsgOr(0x2EE, "이 곳에선 측량술을 가르치고 있지요.\n경위도 측량술을 배우고 싶은 것이군요？")
+                                 : MsgOr(0x2E7, "이 곳에선 포술을 가르치고 있지.\n포술을 배우고 싶소？");
+        if (MessageBox.Show(this, offer.Replace("\\n", "\n"), surveying ? "측량술" : "포술", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        {
+            Say(-1, bye());
+            return;
+        }
+        if ((HeroField(SkillField) & bit) != 0)
+        {
+            Say(surveying ? 0x2EF : 0x2E8, surveying ? "어？ 이미 익히신 것 같은데요." : "뭐야 이거！ 가르칠 필요도 없는 것 같군.");
+            Say(-1, bye());
+            return;
+        }
+        for (int k = 0; k < 3; k++)
+            if (HeroField(Navigators.Stats + which[k]) < need[k])
+            {
+                string s = stats[which[k]];
+                Say(surveying ? 0x2F0 : 0x2E9, $"{(surveying ? "측량술" : "포술")}을 습득하기 위해선 {s}(가) 필요하지. 능력이 {need[k]}(가) 되면 다시 오시오.", s, need[k]);
+                Say(-1, bye());
+                return;
+            }
+        int price = Math.Min(60000, (5000 / (HeroField(Navigators.Stats + 6) / 5 + 1) + 200) * 100);
+        Say(0x1F7, $"기술을 습득하는 데는 금화 {price}닢이 필요합니다.", price);
+        var p = _host.Player;
+        if (p.Gold < price)
+        {
+            Say(surveying ? 0x1F8 : 0x2EB, surveying ? "금화가 부족한 모양이군요." : "돈도 없는 녀석을 가르칠 만큼 한가하진 않지.");
+            Say(-1, bye());
+            return;
+        }
+        if (MessageBox.Show(this, surveying ? MsgOr(0x1F9, "좋겠습니까？") : MsgOr(0x2EC, "좋겠나？"), "기능 습득", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        {
+            Say(-1, bye());
+            return;
+        }
+        Say(-1, bye());
+        p.SetGold(p.Gold - price);
+        Navigators.Set(vm.Memory, _host.HeroPersonNumber, SkillField, HeroField(SkillField) | bit);
+        Note(surveying ? " · 측량술을 익혔습니다" : " · 포술을 익혔습니다");
     }
 
     /// <summary>「지리 보고」(<c>0x00422150</c>) — 보고 뒤 칠한 칸 x 20 x (5 − 격)을 받고 명성이 칸 x 5 오른다.</summary>
