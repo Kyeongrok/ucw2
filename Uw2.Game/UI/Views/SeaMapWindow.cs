@@ -72,11 +72,21 @@ public sealed class SeaMapWindow : Window
         }
         var types = eco.Buildable(_host.CurrentPort, start.ShipTypes);
         if (types.Count == 0) { Say(0xFB, "우리집은 새 배는 안 만들지."); return; }   // 0x00428982
-        // 새 배를 맡을 동료가 있어야 한다(0x00429180, 말 0xA6).
-        int mate = _host.FreeMate;
-        if (_host.HasMates && mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
         string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
         var p = _host.Player;
+        // 함대가 다 찼으면 「다른 배를 내주지 않겠소？」(0xA7) 뒤 내줄 배를 고른다(0x004289D8 → 0x00428A30).
+        PlayerState.Ship? traded = null;
+        int credit = 0;
+        if (p.Ships.Count >= SeaMapHost.MaxShips)
+        {
+            Say(0xA7, "다른 배를 내주지 않겠소？");
+            if (ChooseTradeIn(out credit) is not { } t) return;
+            traded = t;
+        }
+        // 새 배를 맡을 동료가 있어야 한다(0x00429180, 말 0xA6) — 내준 배의 선장도 된다.
+        int mate = _host.FreeMate;
+        if (mate < 0 && traded is { Captain: >= 0 }) mate = traded.Captain;
+        if (_host.HasMates && mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
         Say(0xFC, "호오, 새 배를 만든다니 제법이군.");   // 0x00428A0B
         int type;
         while (true)
@@ -88,7 +98,6 @@ public sealed class SeaMapWindow : Window
             if (PitchShip(type, building: true)) break;
         }
         int basePrice = start.ShipTypes[type].Price;
-        if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
         int industry = _host.CurrentPort >= 0 && _host.CurrentPort < eco.States.Count ? eco.States[_host.CurrentPort].Industry : 0;
         int grades = Shipyard.GradeChoices(type, industry);
         // 선체 재질(0x00429A00) — 「선체의 재질은 무엇으로 하겠소？」(0xFE) 뒤 「이 놈으로 좋겠소？」(0xFF), 아니면 다시 고른다.
@@ -102,10 +111,11 @@ public sealed class SeaMapWindow : Window
             if (_devQuiet || MessageBox.Show(this, MsgOr(0xFF, "이 놈으로 좋겠소？"), NameOf(type), MessageBoxButton.YesNo) == MessageBoxResult.Yes) break;
         }
         if (Haggle(Shipyard.BuildPrice(basePrice, grade), building: true) is not { } price) return;
-        if (p.Gold < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
+        if (p.Gold + credit < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
+        if (traded != null && !_host.RemoveShip(p.Ships.IndexOf(traded))) return;
         int days = _host.OrderShip(type, grade);
         if (days < 0) return;
-        p.SetGold(p.Gold - price);
+        p.SetGold(p.Gold + credit - price);
         if (_host.OrderedHere is { } made) NameNewShip(made);
         Say(0x101, "좋아, 최고의 배를 만들어 주겠소.");
         Say(0x106, $"배가 완성되는 데 {days}일 걸리지.", days);
