@@ -289,6 +289,9 @@ public sealed class SeaMapWindow : Window
 
     private bool _slept;
 
+    /// <summary>개발 돌리기 중에는 말 창을 띄우지 않는다.</summary>
+    private bool _devQuiet;
+
     private void VisitBuilding(int b)
     {
         // 그 항구 · 건물에 시나리오 이벤트가 걸려 있으면 그것이 먼저다(0x00431FD9 → 0x0043F8C0).
@@ -877,7 +880,7 @@ public sealed class SeaMapWindow : Window
         if (_host.Scenario is not { } vm) return;
         var sv = _host.Survey;
         if (sv.SinceReport == 0) { Say(0x1FA, "아니, 조사가 전혀 진척되어 있지 않군요. 더 분발해 주세요."); return; }
-        if (sv.Total >= Survey.Complete) { Say(0x1FB, "와아！！ 드디어 세계지도를 완성하셨군요！"); sv.Finish(); }
+        if (sv.Total >= Survey.Complete) { SayWith(63, 0x1FB, "와아！！ 드디어 세계지도를 완성하셨군요！"); sv.Finish(); }
         int rank = vm.Memory.Read(ScenarioMemory.At(Patrons.Table, who, Patrons.Flags), false);
         int reward = Survey.Reward(rank, sv.SinceReport);
         var fp = ScenarioMemory.At(ScenarioMemory.HeroTable, _host.HeroPersonNumber, Patrons.FameField);
@@ -928,10 +931,14 @@ public sealed class SeaMapWindow : Window
     private void SayText(string text) => ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", text)]);
 
     /// <summary>게임 말 하나를 대사 창에 띄운다 — 말이 없으면 <paramref name="fallback"/>.</summary>
-    private void Say(int id, string fallback, params object[] args)
+    private void Say(int id, string fallback, params object[] args) => SayWith(-1, id, fallback, args);
+
+    /// <summary>말 한 줄을 <c>GRAPH.DAT</c> 그림 <paramref name="graph"/> 와 함께 띄운다(-1 이면 그림 없이).</summary>
+    private void SayWith(int graph, int id, string fallback, params object[] args)
     {
+        if (_devQuiet) return;
         string text = _host.Messages is { } m && m[id].Length > 0 ? m.Format(id, args) : fallback;
-        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", text)]);
+        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", text)], graph >= 0 ? _host.Graphs?.Get(graph) : null);
     }
 
     /// <summary>
@@ -2323,6 +2330,9 @@ public sealed class SeaMapWindow : Window
         {
             _seaNote = name == "쥐 떼" ? M(0x1D9, "쥐 떼가 일었습니다") : M(0x1DA, $"{name}에 걸린 자가 있습니다");
             UpdateStatus();
+            // 원본은 그림과 함께 말 창을 띄운다 — 쥐 떼 57(0x004179FF), 괴혈병 59(0x00417B2B).
+            if (name == "쥐 떼") SayWith(57, 0x1D9, "제독님, 쥐 떼가 발생하고 있는 모양입니다.");
+            else SayWith(59, 0x1DA, "제독님, 선원 중에 괴혈병에 걸린 자가 있는 모양입니다.");
         };
         _host.PortAhead += port => EnterPortFromSea(port);
         _host.StoryEnded += OnStoryEnded;
@@ -2336,10 +2346,20 @@ public sealed class SeaMapWindow : Window
             _seaNote = M(0x150, $"제독님, {name}(가) 보이지 않습니다.", name);
             UpdateStatus();
         };
-        _host.FleetReady += f => f.Weather.Said += line =>
+        _host.FleetReady += f =>
         {
-            _seaNote = $" · 「{line}」";
-            UpdateStatus();
+            f.Weather.Said += line =>
+            {
+                _seaNote = $" · 「{line}」";
+                UpdateStatus();
+            };
+            // 들이닥친 날은 그림 58 과 말(폭풍 0x160 · 무풍 0x162 · 안개 0x164)을 창으로(0x004193D0).
+            f.Weather.Struck += kind => SayWith(58, 0x15E + (int)kind * 2, kind switch
+            {
+                Weather.Kind.Storm => "제독님, 폭풍우입니다！！",
+                Weather.Kind.Calm => "제독님, 바람이 완전히 멀었습니다.",
+                _ => "제독님, 심한 안개군요.",
+            });
         };
         _host.BuildingEntered += (b, open) =>
         {
@@ -2635,7 +2655,7 @@ public sealed class SeaMapWindow : Window
             var st = _host.StartTables!;
             var hp = st.People[Math.Clamp(_host.HeroPersonNumber, 0, st.People.Count - 1)];
             var d = f.Date;
-            Say(0x341, $"적의 기함은 깃발을 내리고 항복의사를 표시했다. {hp.Name} {hp.Family}(는) {NationNames7[Math.Min(6, enemy.Nation)]}함대를 섬멸한 것이다.",
+            SayWith(53, 0x341, $"적의 기함은 깃발을 내리고 항복의사를 표시했다. {hp.Name} {hp.Family}(는) {NationNames7[Math.Min(6, enemy.Nation)]}함대를 섬멸한 것이다.",
                 hp.Name, hp.Family, NationNames7[Math.Min(6, enemy.Nation)], 1501 + d.Year, d.Month + 1, d.Day + 1);
             string loot = MsgOr(0x230, $"전리품으로서 금화 {spoils.Gold}닢, ", spoils.Gold)
                           + (spoils.Item != null ? MsgOr(0x231, $"그리고 {spoils.Item}을(를) ", spoils.Item) : "")
@@ -2651,17 +2671,17 @@ public sealed class SeaMapWindow : Window
     }
 
     /// <summary>
-    /// 해전 끝 말 — 일몰 「전투는 승부를 가리지 못한 채 일몰을 맞았다.」(0x233), 제 기함 이탈 0x234, 적 기함 퇴각 0x235, 항복 0x236.
+    /// 해전 끝 말 — 그림은 일몰 55, 나머지 54(<c>0x0040B9C0</c>), 섬멸은 53. 일몰 「전투는 승부를 가리지 못한 채 일몰을 맞았다.」(0x233), 제 기함 이탈 0x234, 적 기함 퇴각 0x235, 항복 0x236.
     /// 물러났거나 항복했으면 떠난 선장마다 「제독님, %s의 함대가 보이지 않는데요.」(0x317).
     /// </summary>
     private void BattleEnded(int result, SeaMapHost.Spoils spoils)
     {
         switch (result)
         {
-            case Engine.Sea.Battle.Outcome.Sunset: Say(0x233, "전투는 승부를 가리지 못한 채 일몰을 맞았다."); break;
-            case Engine.Sea.Battle.Outcome.PlayerLeft: Say(0x234, "기함의 이탈로 인해 전투는 종말로 치달았다."); break;
-            case Engine.Sea.Battle.Outcome.EnemyLeft: Say(0x235, "적기함의 퇴각으로 인해 전투는 종결되었다."); break;
-            case Engine.Sea.Battle.Outcome.Surrendered: Say(0x236, "기함의 항복으로 인해 적함대는 활을 거두었다."); break;
+            case Engine.Sea.Battle.Outcome.Sunset: SayWith(55, 0x233, "전투는 승부를 가리지 못한 채 일몰을 맞았다."); break;
+            case Engine.Sea.Battle.Outcome.PlayerLeft: SayWith(54, 0x234, "기함의 이탈로 인해 전투는 종말로 치달았다."); break;
+            case Engine.Sea.Battle.Outcome.EnemyLeft: SayWith(54, 0x235, "적기함의 퇴각으로 인해 전투는 종결되었다."); break;
+            case Engine.Sea.Battle.Outcome.Surrendered: SayWith(54, 0x236, "기함의 항복으로 인해 적함대는 활을 거두었다."); break;
         }
         foreach (var who in spoils.Deserted ?? []) Say(0x317, $"제독님, {who}의 함대가 보이지 않는데요.", who);
     }
@@ -3264,7 +3284,7 @@ public sealed class SeaMapWindow : Window
         if (spot < 0) return false;
         int treasure = Discoveries.Dig(vm.Memory, spot);
         string name = ItemShop.Get(vm.Memory, treasure).Name;
-        Say(0x1AF, $"{name}(를) 발견했습니다.", name);
+        SayWith(64, 0x1AF, $"{name}(를) 발견했습니다.", name);
         ShowItem(treasure);
         return true;
     }
@@ -3755,6 +3775,7 @@ public sealed class SeaMapWindow : Window
     public void DevAutopilotSmoke(string outPath)
     {
         var log = new System.Text.StringBuilder();
+        _devQuiet = true;                 // 날씨 · 병 말 창이 돌리기를 막지 않게
         try
         {
             foreach (var s in _host.Player.Ships) { s.Crew = s.MaxCrew; s.Supplies[0] = s.Supplies[1] = 200; }

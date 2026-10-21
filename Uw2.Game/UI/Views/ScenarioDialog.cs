@@ -46,7 +46,8 @@ public sealed class ScenarioDialog : Window
     /// <summary>고른 항목의 차례 — 고르기가 아니면 -1.</summary>
     public int Picked { get; private set; } = -1;
 
-    private ScenarioDialog(FaceSheet? faces, IReadOnlyList<ScenarioVm.Line> lines, IReadOnlyList<string> options)
+    private ScenarioDialog(FaceSheet? faces, IReadOnlyList<ScenarioVm.Line> lines, IReadOnlyList<string> options,
+                           ImageSource? picture = null)
     {
         _faces = faces;
         _lines = lines;
@@ -71,7 +72,17 @@ public sealed class ScenarioDialog : Window
         _row.Children.Add(text);
         Grid.SetColumn(text, 1);
         _row.Margin = new Thickness(18);
-        Content = _row;
+        if (picture is null) Content = _row;
+        else
+        {
+            // 사건 그림(GRAPH.DAT) — 원본은 말 창 위에 찍는다. 두 배로, 점이 뭉개지지 않게.
+            var img = new Image { Source = picture, Width = picture.Width * 2, Height = picture.Height * 2, Margin = new Thickness(18, 18, 18, 0) };
+            RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.NearestNeighbor);
+            var all = new StackPanel();
+            all.Children.Add(img);
+            all.Children.Add(_row);
+            Content = all;
+        }
 
         MouseLeftButtonUp += (_, _) => Next();
         KeyDown += (_, e) =>
@@ -132,10 +143,10 @@ public sealed class ScenarioDialog : Window
         if (_choices.Children[0] is Button first) Dispatcher.BeginInvoke(() => first.Focus());
     }
 
-    public static void Play(Window owner, FaceSheet? faces, IReadOnlyList<ScenarioVm.Line> lines)
+    public static void Play(Window owner, FaceSheet? faces, IReadOnlyList<ScenarioVm.Line> lines, ImageSource? picture = null)
     {
         if (lines.Count == 0) return;
-        new ScenarioDialog(faces, lines, []) { Owner = owner }.ShowDialog();
+        new ScenarioDialog(faces, lines, [], picture) { Owner = owner }.ShowDialog();
     }
 
     /// <summary>앞 대사를 넘긴 뒤 항목을 고르게 한다 — 고른 차례(창을 닫아 버리면 0).</summary>

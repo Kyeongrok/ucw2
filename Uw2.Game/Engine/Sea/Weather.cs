@@ -76,6 +76,11 @@ public sealed class Weather
     public event Action? StormHit;
 
     /// <summary>
+    /// 전조 뒤 날씨가 들이닥친 날 — 원본은 그림 58 과 말 0x15E + 갈래 x 2 를 창으로 띄운다(<c>0x004193D0</c>).
+    /// </summary>
+    public event Action<Kind>? Struck;
+
+    /// <summary>
     /// 폭풍에 부서지는 정도(<c>0x0041951F</c>) — min(10, (100 − 선장 항해술 +0x1D) / (항해 레벨 / 5 + 3) + 1) + rand(2).
     /// 배 기록 +0x10 의 0x40 이 없으면(작고 가벼운 배) x 5. 내구가 이만큼, 역풍 · 돛이 반만큼 깎이고 최대 내구는 1 줄어든다
     /// (선종 내구 / 4 아래로는 안 간다).
@@ -105,6 +110,7 @@ public sealed class Weather
             Brewing = false;
             StruckToday = true;
             if (Current == Kind.Storm) StormHit?.Invoke();
+            Struck?.Invoke(Current);
             Said?.Invoke(Current switch
             {
                 Kind.Storm => "제독님, 폭풍우입니다!! 키가 전혀 안 듣습니다.",
