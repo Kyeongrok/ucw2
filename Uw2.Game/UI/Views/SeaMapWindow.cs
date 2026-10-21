@@ -1090,7 +1090,15 @@ public sealed class SeaMapWindow : Window
             // 망명 — 다른 나라 왕궁에서만 뜻이 있다.
             if (ours) { Note(" · 이미 이 나라를 섬기고 있습니다"); return; }
             string name = nation < NationNames.Length ? NationNames[nation] : "이 나라";
-            if (MessageBox.Show(this, $"{name}에 망명하시겠습니까?", "망명", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+            // 0x00427910 — 「아, %s공！ 잘 오셨네. 가신의 말로는 우리 나라에 충성을 맹세한다고？ 틀림없는가？」(0x1CA), 아니면 0x1CB, 그러면 0x1CC.
+            var (hn, _) = _host.HeroName;
+            if (MessageBox.Show(this, MsgOr(0x1CA, $"아, {hn}공！ 잘 오셨네. 가신의 말로는 우리 나라에 충성을 맹세한다고？ 틀림없는가？", hn), "망명",
+                                MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+            {
+                Say(0x1CB, "그러하냐？ 정말로 유감이군.");
+                return;
+            }
+            Say(0x1CC, "그러하냐？ 기꺼이 수락하겠다.");
             Palace.Defect(vm.Memory, _host.HeroPersonNumber, nation);
             _homePort = _host.CurrentPort;
             Note($" · {name}의 사람이 되었습니다");
