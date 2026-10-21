@@ -46,7 +46,8 @@ public sealed class Weather
     public bool StruckToday { get; private set; }
 
     /// <summary>
-    /// 배들의 <c>+0x1D</c> 평균 — 날씨가 일 조건에 쓴다. <b>뜻을 못 굳혔다</b>. 우리 배에는 없어 0 으로 둔다.
+    /// 배들의 <c>+0x1D</c>(선수상 0 ~ 10) 평균 — 이것이 rand(5) 보다 작아야 날씨가 인다(<c>0x00419058</c>).
+    /// 조선소 「선수상」(<c>0x00429F90</c>)이 놓는다. <c>SeaMapHost.SyncLoad</c> 가 채운다.
     /// </summary>
     public int FleetFactor { get; set; }
 

@@ -126,6 +126,26 @@ public class EngineTests
     }
 
     [Fact]
+    public void FigureheadAverageKeepsWeatherAway()
+    {
+        // 날씨 바다(0x80) · 폭풍 갈래(해류 0x40) · 풍속 3, 운 0 — 선수상 평균이 rand(5) 보다 작아야 인다(0x00419058).
+        int Brews(int factor)
+        {
+            int n = 0;
+            for (int seed = 0; seed < 400; seed++)
+            {
+                var w = new Weather { Luck = 0, FleetFactor = factor };
+                w.Update(0x80, 0x40, 3, 3, new Random(seed));
+                if (w.Brewing) n++;
+            }
+            return n;
+        }
+        Assert.True(Brews(0) > 0);
+        Assert.True(Brews(2) < Brews(0));
+        Assert.Equal(0, Brews(5));            // rand(5) 는 4 까지라 5 이상이면 날씨가 일지 않는다
+    }
+
+    [Fact]
     public void WeatherCalmPinsWindToZero()
     {
         var w = new Weather();

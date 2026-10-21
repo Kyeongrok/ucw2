@@ -862,6 +862,8 @@ public sealed partial class SeaMapHost : HwndHost
         if (Fleet == null) return;
         for (int i = 0; i < Fleet.Ships.Count && i < Player.Ships.Count; i++)
             Fleet.Ships[i] = Fleet.Ships[i] with { Load = Player.Ships[i].Weight, Crew = Player.Ships[i].Crew, SailingShare = Player.Ships[i].SailShare };
+        // 날씨가 일 문턱의 배들 +0x1D 평균은 선수상이다(0x00418FE9 — 칸이 서 있는 배의 합 / 수).
+        Fleet.Weather.FleetFactor = Player.Ships.Count > 0 ? Player.Ships.Sum(s => s.Figurehead) / Player.Ships.Count : 0;
     }
 
     /// <summary>배 <paramref name="index"/> 의 선장이 바뀌었다 — 빠르기 셈의 항해 레벨 · 항해술을 새 선장 것으로.</summary>
