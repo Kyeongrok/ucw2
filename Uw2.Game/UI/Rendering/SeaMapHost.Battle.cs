@@ -161,7 +161,11 @@ public sealed partial class SeaMapHost
         foreach (var s in b.SideShips(side))
             if (s.Tag is StartData.Slot slot && s.Crew > 0 && s.Hull > 0)
                 fleet.Slots.Add(slot with { Crew = s.Crew, Durability = s.Hull, MaxDurability = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail });
-        if (flagshipLost || fleet.Slots.Count == 0) Others.Remove(fleet);
+        if (flagshipLost || fleet.Slots.Count == 0)
+        {
+            Others.Remove(fleet);
+            FleetLost(fleet);
+        }
     }
 
     /// <summary>

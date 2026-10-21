@@ -38,6 +38,9 @@ public sealed class SaveGame
     /// <summary>바다에 있는(또는 항구에 든) 남 함대 — 없으면(옛 세이브) 처음 표로 다시 띄운다.</summary>
     public List<Sea.NpcFleet.State>? Npcs { get; set; }
 
+    /// <summary>바다에 없는 함대의 배 칸 — 함대 번호 → 칸마다 여덟 값.</summary>
+    public Dictionary<int, int[]>? NpcReserve { get; set; }
+
     public sealed class SurveyState
     {
         public string Cells { get; set; } = "";

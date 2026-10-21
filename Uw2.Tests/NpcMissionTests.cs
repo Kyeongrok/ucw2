@@ -75,4 +75,25 @@ public class NpcMissionTests
         Assert.Equal(a.Slots, b.Slots);
         Assert.Equal((a.X, a.Y), (Math.Floor(b.X) + 0.5, Math.Floor(b.Y) + 0.5));
     }
+
+    [Fact]
+    public void Forge_fills_idle_fleets_by_tables()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, AssetPack.FolderName))) dir = dir.Parent;
+        var start = AssetPack.Load(Path.Combine(dir!.FullName, AssetPack.FolderName))!.Start!;
+        var reserve = new Dictionary<int, List<StartData.Slot>>();
+        List<StartData.Slot> R(int i) => reserve.TryGetValue(i, out var l) ? l : reserve[i] = [];
+        // 포르투갈 세기 600: 갈래 1, 상선 600 / 50 + 5 = 17 척, 해군 5 · 6 은 600 / 75 + 5 = 13 척, 7 ~ 9 는 다 채운다.
+        FleetForge.Fill(start, n => n == 0 ? 600 : 0, i => i / 10 == 0, R, n => 0);
+        Assert.Equal(17, Enumerable.Range(1, 4).Sum(i => R(i).Count));
+        Assert.Equal(13, R(5).Count + R(6).Count);
+        Assert.All(Enumerable.Range(7, 3), i => Assert.Equal(StartData.SlotCount, R(i).Count));
+        // 표 0x00458E18[1] = 0x789 의 첫 네 비트 9 → 기록 0x31, 선종 9. 대포 갈래 0 + 4.
+        var s = R(1)[0];
+        Assert.Equal(0x28 + 9, s.Ship);
+        Assert.Equal(0x14, s.Flags);
+        Assert.Equal(start.ShipTypes[9].Durability, s.MaxDurability);
+        Assert.True(s.Present);
+    }
 }

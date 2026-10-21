@@ -527,6 +527,7 @@ public sealed partial class SeaMapHost : HwndHost
             MonsterSlots = Monsters != null ? [.. Monsters.Slots] : null,
             MonsterNext = Monsters?.Next ?? 0,
             Npcs = [.. Others.Select(o => o.Export())],
+            NpcReserve = FleetReserve.ToDictionary(r => r.Key, r => r.Value.SelectMany(x => (int[])[x.Crew, x.Durability, x.MaxDurability, x.Upwind, x.Sail, x.Field6, x.Ship, x.Flags]).ToArray()),
         };
         string where = CurrentPort >= 0 ? SceneName : "바다";
         save.Summary = $"{HeroName.Name} {HeroName.Family} · {Fleet?.Date} · {where} · 돈 {Player.Gold}";
@@ -551,6 +552,16 @@ public sealed partial class SeaMapHost : HwndHost
             Others.Clear();
             foreach (var st in save.Npcs)
                 if (byIndex.TryGetValue(st.Index, out var npc)) { npc.Restore(st); Others.Add(npc); }
+        }
+        if (save.NpcReserve != null)
+        {
+            FleetReserve.Clear();
+            foreach (var (index, v) in save.NpcReserve)
+            {
+                var list = new List<StartData.Slot>();
+                for (int i = 0; i + 8 <= v.Length; i += 8) list.Add(new StartData.Slot(v[i], v[i + 1], v[i + 2], v[i + 3], v[i + 4], v[i + 5], v[i + 6], v[i + 7]));
+                FleetReserve[index] = list;
+            }
         }
         Fleet.Ships.Clear();
         foreach (var s in Player.Ships)
@@ -923,6 +934,10 @@ public sealed partial class SeaMapHost : HwndHost
                 if (!fleet.CanSail(f.X, f.Y)) npc.StayInPort(_npcRng.Next(8) + 8);
                 Others.Add(npc);
             }
+        // 바다에 없는 함대 — 배 칸을 쌓아 두었다가 달마다 채워 내보낸다(0x0042B0F0).
+        FleetReserve.Clear();
+        foreach (var f in start.Fleets.Where(f => f.Index % 10 != 0 && Others.All(o => o.Index != f.Index)))
+            FleetReserve[f.Index] = [.. f.Slots.Where(s => s.Present)];
         _othersScale = -1;
         // 첫 배는 그 주인공 시나리오(SNRn.DAT)의 첫 이벤트가 주는 선종이다 — 배 주기 명령 F9.
         Economy = _economyBase?.Clone();
