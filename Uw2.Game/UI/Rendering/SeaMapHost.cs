@@ -1033,9 +1033,13 @@ public sealed partial class SeaMapHost : HwndHost
     /// <summary>흥정에서 쫓겨났다 — 하루 끝까지 조선소에 못 든다(<c>0x0049F5A4</c> &amp; 2, <c>0x004178DF</c> 가 지운다).</summary>
     public bool ShipyardBanned { get; set; }
 
+    /// <summary>오늘 주점에서 선원을 모았다(<c>0x0049F5A4</c> &amp; 1) — 하루 끝에 지운다.</summary>
+    public bool CrewHiredToday { get; set; }
+
     private void PortsDay()
     {
         ShipyardBanned = false;
+        CrewHiredToday = false;
         if (Scenario is { } sv) Uw2.Game.Engine.Town.Barmaids.NewDay(sv.Memory);   // 0x00417E50
         if (Economy is not { } eco || Scenario is not { } vm) return;
         Nations.PortsDay(eco.StateBytes,

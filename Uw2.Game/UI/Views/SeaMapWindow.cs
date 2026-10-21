@@ -1618,6 +1618,8 @@ public sealed class SeaMapWindow : Window
     private void HireCrew()
     {
         var p = _host.Player;
+        // 하루에 한 번 — 고용하면 0x0049F5A4 의 1 이 서고(0x00424261) 그날은 목록에서 막힌다(0x00426D83).
+        if (_host.CrewHiredToday) { Note(" · 오늘은 이미 선원을 모았습니다 — 내일 다시 오세요"); return; }
         if (p.Vacancy == 0) { Note(M(0x1D, "더 태울 자리가 없습니다")); return; }
         if (p.Gold < Pub.MinGold) { Note(M(0x1E, "돈이 모자랍니다")); return; }
         int port = _host.CurrentPort;
@@ -1634,6 +1636,7 @@ public sealed class SeaMapWindow : Window
         int n = AmountDialog.Ask(this, $"선원 고용 — {available}명이 일하겠답니다 · 한 사람 {price} · 빈 자리 {p.Vacancy}", most);
         if (n <= 0) return;
         int hired = p.Hire(n, price);
+        _host.CrewHiredToday = true;
         _host.SyncLoad();
         Note(M(0x79, $"선원 {hired}명을 {hired * price}에 고용했습니다", hired) + $" · 금화 {hired * price}");
     }
