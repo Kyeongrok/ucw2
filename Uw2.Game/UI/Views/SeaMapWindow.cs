@@ -352,6 +352,7 @@ public sealed class SeaMapWindow : Window
             else Say(0x62, $"어서 오세요, 셜록은행 {_host.SceneName} 지점입니다.", _host.SceneName);
         }
         if (b == ShipyardBuilding) Say(0x4D, "우리 조선소에 무슨 용건이 있는 거요？");   // 0x0042A980
+        if (b == HarborBuilding) AtHarbor();
         // 조합 — 깃발 16 · 17 이 둘 다 섰으면 「~왕이 당신을 찾고 있어.」(0x0041E99B)
         if (b == GuildBuilding && _host.Common is { } gc && gc.GetFlag(16) && gc.GetFlag(17) && _host.HeroNation < 6)
             Say(-1, KingCalls(_host.HeroNation) + MsgOr(0x3A4, "당신을 찾고 있어."));
@@ -2734,7 +2735,7 @@ public sealed class SeaMapWindow : Window
 
     /// <summary>
     /// 바다에서 항구에 든다(<c>0x0041A8D0</c>) — 함대 둘레 열두 칸에 항구가 있으면 「%s항에 기항하겠습니다.」(0x16D)를 묻고, 그러면 기항 셈
-    /// (<c>0x0041A560</c>, 항해 경험)을 하고 항구를 띄운 뒤 남고 싶은 동료를 묻는다(<c>0x00423DC1</c>). <paramref name="port"/> 가 -1 이면 옆 항구를 찾는다.
+    /// (<c>0x0041A560</c>, 항해 경험)을 하고 항구를 띄운다. <paramref name="port"/> 가 -1 이면 옆 항구를 찾는다.
     /// </summary>
     private void EnterPortFromSea(int port)
     {
@@ -2753,6 +2754,16 @@ public sealed class SeaMapWindow : Window
         if (port < SeaMapHost.SmallPortFirst) _portPick.SelectedIndex = port;
         Retitle();
         foreach (var line in notes) Say(-1, line);
+        if (port >= SeaMapHost.SmallPortFirst) SmallPortMenu();
+    }
+
+    /// <summary>
+    /// 「항」 건물에 들 때(<c>0x00423CB0</c> — 건물 손표 <c>0x00459BF8</c> 의 넷째) — 남고 싶은 동료를 묻고(<c>0x00423DC1</c>) 왕이 찾는다는 소문(<c>0x00423F1A</c>).
+    /// </summary>
+    private void AtHarbor()
+    {
+        int port = _host.CurrentPort;
+        string name = _host.SceneName;
         foreach (var (mate, wage) in _host.MatesWantingToStay())
         {
             string who = _host.PersonName(mate);
@@ -2767,7 +2778,6 @@ public sealed class SeaMapWindow : Window
             }
         }
         RoyalSummons(port);
-        if (port >= SeaMapHost.SmallPortFirst) SmallPortMenu();
     }
 
     /// <summary>나라마다 「~왕이 」(0x19A + 나라).</summary>
@@ -2775,7 +2785,7 @@ public sealed class SeaMapWindow : Window
         MsgOr(0x19A + Math.Clamp(nation, 0, 5), "왕이 ");
 
     /// <summary>
-    /// 기항 끝 소문(<c>0x00423F1A</c>) — SNR0 일이 없고 깃발 16 · 17 가운데 하나가 섰으며 18 이 아니고 제 나라 항구면
+    /// 「항」 건물 소문(<c>0x00423F1A</c>) — SNR0 일이 없고 깃발 16 · 17 가운데 하나가 섰으며 18 이 아니고 제 나라 항구면
     /// 「그리고 보니, ~왕이 당신을 찾고 있다는 소문이 있소.」(0x199 · 0x19A + 나라 · 0x1A0), 그리고 깃발 17 을 세운다.
     /// </summary>
     private void RoyalSummons(int port)
