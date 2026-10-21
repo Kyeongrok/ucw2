@@ -2118,6 +2118,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
         bar.Children.Add(Button("편성", (_, _) => Organize()));
         bar.Children.Add(Button("지휘", (_, _) => Command()));
+        bar.Children.Add(Button("항이동", (_, _) => SailToPort()));
         bar.Children.Add(Button("정박", (_, _) => ToggleAnchor()));
         bar.Children.Add(Button("입항", (_, _) => EnterPortFromSea(-1)));
         bar.Children.Add(Button("상륙", (_, _) => Land()));
@@ -2667,6 +2668,29 @@ public sealed class SeaMapWindow : Window
         if (spot is { } s) AtVillage(s.Index);
         else OnShore();
         f.UnderSail = true;
+    }
+
+    /// <summary>
+    /// 「항이동」(<c>0x00448220</c>) — 측량술(+0x30 &amp; 0x10)을 가진 부선장(처지 3)이 있어야 한다(없으면 0x357, 여자 동료면 0x358).
+    /// 들른 적 있는 항구(항구 표 +0x15 &amp; 0x10, <c>0x0043CE30</c>)를 골라 그리로 간다.
+    /// </summary>
+    private void SailToPort()
+    {
+        if (_host.Fleet is null || _host.CurrentPort >= 0 || _host.Scenario is not { } vm || _host.Ports is not { } pt) return;
+        var m = vm.Memory;
+        int mate = Navigators.InPost(m, 0);
+        if (mate < 0 || (Navigators.Get(m, mate, SkillField) & 0x10) == 0)
+        {
+            Say(0x357, "항구이동엔, 측량기능을 가진 부선장이 필요합니다.");
+            return;
+        }
+        var known = Enumerable.Range(0, pt.Ports.Count)
+            .Where(p => (m.Read(ScenarioMemory.At(ScenarioMemory.PortTable, p, 0x15), false) & 0x10) != 0).ToList();
+        if (known.Count == 0) { Note(" · 아는 항구가 없습니다"); return; }
+        int pick = BuildingMenu.Ask(this, "항이동 — 어느 항구로", [.. known.Select(p => pt.Ports[p].Name)]);
+        if (pick < 0) return;
+        if (!_host.StartAutopilot(known[pick])) { Note(" · 그 항구로 가는 뱃길을 못 찾았습니다"); return; }
+        Note($" · {pt.Ports[known[pick]].Name}(으)로 항이동을 시작합니다");
     }
 
     /// <summary>「정박」(<c>0x00445690</c>) — 닻을 내리고 올린다. 내린 동안은 서 있지만 날은 흐른다.</summary>

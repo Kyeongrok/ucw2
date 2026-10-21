@@ -1423,7 +1423,11 @@ public sealed partial class SeaMapHost : HwndHost
         for (int i = 0; i < Math.Min(ticks, 20); i++)
         {
             int day = Fleet.DaysAtSea;
+            AutopilotTick();
+            if (!Fleet.UnderSail) break;
+            double fromX = Fleet.X, fromY = Fleet.Y;
             Fleet.Step();
+            AutopilotMoved(fromX, fromY);
             Survey.Visit(Fleet.X, Fleet.Y);
             if (Monsters?.Meet((int)Fleet.X, (int)Fleet.Y) is >= 0 and var monster) OnMonster(monster);
             LookAround();
@@ -1634,6 +1638,7 @@ public sealed partial class SeaMapHost : HwndHost
     public void Steer(int by)
     {
         if (Fleet == null) return;
+        StopAutopilot();
         Fleet.Turn(by);
         _dirty = true;
     }
@@ -1642,6 +1647,7 @@ public sealed partial class SeaMapHost : HwndHost
     public void SteerTo(int dir)
     {
         if (Fleet == null) return;
+        StopAutopilot();
         Fleet.Heading = ((dir % Fleet.DirCount) + Fleet.DirCount) % Fleet.DirCount;
         _dirty = true;
     }
