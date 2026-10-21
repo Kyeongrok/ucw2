@@ -15,7 +15,7 @@ namespace Uw2.Game.Engine.Sea;
 /// <item>맑으면 <c>0x00418F80</c> — 그 자리 바람 바이트 비트 7(날씨 바다)이 서 있고, <c>rand(155)</c> 가
 ///   운(사람 +0x23, 제독과 동료 가운데 큰 것)+50 보다 크고, 배들의 <c>+0x1D</c> 평균이 <c>rand(5)</c> 보다 작으면
 ///   해류 바이트 비트 6 · 7 로 갈래를 고른다.
-///   <c>0x40</c> 폭풍(<c>rand(7)+3 &lt; 풍속</c>) · <c>0x80</c> 무풍(<c>rand(6) &gt;= 풍속</c>) ·
+///   <c>0x40</c> 폭풍(<c>rand(7)+3 &gt;= 풍속</c>, 향유로 막은 날이 없을 때) · <c>0x80</c> 무풍(<c>rand(6) &gt;= 풍속</c>) ·
 ///   <c>0xC0</c> 안개(<c>rand(10) == 0</c> 이고 <c>rand(6) &gt;= 풍속</c>). 걸리면 조짐(<c>0x00419250</c>).</item>
 /// <item>조짐이면 <c>0x004193D0</c> — 들이닥친다(비트 7). 「폭풍우입니다!!」 따위를 알린다.</item>
 /// <item>들이닥친 뒤 — 폭풍은 풍속을 7 로 올리고 배를 친다(<c>0x004194D0</c>), 무풍은 풍속을 0 으로 누른다
@@ -53,8 +53,18 @@ public sealed class Weather
     /// <summary>알릴 말이 생기면 부른다. 글은 <c>MESSAGE.DAT</c> 그대로다.</summary>
     public event Action<string>? Said;
 
-    /// <summary>날 넘김 — 오늘 들이닥친 표시를 지운다.</summary>
-    public void NewDay() => StruckToday = false;
+    /// <summary>
+    /// 폭풍을 막는 남은 날 — 성스런 향유를 쓰면 rand(6) + 10(<c>0x0041FBFA</c>, <c>0x0049EFBC</c>). 0 이 아니면 폭풍이 일지 않고(<c>0x0041922A</c>)
+    /// 하루 끝마다 하나 준다(<c>0x00417908</c>).
+    /// </summary>
+    public int StormGuard { get; set; }
+
+    /// <summary>날 넘김 — 오늘 들이닥친 표시를 지우고 폭풍 막이 날을 하나 줄인다.</summary>
+    public void NewDay()
+    {
+        StruckToday = false;
+        if (StormGuard > 0) StormGuard--;
+    }
 
     /// <summary>폭풍이 덮쳤다 — 배마다 부서진다(<c>0x004193D0</c> → <c>0x004194D0</c>, <see cref="StormDamage"/>).</summary>
     public event Action? StormHit;
@@ -124,7 +134,7 @@ public sealed class Weather
 
         Kind kind = (currentByte & 0xC0) switch
         {
-            0x40 when rng.Next(7) + 3 < windSpeed => Kind.Storm,
+            0x40 when rng.Next(7) + 3 >= windSpeed && StormGuard == 0 => Kind.Storm,
             0x80 when rng.Next(6) >= windSpeed => Kind.Calm,
             0xC0 when rng.Next(10) == 0 && rng.Next(6) >= windSpeed => Kind.Fog,
             _ => Kind.Clear,
@@ -141,9 +151,12 @@ public sealed class Weather
         });
     }
 
-    /// <summary>성스런 향유 — 폭풍이면 멎게 한다(<c>0x0041FB90</c>, 0x0049F598 &amp; 0xF == 1). 멎었으면 참.</summary>
-    public bool Calm()
+    /// <summary>
+    /// 성스런 향유 — 폭풍이면 멎게 한다(<c>0x0041FB90</c>, 0x0049F598 &amp; 0xF == 1). 멎었으면 참. 멎든 말든 rand(6) + 10 날 폭풍을 막는다.
+    /// </summary>
+    public bool Calm(Func<int, int> rand)
     {
+        StormGuard = rand(6) + 10;
         if (Current != Kind.Storm) return false;
         Current = Kind.Clear;
         Brewing = false;

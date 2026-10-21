@@ -2358,7 +2358,7 @@ public sealed class SeaMapWindow : Window
                 usedUp = true;
                 break;
             case 9 when item == 0x2A:
-                said = f?.Weather.Calm() == true
+                said = f?.Weather.Calm(_host.Roll) == true
                     ? (f.TimeOfDay is >= 12 and < 60 ? "폭풍이 멈췄다…지금은낮이다" : "폭풍이 멈췄다…지금은밤이다")
                     : "특별히 아무일도 일어나지 않았다";
                 usedUp = true;
