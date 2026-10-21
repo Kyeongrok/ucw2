@@ -112,4 +112,23 @@ public class NationsTests
         Assert.Equal((6, 18, 4, 4), (F(1, 5), F(1, 6), F(1, 7), F(1, 8)));   // k = 18000
         Assert.Equal((0, 0xFF, 0), (F(2, 5), F(2, 7), F(2, 8)));
     }
+
+    [Fact]
+    public void Relations_follow_table_0x00458DF0()
+    {
+        var m = new ScenarioMemory();
+        void Set(int n, int f, int v, bool word = false) => m.Write(ScenarioMemory.At(ScenarioMemory.NationTable, n, f), v, word);
+        int Get(int n, int f) => m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, n, f), false);
+        Set(0, 0, 100, true); Set(1, 0, 100, true);
+        Set(0, Nations.RelationField + 1, 80); Set(1, Nations.RelationField + 0, 80);
+        // 0 → 1: 세기 같다(갈래 3), 사이 80(갈래 2), 깃발 없음(열 2) → 값 8: 사이 80 < rand(100) = 99 이면 2.
+        Nations.Relations(m, n => n - 1, p => 6, (_, _) => { });
+        Assert.Equal(2, Get(0, 0x12 + 1) & 0x0F);
+        Assert.Equal(0, Get(0, 0x12 + 0));
+        // 세기가 두 배 넘게 세면(갈래 0) 사이 80 · 깃발 0x20(열 0) → 6 그대로.
+        Set(0, 0, 500, true);
+        Set(0, 0x12 + 1, 0x20);
+        Nations.Relations(m, n => 0, p => 6, (_, _) => { });
+        Assert.Equal(0x26, Get(0, 0x12 + 1));
+    }
 }

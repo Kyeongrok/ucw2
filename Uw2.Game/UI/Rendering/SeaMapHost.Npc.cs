@@ -44,6 +44,15 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
         int hero = HeroPersonNumber;
         Nations.NewMonth(m, ports, n => m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + n), false), HeroNation, Roll,
                          p => p < ports.Count ? ports[p].Item1 : Nations.Pirates);
+        Nations.Relations(m, Roll, p => p < ports.Count ? ports[p].Item1 : Nations.Pirates, (p, by) =>
+        {
+            // 빼앗은 항구(0x0042C0D0) — 임자를 바꾸고 그 나라 몫을 rand(10) + 80 으로.
+            var at = ScenarioMemory.At(ScenarioMemory.PortTable, p, 0x15);
+            m.Write(at, (m.Read(at, false) & 0xF8) | by, false);
+            int o = p * Support.Local.Formats.Economy.StateSize;
+            if (o + 8 + by < raw.Length) raw[o + 8 + by] = (byte)(Roll(10) + 80);
+            Economy?.RestoreStates(raw);
+        });
         Nations.Aid(m, hero);
     }
 

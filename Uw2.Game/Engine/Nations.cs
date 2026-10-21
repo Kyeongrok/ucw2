@@ -11,7 +11,7 @@ namespace Uw2.Game.Engine;
 ///   +0x0B  나라마다 사이(일곱, 100 이 제 나라)  +0x12 나라마다 맞섬(여섯)
 /// </code>
 /// 여기 옮긴 것은 세기(<c>0x0042B980</c>) · 노리는 나라(<c>0x0042BB60</c>) · 방침(<c>0x0042BCB0</c>) · 상선 행선(<c>0x0042BD90</c>)이다.
-/// 원조 쌓기(<c>0x0042B540</c>)도 옮겼다. 맞섬(<c>0x0042BEA0</c>) · 함대 다시 짓기(<c>0x0042ACF0</c> ~ <c>0x0042B3E0</c>)는 아직이다.
+/// 나라 사이 형편(<c>0x0042BEA0</c>) · 원조 쌓기(<c>0x0042B540</c>)도 옮겼다. 함대 다시 짓기(<c>0x0042ACF0</c> ~ <c>0x0042B3E0</c>)는 아직이다.
 /// </remarks>
 public static class Nations
 {
@@ -176,6 +176,68 @@ public static class Nations
                 m.Write(At(8), 0, false);
             }
         }
+    }
+
+    /// <summary>
+    /// 나라 사이 형편(<c>0x0042BEA0</c>) — 여섯 나라 짝마다 맞섬 바이트(나라 +0x12 + 상대)의 아래 네 비트를 표 <c>0x00458DF0</c> 로 고친다
+    /// (<c>0x0042BEF0</c>). 표 자리는 사이(+0x0B + 상대) 갈래 (사이 + 9) / 40, 세기 갈래(제 세기 / 2 &gt; 상대 0, 제 &lt; 상대 / 2 이면 1,
+    /// 제 ≤ 상대 3, 아니면 2), 깃발(0x20 이면 0, 0x10 이면 1, 없으면 2). 값 7 은 rand(100) &lt; 사이면 3, 8 은 사이 &lt; rand(100) 이면 2,
+    /// 9 · 10 은 사이 &lt; rand(20) + 30 · rand(10) + 30 이면 2, 아니면 0. 그 밖의 값은 그대로.
+    /// 그러고 나서(<c>0x0042C020</c>) 바이트 전체가 1 이면 사이가 두 쪽 다 rand(5) + 3 오르고, 4 면 싸움 —
+    /// rand(50) &lt; min(50, 제 세기 x 10 / 상대 세기)이면 상대의 (본거지 아닌) 마지막 항구를 빼앗는다(<c>0x0042C0D0</c>: 임자를 바꾸고
+    /// 몫 rand(10) + 80, 나라 +0x19 + 상대에 그 항구). 4 는 깃발 0x10 칸에서만 나와 바이트 전체가 4 가 될 수 없다 — 원본 그대로 옮긴다.
+    /// </summary>
+    public static void Relations(ScenarioMemory m, Func<int, int> rand, Func<int, int> portOwner, Action<int, int> conquer, int portCount = 100)
+    {
+        ReadOnlySpan<byte> table =
+        [
+            0, 3, 0, 1, 3, 5, 0, 3, 1, 1, 3, 5,
+            6, 4, 9, 1, 3, 10, 6, 7, 9, 0, 3, 10,
+            6, 4, 2, 6, 3, 1, 6, 7, 8, 6, 7, 8,
+        ];
+        ScenarioMemory.Pointer At(int n, int f) => ScenarioMemory.At(ScenarioMemory.NationTable, n, f);
+        int Byte(int n, int f) => m.Read(At(n, f), false);
+        int Power(int n) => (short)m.Read(At(n, PowerField), true);
+        for (int i = 0; i < 6; i++)
+            for (int j = 0; j < 6; j++)
+            {
+                if (i == j) { m.Write(At(i, 0x12 + j), 0, false); continue; }
+                int pi = Power(i), pj = Power(j);
+                int band = pi / 2 > pj ? 0 : pi < pj / 2 ? 1 : pi <= pj ? 3 : 2;
+                int flags = Byte(i, 0x12 + j);
+                int col = (flags & 0x20) != 0 ? 0 : (flags & 0x10) != 0 ? 1 : 2;
+                int rel = Byte(i, RelationField + j);
+                int v = table[3 * band + 12 * ((rel + 9) / 40) + col];
+                int state = v switch
+                {
+                    7 => rand(100) < rel ? 3 : 0,
+                    8 => rel < rand(100) ? 2 : 0,
+                    9 => rel < rand(20) + 30 ? 2 : 0,
+                    10 => rel < rand(10) + 30 ? 2 : 0,
+                    _ => v,
+                };
+                m.Write(At(i, 0x12 + j), (flags & 0xF0) | (state & 0x0F), false);
+
+                int now = Byte(i, 0x12 + j);
+                if (now == 1)
+                {
+                    int up = (Byte(j, RelationField + i) + rand(5) + 3) & 0xFF;
+                    m.Write(At(j, RelationField + i), up, false);
+                    m.Write(At(i, RelationField + j), up, false);
+                }
+                else if (now == 4)
+                {
+                    int chance = pj != 0 && pi * 10 / pj < 50 ? pi * 10 / pj : 50;
+                    if (rand(50) >= chance) continue;
+                    for (int p = portCount - 1; p >= 0; p--)
+                        if ((portOwner(p) & 7) == j && Byte(j, 0x0A) != p)
+                        {
+                            conquer(p, i);
+                            m.Write(At(i, 0x19 + j), p, false);
+                            break;
+                        }
+                }
+            }
     }
 
     /// <summary>
