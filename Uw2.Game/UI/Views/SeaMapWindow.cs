@@ -3139,7 +3139,9 @@ public sealed class SeaMapWindow : Window
                 Note($" · {Josa(who, "이", "가")} {name}에 남았습니다");
             }
         }
-        RoyalSummons(port);
+        // 소문이 없었고 두 변수 판의 0x3F(0x0049F3DE · 0x0049F56E)가 다 0 이면 「여어, 출항하시는 겁니까？」(0x38, 0x00423FB9).
+        if (!RoyalSummons(port) && (_host.Common?.GetVar(0x3F) ?? 0) == 0 && (_host.Scenario?.GetVar(0x3F) ?? 0) == 0)
+            Say(0x38, "여어, 출항하시는 겁니까？");
     }
 
     /// <summary>나라마다 「~왕이 」(0x19A + 나라).</summary>
@@ -3150,14 +3152,15 @@ public sealed class SeaMapWindow : Window
     /// 「항」 건물 소문(<c>0x00423F1A</c>) — SNR0 일이 없고 깃발 16 · 17 가운데 하나가 섰으며 18 이 아니고 제 나라 항구면
     /// 「그리고 보니, ~왕이 당신을 찾고 있다는 소문이 있소.」(0x199 · 0x19A + 나라 · 0x1A0), 그리고 깃발 17 을 세운다.
     /// </summary>
-    private void RoyalSummons(int port)
+    private bool RoyalSummons(int port)
     {
-        if (_host.Common is not { } c || c.Chapter != 0 || port >= SeaMapHost.SmallPortFirst) return;
-        if (!(c.GetFlag(16) || c.GetFlag(17)) || c.GetFlag(18)) return;
+        if (_host.Common is not { } c || c.Chapter != 0 || port >= SeaMapHost.SmallPortFirst) return false;
+        if (!(c.GetFlag(16) || c.GetFlag(17)) || c.GetFlag(18)) return false;
         int nation = _host.HeroNation;
-        if (nation >= 6 || _host.PortNation(port) != nation) return;
+        if (nation >= 6 || _host.PortNation(port) != nation) return false;
         Say(-1, MsgOr(0x199, "그리고 보니, ") + KingCalls(nation) + MsgOr(0x1A0, "당신을 찾고 있다는 소문이 있소."));
         c.SetFlag(17, true);
+        return true;
     }
 
     /// <summary>
