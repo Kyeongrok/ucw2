@@ -1757,10 +1757,47 @@ public sealed class SeaMapWindow : Window
         int n = AmountDialog.Ask(this, MsgOr(0x22, "선원 한 사람당,") + " " + MsgOr(0x7C, $"금화 {price}닢이 필요합니다.", price) + " "
                                        + MsgOr(0x7D, "몇명 데리고 갈까요？"), most);
         if (n <= 0) return;
-        int hired = p.Hire(n, price);
+        n = Math.Min(n, p.Gold / Math.Max(1, price));
+        p.SetGold(p.Gold - n * price);
         _host.CrewHiredToday = true;
+        int left = PlaceCrew(n);
+        if (left > 0) p.SetGold(p.Gold + left * price);           // 태우지 않은 사람 몫은 돌려받는다(0x004246E0)
         _host.SyncLoad();
-        Note($" · 선원 {hired}명 · 금화 {hired * price}");
+        Note($" · 선원 {n - left}명 · 금화 {(n - left) * price}");
+    }
+
+    /// <summary>
+    /// 모은 선원을 배마다 나눠 태운다(<c>0x00424540</c> 고용 쪽) — 배를 고르면 그 배 선원도 무리에 넣고 「%s의 선원을 몇 명으로
+    /// 하겠습니까(0-%d)？」(0x359)로 다시 정한다. 늘어난 만큼 사기를 60 쪽으로(60 + (사기 − 60) x 전 선원 / 새 선원).
+    /// 무리가 남은 채 물리면 「선원이 남아 있습니다만 좋겠습니까？」(0x23). 무리를 다 태우면 끝낸다. 남은 수를 돌려준다.
+    /// </summary>
+    private int PlaceCrew(int pool)
+    {
+        var ships = _host.Player.Ships;
+        while (pool > 0)
+        {
+            int pick = ships.Count == 1 ? 0
+                : BuildingMenu.Ask(this, $"선원 배치 — 남은 선원 {pool}명", ships.Select(sh => $"{sh.Name}  선원 {sh.Crew}/{sh.MaxCrew}").ToList());
+            if (pick < 0)
+            {
+                if (MessageBox.Show(this, MsgOr(0x23, "선원이 남아 있습니다만 좋겠습니까？"), "선원 고용", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                    return pool;
+                continue;
+            }
+            var ship = ships[pick];
+            int before = ship.Crew, total = before + pool, most = Math.Min(ship.MaxCrew, total);
+            int keep = AmountDialog.Ask(this, MsgOr(0x359, $"{ship.Name}의 선원을 몇 명으로 하겠습니까(0-{most})？", ship.Name, most), most);
+            if (keep < 0)
+            {
+                if (ships.Count == 1) return pool;
+                continue;
+            }
+            ship.Crew = keep;
+            pool = total - keep;
+            if (keep > before) ship.Morale = PlayerState.DefaultMorale + (ship.Morale - PlayerState.DefaultMorale) * before / keep;
+            else if (keep == 0) ship.Morale = 0;
+        }
+        return 0;
     }
 
     /// <summary>교역소 「구입」 — 고른 교역품을 수만큼 산다(<see cref="Economy.ForSale"/> 값, <see cref="PlayerState.Buy"/>).</summary>
