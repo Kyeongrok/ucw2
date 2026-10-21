@@ -35,6 +35,19 @@ public static class Navigators
         Mates(m).Select(x => x.Person).FirstOrDefault(p => Get(m, p, Status) >= FreeFrom, -1);
 
     /// <summary>
+    /// 말을 거드는 동료(<c>0x004367D0</c>) — 처지 4 경리주임 · 3 부선장 · 5 수석항해사 · 2 선장 · 6 동료 순으로, 그 처지인 첫 동료다.
+    /// 원본은 이이의 얼굴로 제독에게 말을 건다(「급여설정」에서 이이를 고르면 0xDD 「내 급료는 …」). 동료가 없으면 -1.
+    /// </summary>
+    public static int Adviser(ScenarioMemory m)
+    {
+        var people = Mates(m).Select(x => x.Person).ToList();
+        foreach (int status in (int[])[4, 3, 5, Captain, Employed])
+            foreach (int p in people)
+                if (Get(m, p, Status) == status) return p;
+        return -1;
+    }
+
+    /// <summary>
     /// 「인사변경」(<c>0x00445ED0</c>) — 처지 3 부선장 · 4 경리주임 · 5 수석항해사(<c>0x00445BE0</c>). 자리마다 한 사람이다.
     /// </summary>
     public static readonly string[] PostNames = ["부선장", "경리주임", "수석항해사"];

@@ -713,6 +713,22 @@ public class AssetTests
     }
 
     [Fact]
+    public void AdviserPrefersPurserThenFirstMate()
+    {
+        var pack = Load();
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.PeopleTable, pack.Start!.PeopleBytes);
+        m.Fill(Uw2.Game.Engine.ScenarioMemory.MiscTable, pack.Start.MiscBytes);
+        Uw2.Game.Engine.Town.Navigators.Join(m, 85, 0, 300);
+        Uw2.Game.Engine.Town.Navigators.Join(m, 96, 0, 300);
+        Assert.Equal(85, Uw2.Game.Engine.Town.Navigators.Adviser(m));                      // 둘 다 동료(6) — 첫 칸
+        Uw2.Game.Engine.Town.Navigators.Appoint(m, 96, 0);                                 // 부선장(3)
+        Assert.Equal(96, Uw2.Game.Engine.Town.Navigators.Adviser(m));
+        Uw2.Game.Engine.Town.Navigators.Appoint(m, 85, 1);                                 // 경리주임(4)이 먼저다
+        Assert.Equal(85, Uw2.Game.Engine.Town.Navigators.Adviser(m));
+    }
+
+    [Fact]
     public void TaxPermitDropsTheMarkupAndExpiresInAprilAndOctober()
     {
         var pack = Load();

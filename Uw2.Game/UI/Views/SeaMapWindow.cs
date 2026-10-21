@@ -3620,7 +3620,11 @@ public sealed class SeaMapWindow : Window
         if (Navigators.Get(vm.Memory, person, Navigators.Liking) >= 80) { Say(0xDC, "제독님, 그런 걱정은 안 해도 됩니다."); return; }
         while (true)
         {
-            int amount = AmountDialog.Ask(this, MsgOr(0xDE, $"{name}의 급료를 얼마로 하겠습니까？", name) + $" (지금 {wage})", Navigators.MaxWage);
+            // 말을 거드는 동료(0x004367D0) 자신이면 「내 급료는 얼마로 해주시는 겁니까？」(0xDD), 아니면 0xDE.
+            string ask = person == Navigators.Adviser(vm.Memory)
+                ? MsgOr(0xDD, "내 급료는 얼마로 해주시는 겁니까？")
+                : MsgOr(0xDE, $"{name}의 급료를 얼마로 하겠습니까？", name);
+            int amount = AmountDialog.Ask(this, ask + $" (지금 {wage})", Navigators.MaxWage);
             if (amount < 0) return;
             if (Navigators.SetWage(vm.Memory, slot, person, amount) == Navigators.WageAnswer.Thanks) { Say(0xDF, "감사합니다."); return; }
             Say(0xE0, "겨우 그 정도라니, 말도 안돼.");
