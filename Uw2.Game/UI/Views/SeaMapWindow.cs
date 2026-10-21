@@ -2107,6 +2107,42 @@ public sealed class SeaMapWindow : Window
         if (b.Water + b.Food + b.Lumber + b.Shot + b.Amount == 0) return;
         string goods = b.Good >= 0 && _host.Economy is { } eco && b.Good < eco.GoodsNames.Count ? $" · {eco.GoodsNames[b.Good]} {b.Amount}" : "";
         Note($" · 거둔 것: 물 {b.Water} · 식량 {b.Food} · 자재 {b.Lumber} · 탄약 {b.Shot}{goods}");
+        ShareBooty();
+    }
+
+    /// <summary>
+    /// 노획 짐 나누기(<c>0x004477C0</c>) — 배를 고르고(취소하면 남은 것이 있으면 「아직 적하가 남아 있습니다만, 좋습니까？」 0xD3, 없으면 0xDB)
+    /// 그 배에 실을 것을 고른 뒤(<c>0x00447000</c>) 양을 넣는다(<c>0x00447570</c>). 닫으면 남은 것은 버린다.
+    /// </summary>
+    private void ShareBooty()
+    {
+        var left = _host.BootyLeft;
+        string goodName = _host.Booty.Good >= 0 && _host.Economy is { } eco && _host.Booty.Good < eco.GoodsNames.Count ? eco.GoodsNames[_host.Booty.Good] : "교역품";
+        string[] kinds = ["물", "식량", "자재", "탄약", goodName];
+        while (left.Any(x => x > 0))
+        {
+            var ships = _host.Player.Ships;
+            int pick = BuildingMenu.Ask(this, "노획품 — 어느 배에 " + string.Join(" · ", kinds.Select((k, i) => left[i] > 0 ? $"{k} {left[i]}" : null).OfType<string>()),
+                [.. ships.Select(s => $"{s.Name}  빈 자리 {s.Free}")]);
+            if (pick < 0)
+            {
+                if (MessageBox.Show(this, MsgOr(0xD3, "아직 적하가 남아 있습니다만, 좋습니까？"), "노획품", MessageBoxButton.YesNo) == MessageBoxResult.Yes) break;
+                continue;
+            }
+            while (true)
+            {
+                var have = Enumerable.Range(0, 5).Where(k => left[k] > 0).ToList();
+                if (have.Count == 0) break;
+                int k = BuildingMenu.Ask(this, $"{ships[pick].Name} — 빈 자리 {ships[pick].Free}",
+                    [.. have.Select(i => $"{kinds[i]}  {left[i]}  (실을 수 있는 것 {_host.BootyRoom(pick, i)})")]);
+                if (k < 0) break;
+                int kind = have[k], room = _host.BootyRoom(pick, kind);
+                if (room <= 0) { Note($" · {ships[pick].Name}에는 더 실을 수 없습니다"); continue; }
+                int amount = AmountDialog.Ask(this, $"{kinds[kind]} — 얼마나 싣겠습니까", room);
+                if (amount > 0) _host.LoadBooty(pick, kind, amount);
+            }
+        }
+        Array.Clear(left);
     }
 
     /// <summary>
@@ -2947,6 +2983,7 @@ public sealed class SeaMapWindow : Window
             log.AppendLine($"끝 {battle.Result} · 시각 {battle.Time} · 차례 {turns}");
             int gold = _host.Player.Gold;
             var spoils = _host.CloseBattle(battle, enemy);
+            _host.StowBooty();
             log.AppendLine($"명성 +{spoils.Fame} · 금화 +{spoils.Gold} ({gold} → {_host.Player.Gold}) · 아이템 {spoils.Item ?? "-"} · 나포 후보 {spoils.Prizes.Count}");
             log.AppendLine($"거둔 것 {_host.Booty}");
             log.AppendLine($"남은 남 함대 {_host.Others.Count} · 그 함대 남음 {_host.Others.Contains(enemy)}");

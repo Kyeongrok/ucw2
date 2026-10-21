@@ -283,7 +283,7 @@ public sealed partial class SeaMapHost
         int vx = Math.Clamp((f?.X ?? 0) - 6, 0, Battle.Width - 13), vy = Math.Clamp((f?.Y ?? 0) - 6, 0, Battle.Height - 12);
         var prizes = b.SideShips(EnemySide).Where(s => s.Hull > 0 && s.X >= vx && s.X < vx + 13 && s.Y >= vy && s.Y < vy + 12).ToList();
         Booty = Salvage(b, enemy, prizes);
-        StowBooty(Booty);
+        BootyLeft = [Booty.Water, Booty.Food, Booty.Lumber, Booty.Shot, Booty.Good >= 0 ? Booty.Amount : 0];
         return (gold, item, prizes);
     }
 
@@ -329,34 +329,44 @@ public sealed partial class SeaMapHost
         return new Spoil(Math.Max(0, water), Math.Max(0, food), Math.Max(0, lumber), shot, goods > 0 ? good : -1, Math.Max(0, goods));
     }
 
+    /// <summary>아직 배에 안 실은 거둔 것 — 물 · 식량 · 자재 · 탄약 · 교역품(<see cref="Spoil.Good"/>). 창을 닫으면 남은 것은 버린다.</summary>
+    public int[] BootyLeft { get; private set; } = new int[5];
+
     /// <summary>
-    /// 거둔 것을 배에 싣는다 — 원본은 나누기 창(<c>0x004477C0</c>)으로 배마다 고르게 한다. 여기서는 앞 배부터 빈 자리만큼 채우고 남는 것은 버린다.
+    /// 나누기 창(<c>0x004477C0</c> → <c>0x00447000</c>)의 한 번 — 배 <paramref name="ship"/> 에 거둔 것 <paramref name="kind"/>(0 ~ 4)를
+    /// <paramref name="amount"/> 까지 싣고 실은 양을 돌려준다. 물 · 식량은 열 통이 짐 하나, 교역품은 같은 것이 든 칸이나 빈 칸에.
     /// </summary>
-    private void StowBooty(Spoil spoil)
+    public int LoadBooty(int ship, int kind, int amount)
     {
-        int[] left = [spoil.Water, spoil.Food, spoil.Lumber, spoil.Shot];
-        int goods = spoil.Amount;
-        foreach (var ship in Player.Ships)
+        int fit = Math.Min(amount, BootyRoom(ship, kind));
+        if (fit <= 0) return 0;
+        var s = Player.Ships[ship];
+        if (kind < 4) s.Supplies[kind] += fit;
+        else
         {
-            for (int k = 0; k < 4; k++)
-            {
-                int unit = k < 2 ? PlayerState.Lot : 1;   // 물 · 식량은 열 통이 짐 하나
-                int fit = Math.Min(left[k], ship.Free * unit);
-                ship.Supplies[k] += fit;
-                left[k] -= fit;
-            }
-            if (goods > 0 && spoil.Good >= 0)
-            {
-                int slot = Array.FindIndex(ship.Cargo, c => c.Good == spoil.Good);
-                if (slot < 0) slot = Array.FindIndex(ship.Cargo, c => c.Good < 0);
-                if (slot >= 0)
-                {
-                    int fit = Math.Min(goods, ship.Free);
-                    if (fit > 0) { ship.Cargo[slot] = (spoil.Good, ship.Cargo[slot].Amount + fit); goods -= fit; }
-                }
-            }
+            int slot = Array.FindIndex(s.Cargo, c => c.Good == Booty.Good);
+            if (slot < 0) slot = Array.FindIndex(s.Cargo, c => c.Good < 0);
+            s.Cargo[slot] = (Booty.Good, s.Cargo[slot].Amount + fit);
         }
+        BootyLeft[kind] -= fit;
         SyncLoad();
+        return fit;
+    }
+
+    /// <summary>배 <paramref name="ship"/> 에 거둔 것 <paramref name="kind"/> 를 얼마나 더 실을 수 있나.</summary>
+    public int BootyRoom(int ship, int kind)
+    {
+        if (ship < 0 || ship >= Player.Ships.Count || kind is < 0 or > 4) return 0;
+        var s = Player.Ships[ship];
+        if (kind == 4 && (Booty.Good < 0 || !s.Cargo.Any(c => c.Good == Booty.Good || c.Good < 0))) return 0;
+        return Math.Min(BootyLeft[kind], s.Free * (kind < 2 ? PlayerState.Lot : 1));
+    }
+
+    /// <summary>창 없이 거둔 것을 앞 배부터 빈 자리만큼 싣는다(연기 시험용).</summary>
+    public void StowBooty()
+    {
+        for (int i = 0; i < Player.Ships.Count; i++)
+            for (int k = 0; k < 5; k++) LoadBooty(i, k, int.MaxValue);
     }
 
     /// <summary>
