@@ -70,9 +70,45 @@ public sealed class BattleWindow : Window
     }
 
     /// <summary>판을 끝까지 치른다 — 닫히면 <see cref="Battle.Result"/> 가 차 있다.</summary>
-    public static void Run(Window owner, Battle b, GameMessages? msg, string title)
+    public static void Run(Window? owner, Battle b, GameMessages? msg, string title)
     {
         var w = new BattleWindow(b, msg, title) { Owner = owner };
+        if (owner == null) w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        w.ShowDialog();
+    }
+
+    /// <summary>개발 — 게임 없이 판 하나를 띄운다(<c>Uw2Play.exe --battle-demo</c>). 뭍 칩 하나를 둔 바다에 네 척씩.</summary>
+    public static void Demo()
+    {
+        var rng = new Random();
+        var b = new Battle(n => n < 2 ? 0 : rng.Next(n)) { Time = 20 };
+        b.BuildMap((cx, cy) => !(cx is 2 or 3 && cy == 2));
+        b.RollWind();
+        Battle.Captain Cap(int p) => new() { Person = p, Stats = [70, 70, 50, 50, 50, 60, 50, 50], NavLevel = 10, BattleLevel = 10 };
+        string[] ours = ["산타 마리아", "핀타", "니나", "라 갈레가"];
+        for (int i = 0; i < 4; i++)
+            b.Add(0, Cap(0), ours[i], 120, 80, 80, 60, 60, 4, 24, 60, 50, true, true, false, 80, 120);
+        for (int i = 0; i < 4; i++)
+            b.Add(1, Cap(1), $"해적선 {i + 1}", 100, 70, 70, 55, 55, 1 + i % 3, 20, 40, 50, false, i % 2 == 0, false, 70, 100);
+        b.Deploy(0, 2, -2, 0);
+        b.Deploy(1, 6, 0, 0);
+        var w = new BattleWindow(b, null, "해전 — 연습") { WindowStartupLocation = WindowStartupLocation.CenterScreen };
+        if (Environment.GetEnvironmentVariable("UW2_SHOT") is { Length: > 0 } shot)
+        {
+            // 개발 — 몇 초 뒤 창을 그림으로 떠 둔다.
+            var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+            t.Tick += (_, _) =>
+            {
+                t.Stop();
+                if (w.Content is not FrameworkElement root) return;
+                var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                bmp.Render(root);
+                var enc = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+                using (var fs = System.IO.File.Create(shot)) enc.Save(fs);
+            };
+            w.Loaded += (_, _) => t.Start();
+        }
         w.ShowDialog();
     }
 

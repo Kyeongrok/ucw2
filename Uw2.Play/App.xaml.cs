@@ -17,6 +17,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        if (e.Args.Contains("--battle-demo")) { BattleWindow.Demo(); Shutdown(); return; }
         ShowTitle();
     }
 
