@@ -248,6 +248,7 @@ public sealed partial class SeaMapHost : HwndHost
         {
             Fleet = new Fleet(Map, Chips, Wind);
             Fleet.Weather.StormHit += OnStormHit;
+            Fleet.Weather.Adrift += OnAdrift;
             Fleet.NewDay += () =>
             {
                 Player.ConsumeDay(i => CaptainLead(i));
@@ -792,6 +793,39 @@ public sealed partial class SeaMapHost : HwndHost
         SyncLoad();
         return true;
     }
+
+    /// <summary>
+    /// 배가 사라진다(<c>0x004190B0</c>) — 앞 배부터 주인공이 아닌 선장이 맡은 배마다 rand(100) 이 그 선장 운(+0x23)보다 크고 선장이 떠돌이
+    /// 항해자(얼굴 낱말 +0x1A 의 위 두 비트, <c>0x0042AE30</c> 이 만든 이)면 그 배와 선장이 함께 사라진다: 동료 칸을 비우고 머문 항구 0xFF,
+    /// +0x31 의 항해자 비트 0x20 을 지운다(<c>0x004191B0</c>). 한 번에 한 척. 말은 「제독님, %s(가) 보이지 않습니다」(0x150 · 0x151).
+    /// </summary>
+    private void OnAdrift()
+    {
+        if (Scenario is not { } vm || Fleet == null) return;
+        for (int i = 1; i < Player.Ships.Count; i++)
+        {
+            int captain = Player.Ships[i].Captain;
+            if (captain < 0 || captain == HeroPersonNumber) continue;
+            if (Roll(100) <= Uw2.Game.Engine.Town.Navigators.Get(vm.Memory, captain, 0x23)) continue;
+            if ((Uw2.Game.Engine.Town.Navigators.Get(vm.Memory, captain, 0x1B) & 0xC0) == 0) continue;
+            string name = Player.Ships[i].Name;
+            for (int k = 0; k < Uw2.Game.Engine.Town.Navigators.MateSlots; k++)
+            {
+                var slot = new ScenarioMemory.Pointer(ScenarioMemory.MiscTable, Uw2.Game.Engine.Town.Navigators.MateFirst + k);
+                if (vm.Memory.Read(slot, false) == captain) vm.Memory.Write(slot, 0xFF, false);
+            }
+            Uw2.Game.Engine.Town.Navigators.Set(vm.Memory, captain, Uw2.Game.Engine.Town.Navigators.Port, 0xFF);
+            Uw2.Game.Engine.Town.Navigators.Set(vm.Memory, captain, 0x31, Uw2.Game.Engine.Town.Navigators.Get(vm.Memory, captain, 0x31) & 0xDF);
+            Player.Ships.RemoveAt(i);
+            if (i < Fleet.Ships.Count) Fleet.Ships.RemoveAt(i);
+            SyncLoad();
+            Dispatcher.BeginInvoke(() => ShipAdrift?.Invoke(name));
+            return;
+        }
+    }
+
+    /// <summary>배가 사라졌을 때 — 배 이름을 넘긴다(말 0x150).</summary>
+    public event Action<string>? ShipAdrift;
 
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;

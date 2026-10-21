@@ -1867,6 +1867,11 @@ public sealed class SeaMapWindow : Window
             _seaNote = name == "쥐 떼" ? M(0x1D9, "쥐 떼가 일었습니다") : M(0x1DA, $"{name}에 걸린 자가 있습니다");
             UpdateStatus();
         };
+        _host.ShipAdrift += name =>
+        {
+            _seaNote = M(0x150, $"제독님, {name}(가) 보이지 않습니다.", name);
+            UpdateStatus();
+        };
         _host.FleetReady += f => f.Weather.Said += line =>
         {
             _seaNote = $" · 「{line}」";

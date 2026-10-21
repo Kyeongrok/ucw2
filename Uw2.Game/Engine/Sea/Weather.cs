@@ -66,6 +66,12 @@ public sealed class Weather
         if (StormGuard > 0) StormGuard--;
     }
 
+    /// <summary>
+    /// 배를 잃을 수 있는 바다(바람 바이트 비트 6)에서 날씨 셈이 문턱을 넘었다(<c>0x0041905E</c> → <c>0x004190B0</c>) — 갈래를 고르기 전이다.
+    /// 받는 쪽이 떠돌이 선장의 배를 셈한다.
+    /// </summary>
+    public event Action? Adrift;
+
     /// <summary>폭풍이 덮쳤다 — 배마다 부서진다(<c>0x004193D0</c> → <c>0x004194D0</c>, <see cref="StormDamage"/>).</summary>
     public event Action? StormHit;
 
@@ -90,7 +96,7 @@ public sealed class Weather
 
         if (Current == Kind.Clear)
         {
-            TryBrew(zone, currentByte, windSpeed, rng);
+            TryBrew(zone, (windByte & 0x40) != 0, currentByte, windSpeed, rng);
             return;
         }
 
@@ -126,11 +132,12 @@ public sealed class Weather
         Current = Kind.Clear;
     }
 
-    private void TryBrew(bool zone, byte currentByte, int windSpeed, Random rng)
+    private void TryBrew(bool zone, bool driftZone, byte currentByte, int windSpeed, Random rng)
     {
         if (!zone) return;
         if (rng.Next(155) <= Luck + 50) return;
         if (FleetFactor >= rng.Next(5)) return;
+        if (driftZone) Adrift?.Invoke();
 
         Kind kind = (currentByte & 0xC0) switch
         {
