@@ -195,6 +195,25 @@ public sealed class Economy
     }
 
     /// <summary>
+    /// 주인공이 교역품을 사고판 뒤 값 지수 — 구입(<c>0x00420ACA</c>)은 올리고 매각(<c>0x00420F07</c>)은 내린다.
+    /// 판 돈 <paramref name="total"/>(값 x 양)으로 그 갈래를 min(10, 판 돈 / (경제 + 500)), 열 갈래 모두를 min(3, 판 돈 / 1000) 만큼
+    /// 옮기고 0 ~ 100 에서 자른다. 매각은 원본처럼 짐 칸 하나마다 부른다.
+    /// </summary>
+    public void PlayerTraded(int port, int good, int total, bool bought)
+    {
+        var r = StateBytes;
+        int o = port * StateSize;
+        if (port < 0 || o + StateSize > r.Length || good < 0 || good >= GoodsCount || total <= 0) return;
+        int cat = CategoryOf(good);
+        int economy = BitConverter.ToUInt16(r, o);
+        int one = Math.Min(10, total / (economy + 500)), all = Math.Min(3, total / 1000);
+        int Move(int idx, int d) => bought ? Math.Min(100, idx + d) : idx - Math.Min(idx, d);
+        r[o + 0x0E + cat] = (byte)Move(r[o + 0x0E + cat], one);
+        for (int i = 0; i < 10; i++) r[o + 0x0E + i] = (byte)Move(r[o + 0x0E + i], all);
+        States = [.. Enumerable.Range(0, r.Length / StateSize).Select(k => ParseState(r, k * StateSize))];
+    }
+
+    /// <summary>
     /// 남 함대가 투자한다(<c>0x00402587</c>) — 돈 / 2 x 100 을 경제 투자(+2, 경제 &lt; 공업일 때 — 가득하면 공업) 또는 공업 투자(+6)에 넣고
     /// 돈은 반을 쓴다. 나라 몫은 min(남은 돈 x 6 / 10, 100 − 몫) 오르고, 다른 나라 몫에서(그 합까지) 하나씩 돌아가며 뺀다. 남은 돈을 돌려준다.
     /// </summary>

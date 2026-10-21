@@ -2020,6 +2020,7 @@ public sealed class SeaMapWindow : Window
         int amount = AmountDialog.Ask(this, $"{eco.GoodsNames[good]} 몇 통", most);
         if (amount <= 0) return;
         int bought = p.Buy(good, amount, price);
+        eco.PlayerTraded(_host.CurrentPort, good, bought * price, bought: true);
         _host.SyncLoad();
         if (bought > 0 && _host.Fleet is { } lf)   // 항해일지 — 교역품 구입(0x00420AA3)
             _host.Log.Add(lf.Date.Year, lf.Date.Month, lf.Date.Day, Logbook.Bought, good, (bought * price) >> 16, (bought * price) & 0xFFFF, bought);
@@ -2512,7 +2513,8 @@ public sealed class SeaMapWindow : Window
             cargo.Select(c => $"{eco.GoodsNames[c.Key],-6} {c.Value,4}통  {eco.SellPrice(_host.CurrentPort, c.Key),5}").ToList());
         if (pick < 0) return;
         int good = cargo[pick].Key, price = eco.SellPrice(_host.CurrentPort, good);
-        int sold = _host.Player.SellAll(good, price);
+        int port = _host.CurrentPort;
+        int sold = _host.Player.SellAll(good, price, amount => eco.PlayerTraded(port, good, amount * price, bought: false));
         _host.SyncLoad();
         Note($" · {eco.GoodsNames[good]} {sold}통을 {sold * price}에 팔았습니다");
     }

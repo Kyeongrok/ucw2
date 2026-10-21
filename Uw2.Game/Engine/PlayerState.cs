@@ -281,8 +281,8 @@ public sealed class PlayerState
         return got;
     }
 
-    /// <summary>그 교역품을 다 판다. 판 양을 돌려준다.</summary>
-    public int SellAll(int good, int price)
+    /// <summary>그 교역품을 다 판다. 판 양을 돌려준다. <paramref name="perSlot"/> 은 짐 칸 하나를 팔 때마다 그 양으로 불린다(값 지수).</summary>
+    public int SellAll(int good, int price, Action<int>? perSlot = null)
     {
         int sold = 0;
         foreach (var ship in Ships)
@@ -290,6 +290,7 @@ public sealed class PlayerState
                 if (ship.Cargo[i].Good == good)
                 {
                     sold += ship.Cargo[i].Amount;
+                    perSlot?.Invoke(ship.Cargo[i].Amount);
                     ship.Cargo[i] = (-1, 0);
                 }
         Gold = (int)Math.Min(MaxGold, (long)Gold + (long)sold * price);

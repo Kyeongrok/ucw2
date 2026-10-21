@@ -89,6 +89,27 @@ public class AssetTests
         Assert.Equal(AssetPack.KaoCols * KaoImages.FaceW, Pack.FacesWidth);
 
     [Fact]
+    public void PlayerTradeMovesPriceIndex()
+    {
+        var eco = Pack.Economy!.Clone();
+        int economy = eco.States[0].Economy, cat = Economy.CategoryOf(11);   // 리스본 유제품(식품)
+        var before = eco.States[0].PriceIndex.ToArray();
+        // 구입 5000: 그 갈래 +min(10, 5000 / (경제 + 500)), 모두 +min(3, 5)
+        eco.PlayerTraded(0, 11, 5000, bought: true);
+        int one = Math.Min(10, 5000 / (economy + 500));
+        for (int i = 0; i < 10; i++)
+            Assert.Equal(Math.Min(100, before[i] + (i == cat ? one : 0) + 3), eco.States[0].PriceIndex[i]);
+        // 매각 999 는 갈래만(999 / 1000 = 0), 작은 돈이면 안 움직인다
+        var mid = eco.States[0].PriceIndex.ToArray();
+        eco.PlayerTraded(0, 11, 999, bought: false);
+        Assert.Equal(mid[cat] - Math.Min(10, 999 / (economy + 500)), eco.States[0].PriceIndex[cat]);
+        Assert.Equal(mid[0 == cat ? 1 : 0], eco.States[0].PriceIndex[0 == cat ? 1 : 0]);
+        // 0 아래로는 안 간다
+        for (int k = 0; k < 100; k++) eco.PlayerTraded(0, 11, 1_000_000, bought: false);
+        Assert.All(eco.States[0].PriceIndex, v => Assert.Equal(0, v));
+    }
+
+    [Fact]
     public void SpecialGoodNeedsEconomyAndLowIndex()
     {
         var eco = Pack.Economy!;
