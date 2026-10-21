@@ -285,8 +285,10 @@ public sealed partial class SeaMapHost : HwndHost
                 if (Scenario != null)
                 {
                     int gold = Player.Gold;
-                    Uw2.Game.Engine.Town.Navigators.PayWages(Scenario.Memory, HeroPersonNumber, ref gold);
+                    int wages = Uw2.Game.Engine.Town.Navigators.PayWages(Scenario.Memory, HeroPersonNumber, ref gold);
                     Player.SetGold(gold);
+                    // 바다에서 날씨가 갠 날이면 경리주임이 알린다(0x0042C5F5).
+                    if (wages != 0 && CurrentPort < 0 && Fleet.Weather.Current == Engine.Sea.Weather.Kind.Clear) WagesPaid?.Invoke(wages);
                     Uw2.Game.Engine.Town.Navigators.Wander(Scenario.Memory, Roll, NameTable);
                     Uw2.Game.Engine.Town.Navigators.KeepUp(Scenario.Memory, HeroPersonNumber, Roll);
                     if (Uw2.Game.Engine.Town.Palace.PermitsExpire(Fleet.Month)) Uw2.Game.Engine.Town.Palace.ExpirePermits(Scenario.Memory);
@@ -909,6 +911,9 @@ public sealed partial class SeaMapHost : HwndHost
 
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;
+
+    /// <summary>달마다 동료 급여를 냈다(양수) · 못 냈다(음수) — 바다에서만.</summary>
+    public event Action<int>? WagesPaid;
 
     /// <summary>폭풍에 난파한 배 — (배 이름, 살아남은 선장 이름 또는 null).</summary>
     public event Action<List<(string Ship, string? Captain)>>? Wrecked;

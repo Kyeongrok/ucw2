@@ -2435,6 +2435,12 @@ public sealed class SeaMapWindow : Window
             else SayWith(59, 0x1DA, "제독님, 선원 중에 괴혈병에 걸린 자가 있는 모양입니다.");
         };
         _host.PortAhead += port => EnterPortFromSea(port);
+        // 달마다 급여(0x0042C4E0) — 「제독님, 선원들에게 급료로 금화 %d닢을 지불했습니다.」(0x23E) · 못 냈으면 0x23C.
+        _host.WagesPaid += total =>
+        {
+            if (total > 0) Say(0x23E, $"제독님, 선원들에게 급료로 금화 {total}닢을 지불했습니다.", total);
+            else Say(0x23C, "제독님, 선원들의 급료를 지불할 수 없습니다.");
+        };
         _host.StoryEnded += OnStoryEnded;
         // 마을 사람과 부딪치면 말을 건다(0x004335F0).
         _host.FolkMet += kind =>
