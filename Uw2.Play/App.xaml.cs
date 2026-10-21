@@ -69,6 +69,9 @@ public partial class App : Application
             t.Start();
             return;
         }
+        // 여는 화면(0x00431930) — 아무 글쇠나 누르면 건너뛴다. --no-opening 이면 안 띄운다.
+        if (!e.Args.Contains("--no-opening") && Uw2.Support.Local.Formats.AssetPack.FindFolder() is { } assets)
+            OpeningWindow.Play(new GraphSheet(Uw2.Support.Local.Formats.AssetPack.PicturesOnly(assets)));
         ShowTitle();
     }
 

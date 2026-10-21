@@ -56,6 +56,7 @@ namespace Uw2.Support.Local.Formats;
 ///       finds.png        768x384  발견물 48x48 백스물여덟을 16 x 8 로
 ///     graph/NN.png                GRAPH.DAT 그림 예순아홉(NPK016) — 저마다 제 빛깔 열여섯(<see cref="Npk"/>)
 ///     ending/heroN.png            주인공 여섯의 엔딩 그림(END.DAT · 빛깔은 KOUKAI2.EXE)
+///     open/NN.png                 여는 화면 그림 아흔(OPEN.DAT · 빛깔은 주인공 장면 것 0x4591D0 하나로)
 /// </code>
 /// </remarks>
 public sealed class AssetPack
@@ -137,6 +138,7 @@ public sealed class AssetPack
         if (File.Exists(Find("KAO.LZW"))) BakeKao(Find("KAO.LZW"), outDir);
         if (File.Exists(Find("GRAPH.DAT"))) BakeGraph(Find("GRAPH.DAT"), outDir);
         if (File.Exists(Find("END.DAT")) && File.Exists(Find("KOUKAI2.EXE"))) BakeEndings(Find("END.DAT"), Find("KOUKAI2.EXE"), outDir);
+        if (File.Exists(Find("OPEN.DAT")) && File.Exists(Find("KOUKAI2.EXE"))) BakeOpening(Find("OPEN.DAT"), Find("KOUKAI2.EXE"), outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
         IndexedPng.Write(Path.Combine(outDir, "port", "chipno.png"),
@@ -391,6 +393,34 @@ public sealed class AssetPack
         }
     }
 
+    /// <summary>
+    /// 여는 화면 빛깔 — 장면마다 다르지만(<c>0x00459290</c> · <c>0x004591D0</c> …) 주인공 장면 것 하나로 거의 다 맞는다.
+    /// </summary>
+    public const int OpeningPaletteVa = 0x4591D0;
+
+    /// <summary><c>OPEN.DAT</c> 그림 아흔을 <c>open/NN.png</c> 로 굽는다.</summary>
+    public static void BakeOpening(string openPath, string exePath, string outDir)
+    {
+        string dir = Path.Combine(outDir, "open");
+        Directory.CreateDirectory(dir);
+        var data = File.ReadAllBytes(openPath);
+        var pal = Npk.ExePalette(File.ReadAllBytes(exePath).AsSpan(Npk.DataFileOffset(OpeningPaletteVa), 48));
+        var offs = Npk.Offsets(data);
+        for (int i = 0; i < offs.Count; i++)
+        {
+            var pic = Npk.DecodeBare(data.AsSpan(offs[i]), pal);
+            IndexedPng.Write(Path.Combine(dir, $"{i:D2}.png"), pic.Pixels, pic.Width, pic.Height, pic.Palette);
+        }
+    }
+
+    /// <summary><c>open/NN.png</c> — 없으면 null.</summary>
+    public IndexedPng.Image? Opening(int n)
+    {
+        if (Folder is null || n < 0) return null;
+        string path = Path.Combine(Folder, "open", $"{n:D2}.png");
+        return File.Exists(path) ? IndexedPng.Read(path) : null;
+    }
+
     /// <summary><c>ending/heroN.png</c> — 없으면 null.</summary>
     public IndexedPng.Image? Ending(int hero)
     {
@@ -414,6 +444,9 @@ public sealed class AssetPack
 
     /// <summary>읽어 온 자산 폴더.</summary>
     public string? Folder { get; private init; }
+
+    /// <summary>폴더만 아는 빈 짐 — 그림(<see cref="Graph"/> · <see cref="Opening"/> · <see cref="Ending"/>)만 꺼내 쓸 때.</summary>
+    public static AssetPack PicturesOnly(string dir) => new() { Folder = dir };
 
     /// <summary>교역 표를 굽는다 — 이름은 한글판 EXE 에서, 시장 · 항구 형편은 <c>SDATA.DAT</c> 에서.</summary>
     public static void BakeEconomy(string sdataPath, string han8ExePath, string outDir)

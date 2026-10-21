@@ -22,6 +22,9 @@ public sealed class GraphSheet(AssetPack pack)
     /// <summary>주인공(사람 표 차례 0 ~ 5)의 엔딩 그림 — 없으면 null.</summary>
     public ImageSource? Ending(int hero) => ToImage(pack.Ending(hero));
 
+    /// <summary>여는 화면 그림(<c>open/NN.png</c>) — 없으면 null.</summary>
+    public ImageSource? Opening(int n) => ToImage(pack.Opening(n));
+
     private static ImageSource? ToImage(IndexedPng.Image? picture)
     {
         ImageSource? made = null;

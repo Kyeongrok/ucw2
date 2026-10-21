@@ -83,6 +83,7 @@ public static class Program
         AssetPack.BakeKao(Path.Combine(dir, "KAO.LZW"), outDir);
         if (File.Exists(Path.Combine(dir, "GRAPH.DAT"))) AssetPack.BakeGraph(Path.Combine(dir, "GRAPH.DAT"), outDir);
         if (File.Exists(Path.Combine(dir, "END.DAT"))) AssetPack.BakeEndings(Path.Combine(dir, "END.DAT"), Path.Combine(dir, "KOUKAI2.EXE"), outDir);
+        if (File.Exists(Path.Combine(dir, "OPEN.DAT"))) AssetPack.BakeOpening(Path.Combine(dir, "OPEN.DAT"), Path.Combine(dir, "KOUKAI2.EXE"), outDir);
         AssetPack.BakeRoute(Path.Combine(dir, "DATA1.LZW"), outDir);
         AssetPack.BakeMenus(Path.Combine(dir, "MENU.DAT"), outDir);
         AssetPack.BakeScenario(dir, outDir);
