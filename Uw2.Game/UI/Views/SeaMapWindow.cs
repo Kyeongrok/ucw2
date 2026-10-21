@@ -3041,17 +3041,24 @@ public sealed class SeaMapWindow : Window
     private void SearchWater()
     {
         if (Random.Shared.Next(100) >= HeroField(Church.Luck)) { Say(0x1A9, "물은 발견되지 않았습니다."); return; }
-        int filled = 0;
-        foreach (var s in _host.Player.Ships)
-        {
-            int k = s.Free;
-            s.Supplies[PlayerState.Water] += k;
-            filled += k;
-        }
-        _host.SyncLoad();
         Say(0x1AA, "깨끗한 물을 발견했습니다.");
-        if (filled == 0) Say(0x1A6, "더이상 실을 수 없습니다.");
-        else Note($" · 물 {filled}통을 실었습니다");
+        // 배를 골라(목록 0x8B) 「%s호에 물을 얼마나 싣겠습니까？(0-%d)」(0x1A7) — 더 못 실으면 0x1A6(0x0041B950). 물은 열 통이 짐 하나다.
+        var ships = _host.Player.Ships;
+        int filled = 0;
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, "물 — 어느 배에", [.. ships.Select(s => $"{s.Name}  물 {s.Supplies[PlayerState.Water]} · 빈 자리 {s.Free}")]);
+            if (pick < 0) break;
+            var ship = ships[pick];
+            int most = ship.Free * PlayerState.Lot;
+            if (most <= 0) { Say(0x1A6, "더이상 실을 수 없습니다."); continue; }
+            int k = AmountDialog.Ask(this, MsgOr(0x1A7, $"{ship.Name}호에 물을 얼마나 싣겠습니까？(0-{most})", ship.Name, most), most);
+            if (k <= 0) continue;
+            ship.Supplies[PlayerState.Water] += k;
+            filled += k;
+            _host.SyncLoad();
+        }
+        if (filled > 0) Note($" · 물 {filled}통을 실었습니다");
     }
 
     /// <summary>
