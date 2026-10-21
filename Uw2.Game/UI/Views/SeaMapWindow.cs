@@ -2779,6 +2779,24 @@ public sealed class SeaMapWindow : Window
     private int _homePort = PortTable.Lisbon;
 
     /// <summary>
+    /// 새 게임 이름 짓기(<c>0x00416665</c>) — 「이름을 바꿔 주세요.」(0x3AC) 여섯 자까지, 「좋습니까？」(0x3B3)에 그러면 정한다.
+    /// 원본은 아니오면 주인공 고르기로 돌아가는데, 여기서는 다시 묻는다. 비우면 그대로.
+    /// </summary>
+    public void AskHeroName()
+    {
+        while (true)
+        {
+            string? name = TextDialog.Ask(this, MsgOr(0x3AC, "이름을 바꿔 주세요."), _host.HeroName.Name, 6);
+            if (string.IsNullOrWhiteSpace(name)) return;
+            name = name.Trim();
+            if (MessageBox.Show(this, $"{name} {_host.HeroName.Family}\n" + MsgOr(0x3B3, "좋습니까？"), "이름", MessageBoxButton.YesNo) != MessageBoxResult.Yes) continue;
+            _host.RenameHero(name);
+            Retitle();
+            return;
+        }
+    }
+
+    /// <summary>
     /// 「함대」 — 목록 26(자함대정보 · 함선정보 · 인물정보 · 주인공정보 · 적하정보 …) 가운데 넷을 글로 보인다.
     /// 원본은 그림 창(목록 47 의 머리 글)이다.
     /// </summary>

@@ -101,7 +101,7 @@ public partial class App : Application
             map.Show();
             return map;
         }
-        title.HeroChosen += hero => { Open().ShowHomePort(hero); title.Close(); };
+        title.HeroChosen += hero => { var map = Open(); map.ShowHomePort(hero); title.Close(); map.AskHeroName(); };
         title.SaveChosen += save => { Open().LoadGame(save); title.Close(); };
         title.Closed += (_, _) => { if (!started && Windows.Count == 0) Shutdown(); };
         title.Show();

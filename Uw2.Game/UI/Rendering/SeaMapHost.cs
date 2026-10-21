@@ -1057,6 +1057,20 @@ public sealed partial class SeaMapHost : HwndHost
         return StartTables is { } st && person >= 0 && person < st.People.Count ? $"{st.People[person].Name} {st.People[person].Family}".Trim() : $"#{person}";
     }
 
+    /// <summary>
+    /// 주인공 이름(사람 +0, 13 바이트)을 바꾼다 — 새 게임의 「이름을 바꿔 주세요.」(0x3AC, <c>0x0042DEB0</c>, 여섯 자까지).
+    /// </summary>
+    public void RenameHero(string name)
+    {
+        if (Scenario is not { } vm || Hero < 0) return;
+        int person = HeroPerson[Hero];
+        var cp949 = System.Text.Encoding.GetEncoding(949);
+        var bytes = cp949.GetBytes(name);
+        for (int i = 0; i < 13; i++)
+            vm.Memory.Write(ScenarioMemory.At(ScenarioMemory.PeopleTable, person, i), i < Math.Min(12, bytes.Length) ? bytes[i] : 0, false);
+        HeroName = (name, HeroName.Family);
+    }
+
     /// <summary>주인공 작위 — 시나리오 기억 표 1 +0x0D. 새 게임은 0 이고 시나리오가 올린다.</summary>
     public int HeroRank =>
         Scenario?.Memory.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, HeroPerson[Hero], ScenarioMemory.RankField), false) ?? 0;
