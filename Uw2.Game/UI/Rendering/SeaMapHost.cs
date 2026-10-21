@@ -242,6 +242,8 @@ public sealed partial class SeaMapHost : HwndHost
         try
         {
             _renderer.Initialize(cells, w, h);
+            _dayPhase = GamePalette.Day;            // 렌더러는 항해 화면 벌(낮)로 연다
+            _screenPalette = GamePalette.SeaScreen();
             return true;
         }
         catch (Exception ex)
@@ -295,7 +297,7 @@ public sealed partial class SeaMapHost : HwndHost
             FleetReady?.Invoke(Fleet);
         }
         if (_shipArt.Length > 0)
-            _renderer.SetShipSprite(_shipArt, _shipW, _shipH, GamePalette.SeaScreen(),
+            _renderer.SetShipSprite(_shipArt, _shipW, _shipH, _screenPalette,
                                     AssetPack.Transparent);
         _worldCells = _renderer.Cells;
         _worldW = _renderer.MapW;
@@ -1202,13 +1204,33 @@ public sealed partial class SeaMapHost : HwndHost
     /// </summary>
     private void UseWalkerSprite(bool walker)
     {
+        _walkerSprite = walker;
         if (walker && _walkArt.Length > 0)
-            _renderer.SetShipSprite(_walkArt, _walkArtW, _walkArtH, GamePalette.SeaScreen(),
+            _renderer.SetShipSprite(_walkArt, _walkArtW, _walkArtH, _screenPalette,
                                     AssetPack.CharClear);
         else if (!walker && _shipArt.Length > 0)
-            _renderer.SetShipSprite(_shipArt, _shipW, _shipH, GamePalette.SeaScreen(),
+            _renderer.SetShipSprite(_shipArt, _shipW, _shipH, _screenPalette,
                                     AssetPack.Transparent);
         _renderer.ShipFacesWest = false;
+    }
+
+    private bool _walkerSprite;
+    private GamePalette _screenPalette = GamePalette.SeaScreen();
+    private int _dayPhase = GamePalette.Day;
+
+    /// <summary>
+    /// 하루 때에 따라 화면 벌을 바꾼다(<c>0x0041A240</c> → <c>0x0041A390</c>) — 날씨(폭풍 · 무풍 · 안개)가 서 있는 동안은 그대로 둔다.
+    /// </summary>
+    private void ApplyDayPhase()
+    {
+        if (Fleet is not { } f) return;
+        if (CurrentPort < 0 && f.Weather.Current != Engine.Sea.Weather.Kind.Clear) return;
+        int phase = GamePalette.PhaseAt(f.TimeOfDay);
+        if (phase == _dayPhase) return;
+        _dayPhase = phase;
+        _screenPalette = GamePalette.ForPhase(phase);
+        _renderer.SetPalette(_screenPalette);
+        UseWalkerSprite(_walkerSprite);
     }
 
     private void CenterOnShip()
@@ -1410,6 +1432,7 @@ public sealed partial class SeaMapHost : HwndHost
         var origin = (Center.X - w / 2.0 * CellsPerPixel, Center.Y - h / 2.0 * CellsPerPixel);
         _lastOrigin = origin;
 
+        ApplyDayPhase();
         _renderer.ShowArrows = ShowArrows && CurrentPort < 0;
         _renderer.ShowOthers = CurrentPort < 0 ? Others.Count > 0 : Walker != null;
         if (_renderer.ShowOthers)

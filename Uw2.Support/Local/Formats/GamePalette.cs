@@ -56,6 +56,26 @@ public sealed class GamePalette
         0x0F, 0x00, 0x08,  0x06, 0x00, 0x07,  0x06, 0x00, 0x0B,  0x0C, 0x06, 0x02,
     ];
 
+    /// <summary>
+    /// 하루 때의 벌(<c>0x00458060</c> 부터 48 바이트씩 — 밤 · 새벽 · 낮 · 저녁). 앞 여덟 칸은 같고 8 ~ 15 만 다르다.
+    /// 바다에서는 시각 12(4 시) 새벽, 24(8 시) 낮, 48(16 시) 저녁, 60(20 시) 밤으로 바꾼다(<c>0x0041A390</c> — 날씨가 서 있으면 그대로).
+    /// 낮 벌은 항해 화면 벌(<c>0x00456D00</c>)과 15 번만 달라 낮에는 항해 화면 벌을 쓴다.
+    /// </summary>
+    public static readonly byte[][] DayPhaseTriplets =
+    [
+        [0,0,0, 13,0,4, 0,13,4, 10,13,6, 6,0,10, 15,0,10, 6,15,10, 13,15,14, 4,4,4, 7,0,4, 0,6,4, 3,5,5, 6,0,5, 4,0,3, 4,0,4, 7,6,6],
+        [0,0,0, 13,0,4, 0,13,4, 10,13,6, 6,0,10, 15,0,10, 6,15,10, 13,15,14, 10,8,9, 10,0,4, 0,10,7, 2,9,8, 10,0,6, 4,0,3, 8,0,9, 15,13,14],
+        SeaScreenTriplets,
+        [0,0,0, 13,0,4, 0,13,4, 10,13,6, 6,0,10, 15,0,10, 6,15,10, 13,15,14, 3,8,6, 9,4,5, 0,9,3, 7,12,9, 9,6,7, 4,0,4, 6,9,8, 10,15,13],
+    ];
+
+    public const int Night = 0, Dawn = 1, Day = 2, Evening = 3;
+
+    /// <summary>시각(하루 72 틱)의 때 — 4 ~ 8 시 새벽, 8 ~ 16 시 낮, 16 ~ 20 시 저녁, 그 밖 밤.</summary>
+    public static int PhaseAt(int tick) => tick switch { >= 12 and < 24 => Dawn, >= 24 and < 48 => Day, >= 48 and < 60 => Evening, _ => Night };
+
+    public static GamePalette ForPhase(int phase) => FromTriplets(DayPhaseTriplets[Math.Clamp(phase, 0, 3)]);
+
     /// <summary>항해 화면 벌.</summary>
     public static GamePalette SeaScreen() => FromTriplets(SeaScreenTriplets);
 
