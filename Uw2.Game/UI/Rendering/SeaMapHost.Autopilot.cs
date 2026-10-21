@@ -82,7 +82,7 @@ public sealed partial class SeaMapHost
             bool last = _autoLeg == _autoRoute.Count - 1;
             if (last ? _autoStall < Fleet.TicksPerDay * 3 : dist > 2 && _autoStall < Fleet.TicksPerDay)
             {
-                f.Heading = SteerToward(dx, dy);
+                f.Heading = AvoidLand(f, SteerToward(dx, dy), goal);
                 return;
             }
             _autoLeg++;
@@ -98,6 +98,27 @@ public sealed partial class SeaMapHost
     {
         if (_autoPort < 0 || Fleet is not { } f) return;
         _autoStall++;   // 가까워지면 AutopilotTick 이 0 으로 되돌린다
+    }
+
+    /// <summary>
+    /// 그 뱃머리 앞 칸이 뭍이면, 배를 댈 수 있는 이웃 칸 가운데 과녁에 가장 가까운 쪽으로 튼다 — 마디가 해안에 바짝 붙어 있어서다(원본 손은 아님).
+    /// </summary>
+    private static int AvoidLand(Fleet f, int heading, (int X, int Y) goal)
+    {
+        int fx = (int)f.X, fy = (int)f.Y;
+        bool Open(int dir) { var (hx, hy) = WindCurTable.Vector(dir & 7); return f.CanSail(fx + Math.Sign(hx), fy + Math.Sign(hy)); }
+        if (Open(heading)) return heading;
+        int best = heading;
+        double bestD = double.MaxValue;
+        for (int d = 0; d < Fleet.DirCount; d++)
+        {
+            if (!Open(d)) continue;
+            var (hx, hy) = WindCurTable.Vector(d);
+            double ex = goal.X - (fx + Math.Sign(hx)), ey = goal.Y - (fy + Math.Sign(hy));
+            double dist = ex * ex + ey * ey;
+            if (dist < bestD) { bestD = dist; best = d; }
+        }
+        return best;
     }
 
     /// <summary>브레젠험처럼 대각과 곧은 걸음을 섞는다(남 함대 <c>0x00461FF8</c> 방위표와 같다).</summary>
