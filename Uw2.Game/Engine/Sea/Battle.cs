@@ -103,6 +103,9 @@ public sealed class Battle
         /// <summary>생각 갈래(+0x16 의 아래 넷) — 0/1 피하기 · 2/3 쫓기 · 4/5 기함 곁 · 6/7 기함 따르기 · 8 위 물러나기.</summary>
         public int Mode { get; set; }
 
+        /// <summary>노를 젓는 배(배 기록 +0x10 에 0x10 이 없다) — 그림 갈래(<c>0x0040DE3B</c>).</summary>
+        public bool Oars { get; init; }
+
         /// <summary>대포를 앞세우는 배(+0x16 의 0x10).</summary>
         public bool Gunner { get; set; }
 
@@ -173,7 +176,7 @@ public sealed class Battle
             for (int cx = 0; cx < 6; cx++)
                 for (int y = cy * 8; y < cy * 8 + 8; y++)
                     for (int x = cx * 8 + 2; x < cx * 8 + 10; x++)
-                        _map[y * Width + x] = isSea[cx, cy] ? (byte)1 : Land;
+                        _map[y * Width + x] = isSea[cx, cy] ? (byte)1 : (byte)0x84;   // 0x7D + 0x84 = 1 · 0x84(0x0040FD08)
         for (int cy = 0; cy < 6; cy++)
             for (int cx = 0; cx < 6; cx++)
             {
@@ -192,9 +195,42 @@ public sealed class Battle
             _map[y * Width] = _map[y * Width + 1] = _map[y * Width + 2];
             _map[y * Width + Width - 1] = _map[y * Width + Width - 2] = _map[y * Width + Width - 3];
         }
+        Coast();
     }
 
-    /// <summary>판 칸 값 — 0x80 이 뭍, 아래 비트는 그림(물결 0 · 1).</summary>
+    /// <summary>
+    /// 해안 그림 고르기(<c>0x0040FF20</c>) — 뭍 칸마다 이웃 여덟(위 줄 왼 · 가 · 오, 제 줄 왼 · 오, 아래 줄 왼 · 가 · 오 차례로 비트 0x80 ~ 0x01)
+    /// 가운데 바다인 것으로 무늬를 만들어 표(<c>0x004100C0</c> → <c>0x00410048</c>)에서 0x85 ~ 0x8C 를 고른다. 표에 없으면 민뭍 0x84 그대로.
+    /// 판 밖 이웃은 가장자리 칸으로 본다.
+    /// </summary>
+    private void Coast()
+    {
+        var pick = new Dictionary<int, byte>
+        {
+            [0x01] = 0x8B, [0x02] = 0x8B, [0x03] = 0x8B, [0x04] = 0x8B, [0x06] = 0x8B, [0x07] = 0x8B,
+            [0x08] = 0x89, [0x09] = 0x89, [0x0B] = 0x8C, [0x0F] = 0x8C, [0x10] = 0x88, [0x14] = 0x88, [0x16] = 0x8A, [0x17] = 0x8A,
+            [0x20] = 0x89, [0x28] = 0x89, [0x29] = 0x89, [0x2B] = 0x8C, [0x2F] = 0x8C, [0x40] = 0x86, [0x60] = 0x86,
+            [0x68] = 0x87, [0x69] = 0x87, [0x80] = 0x88, [0x90] = 0x88, [0x94] = 0x88, [0x96] = 0x8A, [0x97] = 0x8A,
+            [0xC0] = 0x86, [0xD0] = 0x85, [0xD4] = 0x85, [0xE0] = 0x86, [0xE8] = 0x87, [0xE9] = 0x87, [0xF0] = 0x85, [0xF4] = 0x85,
+        };
+        for (int y = 0; y < Height; y++)
+            for (int x = 0; x < Width; x++)
+            {
+                if ((_map[y * Width + x] & Land) == 0) continue;
+                int mask = 0, bit = 0x80;
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+                        int nx = Math.Clamp(x + dx, 0, Width - 1), ny = Math.Clamp(y + dy, 0, Height - 1);
+                        if ((_map[ny * Width + nx] & Land) == 0) mask |= bit;
+                        bit >>= 1;
+                    }
+                if (pick.TryGetValue(mask, out byte tile)) _map[y * Width + x] = tile;
+            }
+    }
+
+    /// <summary>판 칸 값 — 0x80 이 뭍, 아래 다섯 비트가 그림 칸(HDAT.PUT: 0 · 1 물결, 4 민뭍, 5 ~ 12 해안).</summary>
     public byte CellAt(int x, int y) => _map[y * Width + x];
 
     /// <summary>바람(<c>0x004101C0</c>) — 바람 갈래에서 1 · 2 · 3 · 4 · 3 · 2.</summary>
@@ -230,7 +266,7 @@ public sealed class Battle
             Side = side, Slot = list.Count, Captain = captain, Name = name, Player = player,
             Crew = crew, Hull = hull, MaxHull = maxHull, Upwind = upwind, Sail = sail, GunKind = gunKind, Guns = guns,
             Shot = shot, DeckShare = deckShare, Melee = melee, Range = range, TypeHull = typeHull, TypeCrew = typeCrew,
-            Gunner = shot > 0 && sailOnly, Tag = tag,
+            Gunner = shot > 0 && sailOnly, Oars = !sailOnly, Tag = tag,
         };
         var row = RangePattern[Math.Max(0, range - 1)];
         for (int d = 0; d < 5; d++) ship.Fire[d] = range == 0 ? 0 : row[d] * GunPower[Math.Clamp(gunKind, 0, 7)];

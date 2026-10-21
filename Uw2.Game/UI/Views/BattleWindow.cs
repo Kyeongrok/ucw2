@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using Uw2.Game.Engine.Sea;
+using System.Windows.Media.Imaging;
 using Uw2.Support.Local.Formats;
 
 namespace Uw2.Game.UI.Views;
@@ -19,7 +20,7 @@ namespace Uw2.Game.UI.Views;
 /// </remarks>
 public sealed class BattleWindow : Window
 {
-    private const double CellW = 14, CellH = 12;
+    private const double CellW = 16, CellH = 16;
 
     private static readonly Brush SeaBrush = new SolidColorBrush(Color.FromRgb(0x18, 0x3C, 0x6C));
     private static readonly Brush SeaBrush2 = new SolidColorBrush(Color.FromRgb(0x1C, 0x44, 0x78));
@@ -114,7 +115,7 @@ public sealed class BattleWindow : Window
     {
         var rng = new Random();
         var b = new Battle(n => n < 2 ? 0 : rng.Next(n)) { Time = 20 };
-        b.BuildMap((cx, cy) => !(cx is 2 or 3 && cy == 2));
+        b.BuildMap((cx, cy) => !(cx is 2 or 3 && cy is 2 or 3 || cx == 5 && cy <= 1));
         b.RollWind();
         Battle.Captain Cap(int p) => new() { Person = p, Stats = [70, 70, 50, 50, 50, 60, 50, 50], NavLevel = 10, BattleLevel = 10 };
         string[] ours = ["산타 마리아", "핀타", "니나", "라 갈레가"];
@@ -413,26 +414,111 @@ public sealed class BattleWindow : Window
 
     // ── 그리기 ─────────────────────────────────────────────────────────────
 
+    /// <summary>해전 그림(<c>HDAT.PUT</c>) — 자산 폴더의 hdat.put. 없으면 칸을 색으로 칠한다.</summary>
+    private static BattleTiles? Tiles => _tilesLoaded ? _tiles : LoadTiles();
+    private static BattleTiles? _tiles;
+    private static bool _tilesLoaded;
+    private static readonly Dictionary<(int, int), BitmapSource> _sprites = [];
+
+    private static BattleTiles? LoadTiles()
+    {
+        _tilesLoaded = true;
+        try
+        {
+            if (AssetPack.FindFolder() is { } dir && System.IO.File.Exists(System.IO.Path.Combine(dir, "hdat.put")))
+                _tiles = new BattleTiles(System.IO.File.ReadAllBytes(System.IO.Path.Combine(dir, "hdat.put")));
+        }
+        catch { _tiles = null; }
+        return _tiles;
+    }
+
+    /// <summary>조각 그림(가림이 있으면 비친다) — 한 번 만들어 둔다.</summary>
+    private static BitmapSource Sprite(BattleTiles t, int tile, int mask = -1)
+    {
+        if (_sprites.TryGetValue((tile, mask), out var bmp)) return bmp;
+        var px = t.Bgra(tile, GamePalette.SeaScreen(), mask);
+        bmp = BitmapSource.Create(BattleTiles.Size, BattleTiles.Size, 96, 96, PixelFormats.Bgra32, null, px, BattleTiles.Size * 4);
+        bmp.Freeze();
+        return _sprites[(tile, mask)] = bmp;
+    }
+
+    private BitmapSource? _mapImage;
+
+    /// <summary>판 바닥(<c>0x0040E070</c>) — 칸마다 32 x 32 조각(칸 &amp; 0x1F), 홀수 열은 반 칸 내려 그린다. 한 장으로 구워 둔다.</summary>
+    private BitmapSource? MapImage()
+    {
+        if (_mapImage != null || Tiles is not { } t) return _mapImage;
+        int w = Battle.Width * BattleTiles.Size, h = Battle.Height * BattleTiles.Size + BattleTiles.Size / 2;
+        var px = new uint[w * h];
+        var pal = GamePalette.SeaScreen();
+        for (int y = 0; y < Battle.Height; y++)
+            for (int x = 0; x < Battle.Width; x++)
+            {
+                var tile = t.Bgra(_b.CellAt(x, y) & 0x1F, pal);
+                int ox = x * BattleTiles.Size, oy = y * BattleTiles.Size + (x & 1) * BattleTiles.Size / 2;
+                for (int ty = 0; ty < BattleTiles.Size; ty++)
+                    Array.Copy(tile, ty * BattleTiles.Size, px, (oy + ty) * w + ox, BattleTiles.Size);
+            }
+        _mapImage = BitmapSource.Create(w, h, 96, 96, PixelFormats.Bgra32, null, px, w * 4);
+        _mapImage.Freeze();
+        return _mapImage;
+    }
+
     private void Draw()
     {
         _board.Children.Clear();
         var reach = _pick == Pick.Move ? _routes.Select(r => (r.X, r.Y)).ToHashSet() : [];
-        for (int y = 0; y < Battle.Height; y++)
-            for (int x = 0; x < Battle.Width; x++)
+        if (MapImage() is { } map)
+        {
+            _board.Background = SeaBrush;   // 홀수 열이 반 칸 내려가 위 끝이 빈다
+            var img = new Image { Source = map, Width = _board.Width, Height = _board.Height };
+            RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.NearestNeighbor);
+            _board.Children.Add(img);
+            foreach (var (x, y) in reach)
             {
-                byte c = _b.CellAt(x, y);
-                Brush fill = (c & Battle.Land) != 0 ? LandBrush : (c & 1) != 0 ? SeaBrush : SeaBrush2;
-                if (reach.Contains((x, y))) fill = ReachBrush;
-                var r = new Rectangle { Width = CellW - 1, Height = CellH - 1, Fill = fill };
+                var r = new Rectangle { Width = CellW, Height = CellH, Fill = ReachBrush };
                 Canvas.SetLeft(r, x * CellW);
                 Canvas.SetTop(r, y * CellH + (x & 1) * CellH / 2);
                 _board.Children.Add(r);
             }
+        }
+        else
+            for (int y = 0; y < Battle.Height; y++)
+                for (int x = 0; x < Battle.Width; x++)
+                {
+                    byte c = _b.CellAt(x, y);
+                    Brush fill = (c & Battle.Land) != 0 ? LandBrush : (c & 1) != 0 ? SeaBrush : SeaBrush2;
+                    if (reach.Contains((x, y))) fill = ReachBrush;
+                    var r = new Rectangle { Width = CellW - 1, Height = CellH - 1, Fill = fill };
+                    Canvas.SetLeft(r, x * CellW);
+                    Canvas.SetTop(r, y * CellH + (x & 1) * CellH / 2);
+                    _board.Children.Add(r);
+                }
         var targets = _pick == Pick.Attack ? _targets.Guns.Concat(_targets.Board).ToHashSet() : [];
         foreach (var s in _b.All)
         {
             if (!s.Alive && !s.Wreck) continue;
             double cx = s.X * CellW + CellW / 2, cy = s.Y * CellH + (s.X & 1) * CellH / 2 + CellH / 2;
+            if (Tiles is { } tiles)
+            {
+                // 배 그림(0x0040DDD0) — 제 함대 배는 갈래 0 · 2, 남은 1 · 3. 고른 배 · 과녁은 테를 두른다.
+                int tile = BattleTiles.Ship(!s.Player, s.Oars, s.Heading);
+                var ship = new Image { Source = Sprite(tiles, tile + 1, tile), Width = CellW, Height = CellH, Opacity = s.Wreck ? 0.45 : 1 };
+                RenderOptions.SetBitmapScalingMode(ship, BitmapScalingMode.NearestNeighbor);
+                Canvas.SetLeft(ship, cx - CellW / 2);
+                Canvas.SetTop(ship, cy - CellH / 2);
+                _board.Children.Add(ship);
+                if (targets.Contains(s) || s == _flag)
+                {
+                    var ring = new Ellipse { Width = CellW + 4, Height = CellH + 4, Stroke = s == _flag ? Brushes.Yellow : Brushes.White, StrokeThickness = 2 };
+                    Canvas.SetLeft(ring, cx - CellW / 2 - 2);
+                    Canvas.SetTop(ring, cy - CellH / 2 - 2);
+                    _board.Children.Add(ring);
+                }
+                if (s.Slot == 0)
+                    _board.Children.Add(new Ellipse { Width = 4, Height = 4, Fill = s.Player ? Brushes.Gold : Brushes.White, Margin = new Thickness(cx - 2, cy - CellH / 2 - 2, 0, 0) });
+                continue;
+            }
             Brush body = s.Wreck ? Brushes.Gray : s.Player ? Brushes.Gold : (s.Side & 1) == (_b.PlayerFlagship?.Side ?? 0) % 2 ? Brushes.LightSkyBlue : Brushes.IndianRed;
             var dot = new Ellipse
             {
