@@ -1570,17 +1570,20 @@ public sealed class SeaMapWindow : Window
             else if (pick == 1) NavigatorRumour(nav, port);
             else if (pick == 2)
             {
+                // 고용(0x004255F3) — 주인공이 「다음 번의 항해에 가담하지 않겠소？」(0x30), 대답은 모두 그 사람 말이다.
+                Say(0x30, "다음 번의 항해에 가담하지 않겠소？");
                 var answer = Navigators.Ask(m, nav, hero, _host.HeroRank, _host.Roll, out int wage, needLiking: pub);
                 switch (answer)
                 {
-                    case Navigators.Answer.AlreadyBound: Note(M(0x31, $"{Josa(name, "은", "는")} 이미 매인 몸입니다")); return;
-                    case Navigators.Answer.NoRoom: Note(M(0x8C, "동료 칸이 다 찼습니다")); return;
-                    case Navigators.Answer.NotFriendly: Note(M(0x8D, $"{Josa(name, "은", "는")} 아직 마음을 열지 않았습니다")); continue;
-                    case Navigators.Answer.Refused: Note(M(0x91, $"{Josa(name, "이", "가")} 거절했습니다")); return;
+                    case Navigators.Answer.AlreadyBound: Say(0x31, "현재의 직업을 바꿀 마음은 없소."); return;
+                    case Navigators.Answer.NoRoom: Say(0x8C, "더이상 동료를 늘일 수 없습니다만."); return;
+                    case Navigators.Answer.NotFriendly: Say(0x8D, "당신 배를？ 미안하지만 거절하겠소."); continue;
+                    case Navigators.Answer.Refused: Say(0x91, "미안하지만 거절하겠소.\n경험을 더 쌓도록."); return;
                 }
-                if (MessageBox.Show(this, $"{name}: " + M(0x8E, $"한 달에 {wage}씩 주신다면 따르겠습니다.", wage)[3..], "고용", MessageBoxButton.YesNo)
-                    != MessageBoxResult.Yes) { Note(M(0x8F, "고용하지 않았습니다")); return; }
-                if (Navigators.Join(m, nav, hero, wage)) Note($" · {Josa(name, "이", "가")} 동료가 되었습니다(급여 {wage})" + M(0x90, ""));
+                if (MessageBox.Show(this, MsgOr(0x8E, $"한 달에 금화 {wage}닢 준다면 일하겠소.", wage), name, MessageBoxButton.YesNo)
+                    != MessageBoxResult.Yes) { Say(0x8F, "유감이군."); return; }
+                Say(0x90, "제독, 잘 부탁하오.");
+                if (Navigators.Join(m, nav, hero, wage)) Note($" · {Josa(name, "이", "가")} 동료가 되었습니다(급여 {wage})");
                 return;
             }
             else { Note(" · 결투는 아직 없습니다"); return; }
