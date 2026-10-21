@@ -4172,11 +4172,10 @@ public sealed class SeaMapWindow : Window
     {
         if (_over) return;
         _host.StoryOver = true;   // 0x00404388 — 끝 갈래의 2 를 지운다
-        var (name, family) = _host.HeroName;
-        // 주인공마다 엔딩 그림(END.DAT, 0x00405B50) — 항해일지를 쓰거나 읽는 모습이다.
+        // 원본(0x0040435A)은 화면을 비우고 「엔딩 이후의 데이터를 저장하겠습니다.」(0x2EA)만 묻는다 — 끝 글은 시나리오가 먼저 띄운다.
+        // 곁에 주인공의 END.DAT 그림(항해일지를 쓰거나 읽는 모습)을 둔다.
         var ending = _host.Graphs?.Ending(_host.HeroPersonNumber);
-        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", $"{name} {family}의 이야기는 여기서 막을 내린다.")], ending);
-        if (MessageBox.Show(this, MsgOr(0x2EA, "엔딩 이후의 데이터를 저장하겠습니다."), "엔딩", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+        if (ScenarioDialog.Confirm(this, _host.Faces, [new ScenarioVm.Line("", MsgOr(0x2EA, "엔딩 이후의 데이터를 저장하겠습니다."))], ending))
             SaveToSlot();
         _over = true;
         _host.Sailing = false;
