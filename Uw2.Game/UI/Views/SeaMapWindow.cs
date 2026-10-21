@@ -759,6 +759,57 @@ public sealed class SeaMapWindow : Window
     }
 
     /// <summary>
+    /// 칙명 귀띔(<c>0x0041EA90</c>) — 칙명 11(희귀품 찾기, 변수 18 아이템)이고 그것(또는 아이템 − 10)을 아직 안 가졌을 때만. 아니면 0x253.
+    /// 있는 항구(변수 16)가 비었으면 rand(42) 로 잡는다. 그 항구에 있으면 아는 사람(변수 17 — 비었으면 사람 79 ~ 119 가운데 rand(변수 23 + 1) 이
+    /// 0 이면 항구 0 ~ 41 에 있는 이, 아니면 42 위에 있는 이)을 알려 주고(0x254 · 0x255), 아니면 그 항구와 경위도를 알려 준다(0x256 · 0x258 · 0x259).
+    /// </summary>
+    private void RoyalHint(ScenarioVm job)
+    {
+        if (_host.Scenario is not { } vm) return;
+        var m = vm.Memory;
+        int item = job.GetVar(18);
+        var owned = ItemShop.Owned(m);
+        if (job.GetVar(6) != 11 || owned.Contains(item) || owned.Contains(item - 10))
+        {
+            Say(0x253, "자네, 칙명을 띠고 있는 중이잖나？");
+            return;
+        }
+        if (job.GetVar(16) == 0xFF) job.SetVar(16, _host.Roll(42));
+        int at = job.GetVar(16);
+        string itemName = ItemShop.Get(m, item).Name;
+        if (at == _host.CurrentPort)
+        {
+            if (job.GetVar(17) == 0xFF)
+            {
+                bool near = _host.Roll(job.GetVar(23) + 1) == 0;
+                for (int guard = 0; guard < 500; guard++)
+                {
+                    int who = _host.Roll(41) + 0x4F, where = Navigators.Get(m, who, Navigators.Port);
+                    if (where == 0xFF || (where < 42) != near) continue;
+                    job.SetVar(17, who);
+                    break;
+                }
+            }
+            int holder = job.GetVar(17);
+            var full = _host.PersonName(holder).Split(' ');
+            string first = full[0], family = full.Length > 1 ? full[^1] : "";
+            Say(0x254, $"{itemName}(는) {first} {family}(가) 알고 있을걸？", itemName, first, family);
+            Say(0x255, "어디에 있냐고？");
+            return;
+        }
+        string portName = _host.Ports is { } pt && at < pt.Ports.Count ? pt.Ports[at].Name : $"#{at}";
+        Say(0x256, $"{itemName}？", itemName);
+        if (_host.Ports is { } ps && at < ps.Ports.Count)
+        {
+            var (north, lat, east, lon) = Pub.Degrees(ps.Ports[at].X, ps.Ports[at].Y);
+            SayText(MsgOr(0x258, $"{portName}항은 ", portName)
+                    + MsgOr(north ? 0x7E : 0x7F, $"{(north ? "북위" : "남위")} {lat}도, ", lat)
+                    + MsgOr(east ? 0x80 : 0x81, $"{(east ? "동경" : "서경")} {lon}도", lon)
+                    + MsgOr(0x259, "근처야."));
+        }
+    }
+
+    /// <summary>
     /// 조합 「업무 알선」(<c>0x0041E900</c>) — 일은 함께 쓰는 시나리오(SNR0)가 장 하나로 돌린다.
     /// <code>
     ///   장 0(일 없음)  변수 0 ~ 2 가 고를 일 셋의 갈래, 3 ~ 5 가 그 짝. 고르면 변수 8 = 짝, 절 = 고른 차례 + 1 로
@@ -766,7 +817,7 @@ public sealed class SeaMapWindow : Window
     ///                  깃발 16 · 17 이 다 서 있으면 나라 탓에 일을 주지 않는다
     ///   장 ≠ 0         변수 6 이 6 아래면 맡은 일이 있다 — 변수 16 이 이 항구면 말 0x3A3, 아니면 「○○ 의 일이 남았다」(0x152)
     /// </code>
-    /// 변수 6 이 6 이상인 일(보물 · 소문 갈래, 0x0041EA90)은 아직이다.
+    /// 변수 6 이 6 이상(칙명)이면 <see cref="RoyalHint"/>(0x0041EA90).
     /// </summary>
     private void OfferJobs()
     {
@@ -775,9 +826,9 @@ public sealed class SeaMapWindow : Window
         if (job.Chapter != 0)
         {
             int kind = job.GetVar(6), to = job.GetVar(16);
+            if (kind >= 6) { RoyalHint(job); return; }
             string where = _host.Ports is { } pt && to < pt.Ports.Count ? pt.Ports[to].Name : $"#{to}";
-            Note(kind >= 6 ? " · 그 일은 아직 없습니다"
-                 : to == port ? " · 맡은 일을 먼저 마치세요" : $" · {where}의 일이 남아 있습니다");
+            Note(to == port ? " · 맡은 일을 먼저 마치세요" : $" · {where}의 일이 남아 있습니다");
             return;
         }
         if (job.GetFlag(16) && job.GetFlag(17)) { Note(" · 조합이 당신 나라 사람에게는 일을 주지 않습니다"); return; }
