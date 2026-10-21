@@ -2591,9 +2591,27 @@ public sealed class SeaMapWindow : Window
             if (k < 0) return;
             var sh = ships[k];
             string tn = _host.StartTables is { } t0 && sh.Type < t0.Templates.Count ? t0.Templates[sh.Type].Name ?? "" : "";
-            string info = $"{sh.Name}호 — {tn} · 등급 {sh.Grade}\n"
-                          + $"내구 {sh.Hull}/{sh.MaxHull} · 역풍 {sh.Upwind} · 돛 {sh.Sail} · 대포 {sh.Guns} · 선원 자리 {sh.MaxCrew} · 짐칸 {sh.Room}\n"
-                          + $"승무원비율 운항 {sh.SailShare}% · 파수 {sh.WatchShare}% · 갑판 {100 - sh.SailShare - sh.WatchShare}%";
+            // 원본 칸(0x00442140) — 선장(0x375) · 무장(0x377 · 0x378) · 운항/파수/갑판(0x379 · 0x37A) · 운항요원(0x37B) · 적재율(0x37C)
+            // · 짐(0x37F). 속도(0x37E)는 바람에 따라 바뀌어 뺐다.
+            int gk = Math.Clamp(sh.GunKind, 0, 7);
+            int sail = sh.Crew * sh.SailShare / 100, watch = sh.Crew * sh.WatchShare / 100;
+            int need = _host.StartTables is { } t1 && sh.Type < t1.ShipTypes.Count ? t1.ShipTypes[sh.Type].RequiredCrew : 0;
+            var lines = new List<string>
+            {
+                $"{sh.Name}호 — {tn} · 등급 {sh.Grade}",
+                $"선장: {_host.PersonName(sh.Captain >= 0 ? sh.Captain : _host.HeroPersonNumber)}",
+                $"무장: {(sh.Mounted > 0 ? Shipyard.GunNames[gk] : "없음")} {sh.Mounted}문/{sh.Guns}문({sh.Mounted * Shipyard.GunWeight[gk]})",
+                $"운항/파수/갑판: {sail}명 {watch}명 {sh.Crew - sail - watch}명",
+                $"운항요원: {need}명",
+                $"적재율: {(sh.Room > 0 ? sh.Load * 100 / sh.Room : 0)}%",
+                $"내구 {sh.Hull}/{sh.MaxHull} · 역풍 {sh.Upwind} · 돛 {sh.Sail}",
+            };
+            for (int i = 0; i < 4; i++)
+                if (sh.Supplies[i] > 0) lines.Add($"{Economy.SupplyNames[i],-9}{sh.Supplies[i],5}");
+            if (_host.Economy is { } ge)
+                foreach (var (good, amount) in sh.Cargo.Where(c => c.Good >= 0))
+                    lines.Add($"{ge.GoodsNames[good],-9}{amount,5}");
+            string info = string.Join("\n", lines);
             if (_devQuiet) return;
             ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line("", info)], _host.Graphs?.Get(ShipGraph(sh.Type)));
             return;
