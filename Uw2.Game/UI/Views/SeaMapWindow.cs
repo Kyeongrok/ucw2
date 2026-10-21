@@ -1389,7 +1389,9 @@ public sealed class SeaMapWindow : Window
         if (pick < 0) return;
         // 고른 것의 풀이와 그림을 보이고 살지 묻는다(0x0041F450).
         ShowItem(items[pick].Index);
-        if (MessageBox.Show(this, $"{items[pick].Name} — 금화 {items[pick].Price}. 사겠습니까?", "구입", MessageBoxButton.YesNo)
+        // 「%s(는) 금화 」(0xF0) + 값 + 「닢예요.」(0xF1, 0x0041FF50)
+        if (MessageBox.Show(this, MsgOr(0xF0, $"{items[pick].Name}(는) 금화 ", items[pick].Name) + items[pick].Price + MsgOr(0xF1, "닢예요."),
+                            "구입", MessageBoxButton.YesNo)
             != MessageBoxResult.Yes) return;
         int gold = p.Gold;
         var result = ItemShop.Buy(vm.Memory, items[pick].Index, ref gold);
@@ -1415,9 +1417,12 @@ public sealed class SeaMapWindow : Window
         if ((item.Kind & 0x10) != 0) { Note(M(0x14D, "그것은 팔 수 없습니다")); return; }
         if (item.Power == 0) { Note(M(0x3A1, "그런 것은 받지 않습니다")); return; }
         int hero = _host.HeroPersonNumber, offer = ItemShop.Offer(item);
+        // 「%s(는) 금화 」(0xF5) + 값 + 「닢에 인수하지요.」(0xF7, 0x00420124). 올려 부르면 「손님에겐 두 손 들었읍니다. 금화 」(0xF6) + 값 + 0xF7.
+        string head = MsgOr(0xF5, $"{item.Name}(는) 금화 ", item.Name);
+        bool raised = false;
         while (true)
         {
-            if (MessageBox.Show(this, $"{Josa(item.Name, "이라면", "라면")} {offer}에 사지요.", "매각", MessageBoxButton.YesNo)
+            if (MessageBox.Show(this, head + offer + MsgOr(0xF7, "닢에 인수하지요."), "매각", MessageBoxButton.YesNo)
                 == MessageBoxResult.Yes)
             {
                 int gold = _host.Player.Gold;
@@ -1426,9 +1431,12 @@ public sealed class SeaMapWindow : Window
                 Note($" · {Josa(item.Name, "을", "를")} {offer}에 팔았습니다");
                 return;
             }
+            if (raised) return;   // 올려 부른 값도 마다하면 끝(0x004201BE)
+            raised = true;
             offer = ItemShop.Haggle(offer, Navigators.Get(vm.Memory, hero, Church.Luck),
                                     Navigators.Get(vm.Memory, hero, Navigators.Stats + 6), _host.Roll);
             if (offer < 0) { Note(" · 흥정이 깨졌습니다"); return; }
+            head = MsgOr(0xF6, "손님에겐 두 손 들었읍니다.\n금화 ");
         }
     }
 
