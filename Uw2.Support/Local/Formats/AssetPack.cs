@@ -54,6 +54,7 @@ namespace Uw2.Support.Local.Formats;
 ///     kao/
 ///       faces.png        1024x640 얼굴 64x80 백스물여덟을 16 x 8 로(값 = 색인 0~7)
 ///       finds.png        768x384  발견물 48x48 백스물여덟을 16 x 8 로
+///     graph/NN.png                GRAPH.DAT 그림 예순아홉(NPK016) — 저마다 제 빛깔 열여섯(<see cref="Npk"/>)
 /// </code>
 /// </remarks>
 public sealed class AssetPack
@@ -133,6 +134,7 @@ public sealed class AssetPack
         if (File.Exists(Find("MENU.DAT"))) BakeMenus(Find("MENU.DAT"), outDir);
         BakeScenario(gameDirectory, outDir);
         if (File.Exists(Find("KAO.LZW"))) BakeKao(Find("KAO.LZW"), outDir);
+        if (File.Exists(Find("GRAPH.DAT"))) BakeGraph(Find("GRAPH.DAT"), outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
         IndexedPng.Write(Path.Combine(outDir, "port", "chipno.png"),
@@ -361,6 +363,32 @@ public sealed class AssetPack
         IndexedPng.Write(Path.Combine(outDir, "kao", "finds.png"), na, nw, nh, pal);
     }
 
+    /// <summary><c>GRAPH.DAT</c> 의 그림을 한 장씩 <c>graph/NN.png</c> 로 굽는다(<see cref="Npk"/>).</summary>
+    public static void BakeGraph(string graphPath, string outDir)
+    {
+        string dir = Path.Combine(outDir, "graph");
+        Directory.CreateDirectory(dir);
+        var pics = Npk.ReadAll(File.ReadAllBytes(graphPath));
+        for (int i = 0; i < pics.Count; i++)
+            IndexedPng.Write(Path.Combine(dir, $"{i:D2}.png"), pics[i].Pixels, pics[i].Width, pics[i].Height, pics[i].Palette);
+    }
+
+    /// <summary>
+    /// 건물 임자 그림 — 원본은 건물 번호 + 6 을 (104, 16) 에 찍는다(<c>0x00436620</c>). 모스크면 교회(10) 대신 20 이다.
+    /// </summary>
+    public static int KeeperGraph(int building, bool mosque) => mosque && building == 10 ? 20 : building + 6;
+
+    /// <summary><c>graph/NN.png</c> 한 장 — 없으면 null.</summary>
+    public IndexedPng.Image? Graph(int n)
+    {
+        if (Folder is null || n < 0) return null;
+        string path = Path.Combine(Folder, "graph", $"{n:D2}.png");
+        return File.Exists(path) ? IndexedPng.Read(path) : null;
+    }
+
+    /// <summary>읽어 온 자산 폴더.</summary>
+    public string? Folder { get; private init; }
+
     /// <summary>교역 표를 굽는다 — 이름은 한글판 EXE 에서, 시장 · 항구 형편은 <c>SDATA.DAT</c> 에서.</summary>
     public static void BakeEconomy(string sdataPath, string han8ExePath, string outDir)
     {
@@ -564,6 +592,7 @@ public sealed class AssetPack
                 HeroWalkers = heroWalk,
                 FolkWidth = folkW,
                 Font = font,
+                Folder = dir,
             };
         }
         catch

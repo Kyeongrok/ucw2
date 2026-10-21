@@ -97,6 +97,7 @@ public sealed partial class SeaMapHost : HwndHost
         Wind = pack.Wind.Length > 0 ? WindCurTable.FromBytes(pack.Wind) : null;
         StartTables = pack.Start;
         if (pack.Faces.Length > 0) Faces = new FaceSheet(pack.Faces, pack.FacesWidth, pack.Finds, pack.FindsWidth);
+        Graphs = new GraphSheet(pack);
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
         if (AssetPack.FindFolder() is { } nameDir && File.Exists(Path.Combine(nameDir, "name.tbl")))
@@ -366,6 +367,9 @@ public sealed partial class SeaMapHost : HwndHost
 
     /// <summary>얼굴 판 — 시나리오 대사 창이 쓴다. 구워 두지 않았으면 null.</summary>
     public FaceSheet? Faces { get; private set; }
+
+    /// <summary><c>GRAPH.DAT</c> 그림 — 건물 임자 · 배 · 사건.</summary>
+    public GraphSheet? Graphs { get; private set; }
 
     /// <summary>
     /// 함께 쓰는 시나리오(SNR0) — 주인공 시나리오보다 먼저 건물마다 돈다(<c>0x0043F8C0</c>). 깃발 · 변수 · 장 · 절은 따로,

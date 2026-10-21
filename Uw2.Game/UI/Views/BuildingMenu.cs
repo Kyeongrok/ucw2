@@ -15,7 +15,7 @@ public sealed class BuildingMenu : Window
 {
     private int _picked = -1;
 
-    private BuildingMenu(string title, IReadOnlyList<string> items)
+    private BuildingMenu(string title, IReadOnlyList<string> items, ImageSource? picture = null)
     {
         Title = title;
         SizeToContent = SizeToContent.WidthAndHeight;
@@ -44,14 +44,24 @@ public sealed class BuildingMenu : Window
             b.Click += (_, _) => { _picked = at; Close(); };
             stack.Children.Add(b);
         }
-        Content = stack;
+        if (picture is null) Content = stack;
+        else
+        {
+            // 건물 임자 그림 — 원본 크기 그대로 두 배로, 점이 뭉개지지 않게 키운다.
+            var img = new Image { Source = picture, Width = picture.Width * 2, Height = picture.Height * 2, Margin = new Thickness(16, 16, 0, 16), VerticalAlignment = VerticalAlignment.Top };
+            RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.NearestNeighbor);
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            row.Children.Add(img);
+            row.Children.Add(stack);
+            Content = row;
+        }
         KeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Escape) Close(); };
     }
 
     /// <summary>띄우고 고른 줄의 차례를 돌려준다. 그냥 닫으면 -1.</summary>
-    public static int Ask(Window owner, string title, IReadOnlyList<string> items)
+    public static int Ask(Window owner, string title, IReadOnlyList<string> items, ImageSource? picture = null)
     {
-        var menu = new BuildingMenu(title, items) { Owner = owner };
+        var menu = new BuildingMenu(title, items, picture) { Owner = owner };
         menu.ShowDialog();
         return menu._picked;
     }

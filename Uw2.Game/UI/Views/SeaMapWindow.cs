@@ -365,7 +365,9 @@ public sealed class SeaMapWindow : Window
         if (b == GuildBuilding && _host.Common is { } gc && gc.GetFlag(16) && gc.GetFlag(17) && _host.HeroNation < 6)
             Say(-1, KingCalls(_host.HeroNation) + MsgOr(0x3A4, "당신을 찾고 있어."));
         if (b == FortuneBuilding) Say(0x12A, "점술관에 어서 오세요.");                     // 0x00428402
-        int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items);
+        // 건물 임자 그림(0x00436620) — 모스크는 교회 자리에 제 그림이 있다.
+        var keeper = _host.Graphs?.Get(AssetPack.KeeperGraph(b, _host.PortChipSet(_host.CurrentPort) == 2));
+        int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items, keeper);
         if (pick < 0) return;
         if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
