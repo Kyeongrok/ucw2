@@ -44,6 +44,9 @@ public sealed class SaveGame
     /// <summary>항해일지(<see cref="Engine.Logbook"/>, 원본과 같은 0x300 바이트). 옛 세이브는 없다.</summary>
     public byte[]? Logbook { get; set; }
 
+    /// <summary>엔딩을 봤는지 — 원본 <c>0x0045A1E0</c> 의 2 가 지워진 것(<c>0x00404388</c>). 그 뒤로는 왕궁 공작 엔딩이 안 난다.</summary>
+    public bool StoryOver { get; set; }
+
     /// <summary>원본 세이브 칸(<see cref="Uw2.Support.Local.Formats.OriginalSave"/>)에서 들일 때만 — 들일 때 나머지를 다 채운다.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public Uw2.Support.Local.Formats.OriginalSave.Slot? Original { get; set; }

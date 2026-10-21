@@ -556,7 +556,7 @@ public sealed partial class SeaMapHost : HwndHost
             MonsterSlots = Monsters != null ? [.. Monsters.Slots] : null,
             MonsterNext = Monsters?.Next ?? 0,
             Npcs = [.. Others.Select(o => o.Export())],
-            Logbook = Log.Export(),
+            Logbook = Log.Export(), StoryOver = StoryOver,
             NpcReserve = FleetReserve.ToDictionary(r => r.Key, r => r.Value.SelectMany(x => (int[])[x.Crew, x.Durability, x.MaxDurability, x.Upwind, x.Sail, x.Field6, x.Ship, x.Flags]).ToArray()),
         };
         string where = CurrentPort >= 0 ? SceneName : "바다";
@@ -606,6 +606,7 @@ public sealed partial class SeaMapHost : HwndHost
         if (save.Common != null) Common?.Import(save.Common);
         SyncPortNames();
         Log.Import(save.Logbook);
+        StoryOver = save.StoryOver;
         // 발견물 · 임자 표가 생기기 전 세이브 — 표가 비었으면 새 게임처럼 채운다.
         if (Scenario is { } sv)
         {
@@ -910,6 +911,9 @@ public sealed partial class SeaMapHost : HwndHost
 
     /// <summary>시나리오가 엔딩(F4)에 닿았을 때 — 엔딩 번호를 넘긴다.</summary>
     public event Action<int>? StoryEnded;
+
+    /// <summary>엔딩을 봤는지(<see cref="SaveGame.StoryOver"/>).</summary>
+    public bool StoryOver { get; set; }
 
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;

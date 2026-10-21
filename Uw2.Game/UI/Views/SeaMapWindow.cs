@@ -4025,6 +4025,7 @@ public sealed class SeaMapWindow : Window
     private void OnStoryEnded(int code)
     {
         if (_over) return;
+        _host.StoryOver = true;   // 0x00404388 — 끝 갈래의 2 를 지운다
         var (name, family) = _host.HeroName;
         // 주인공마다 엔딩 그림(END.DAT, 0x00405B50) — 항해일지를 쓰거나 읽는 모습이다.
         var ending = _host.Graphs?.Ending(_host.HeroPersonNumber);
