@@ -38,10 +38,18 @@ public static class Navigators
     /// 말을 거드는 동료(<c>0x004367D0</c>) — 처지 4 경리주임 · 3 부선장 · 5 수석항해사 · 2 선장 · 6 동료 순으로, 그 처지인 첫 동료다.
     /// 원본은 이이의 얼굴로 제독에게 말을 건다(「급여설정」에서 이이를 고르면 0xDD 「내 급료는 …」). 동료가 없으면 -1.
     /// </summary>
-    public static int Adviser(ScenarioMemory m)
+    public static int Adviser(ScenarioMemory m) => FirstInStatus(m, [4, 3, 5, Captain, Employed]);
+
+    /// <summary>
+    /// 말을 거드는 동료의 다른 순(<c>0x00436870</c>) — 부선장 · 경리주임 · 수석항해사 · 선장 · 동료. 대개의 「제독님, …」 말이 이이 얼굴이다
+    /// (「항」에서 남고 싶은 동료가 이이면 0x320 「제독님, 나를 붙들 생각입니까？」).
+    /// </summary>
+    public static int FirstMate(ScenarioMemory m) => FirstInStatus(m, [3, 4, 5, Captain, Employed]);
+
+    private static int FirstInStatus(ScenarioMemory m, int[] order)
     {
         var people = Mates(m).Select(x => x.Person).ToList();
-        foreach (int status in (int[])[4, 3, 5, Captain, Employed])
+        foreach (int status in order)
             foreach (int p in people)
                 if (Get(m, p, Status) == status) return p;
         return -1;

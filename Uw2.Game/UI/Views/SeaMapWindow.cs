@@ -421,6 +421,8 @@ public sealed class SeaMapWindow : Window
     /// 주점 「여급과 대화」 — 목록 13(업무정보 · 그녀의취향 · 그녀의연령, <c>0x00426910</c>)과 목록 14(자랑 · 선물, <c>0x004269A0</c>)를
     /// 한 목록으로 늘어놓는다. 업무정보(<c>0x00426410</c>)는 아직이다.
     /// </summary>
+    private const int BarmaidFee = 10;
+
     private void TalkToBarmaid()
     {
         if (_host.Scenario is not { } vm) return;
@@ -428,6 +430,10 @@ public sealed class SeaMapWindow : Window
         int maid = Barmaids.InPort(m, _host.CurrentPort);
         if (maid < 0) { Note(" · 여급이 없습니다"); return; }
         string name = Barmaids.Name(m, maid);
+        // 주인이 여급을 소개하고(0x92), 말을 트는 데 금화 10 닢이 든다 — 모자라면 경리주임이 「제독님, 금화가 부족합니다.」(0x93, 0x00426A2D).
+        Say(0x92, $"{name}(는) 우리집 간판 아가씨요.", name);
+        if (_host.Player.Gold < BarmaidFee) { Say(0x93, "제독님, 금화가 부족합니다."); return; }
+        _host.Player.SetGold(_host.Player.Gold - BarmaidFee);
         Say(0x18E, "무엇을 듣고 싶은가요？");
         string[] items = ["업무정보", "그녀의취향", "그녀의연령", "자  랑", "선  물"];
         while (true)
@@ -1490,7 +1496,7 @@ public sealed class SeaMapWindow : Window
                 int cls = _host.Economy is { } eco && port * Economy.StateSize + 0x24 < eco.StateBytes.Length
                     ? eco.StateBytes[port * Economy.StateSize + 0x24] : 0;
                 int price = cls < Navigators.TreatPrice.Length ? Navigators.TreatPrice[cls] : 1;
-                if (_host.Player.Gold < price) { Note(" · 돈이 모자랍니다"); return; }
+                if (_host.Player.Gold < price) { Say(0x4C, "금화가 부족한 것 같군."); return; }   // 0x00425295
                 _host.Player.SetGold(_host.Player.Gold - price);
                 int gain = Navigators.Treat(m, nav, hero);
                 Note($" · {name}에게 한턱냈습니다({price}) · 호감 +{gain}");
@@ -2968,7 +2974,11 @@ public sealed class SeaMapWindow : Window
         {
             string who = _host.PersonName(mate);
             Say(0x31E, "제독님, 나는 이 항구에 남고 싶습니다만.");
-            bool keep = MessageBox.Show(this, MsgOr(0x31F, $"제독님, {who}(를) 붙들겠습니까？", who), who, MessageBoxButton.YesNo) == MessageBoxResult.Yes
+            // 말을 거드는 동료(0x00436870) 자신이 남겠다면 「제독님, 나를 붙들 생각입니까？」(0x320, 0x00423E61).
+            string ask = _host.Scenario is { } vm && Navigators.FirstMate(vm.Memory) == mate
+                ? MsgOr(0x320, "제독님, 나를 붙들 생각입니까？")
+                : MsgOr(0x31F, $"제독님, {who}(를) 붙들겠습니까？", who);
+            bool keep = MessageBox.Show(this, ask, who, MessageBoxButton.YesNo) == MessageBoxResult.Yes
                         && MessageBox.Show(this, MsgOr(0x321, $"그럼, 급료를 금화 {wage + 10}닢으로 올려 주십시오.", wage + 10), who, MessageBoxButton.YesNo) == MessageBoxResult.Yes;
             if (keep) _host.KeepMate(mate);
             else
