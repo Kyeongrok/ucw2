@@ -13,6 +13,7 @@ public sealed partial class SeaMapHost
     private readonly List<(int X, int Y)> _autoRoute = [];
     private int _autoLeg, _autoErr, _autoStall, _autoPort = -1;
     private bool _autoNewLeg;
+    private int _autoBest = int.MaxValue;
 
     /// <summary>항이동 중인 항구, 아니면 -1.</summary>
     public int AutoPort => _autoPort;
@@ -25,12 +26,31 @@ public sealed partial class SeaMapHost
         foreach (int n in g.Path(g.Nearest((int)f.X, (int)f.Y), g.Nearest(pt.Ports[port].X, pt.Ports[port].Y)))
             _autoRoute.Add((g.Nodes[n].X, g.Nodes[n].Y));
         _autoRoute.Add((pt.Ports[port].X, pt.Ports[port].Y));
-        _autoLeg = 0; _autoStall = 0; _autoNewLeg = true;
+        _autoLeg = 0; _autoStall = 0; _autoNewLeg = true; _autoBest = int.MaxValue;
         _autoPort = port;
         _portAsked = -1;
         f.Anchored = false;
         f.UnderSail = true;
         return true;
+    }
+
+    /// <summary>개발 — 화면 없이 항이동을 돌려 닿기까지의 틱(못 닿으면 -1)과 지나온 자리를 돌려준다.</summary>
+    public (int Ticks, List<(int X, int Y)> Track) DevAutopilotRun(int port, int maxTicks)
+    {
+        var track = new List<(int, int)>();
+        if (Fleet is not { } f || !StartAutopilot(port)) return (-1, track);
+        for (int t = 0; t < maxTicks; t++)
+        {
+            if (PortBeside() == port) return (t, track);
+            AutopilotTick();
+            if (_autoPort < 0) { track.Add((-t, _autoLeg)); track.AddRange(_autoRoute); track.Add(((int)f.X, (int)f.Y)); return (PortBeside() == port ? t : -1, track); }
+            double fx = f.X, fy = f.Y;
+            f.Step();
+            AutopilotMoved(fx, fy);
+            if (t % 72 == 0) track.Add(((int)f.X, (int)f.Y));
+        }
+        track.Add((-maxTicks, _autoLeg)); track.AddRange(_autoRoute); track.Add(((int)f.X, (int)f.Y));
+        return (-1, track);
     }
 
     /// <summary>항이동을 멈춘다 — 손으로 키를 잡으면.</summary>
@@ -55,13 +75,19 @@ public sealed partial class SeaMapHost
             int dx = goal.X - (int)f.X, dy = goal.Y - (int)f.Y;
             if (dx > ChipMap.Width / 2) dx -= ChipMap.Width;
             if (dx < -ChipMap.Width / 2) dx += ChipMap.Width;
-            if (Math.Max(Math.Abs(dx), Math.Abs(dy)) > 1 && _autoStall < Fleet.TicksPerDay)
+            // 마디는 남 함대(점) 몫이라 뭍에 가깝다 — 두 칸 곁이면 닿은 것으로, 하루 동안 가까워지지 않으면 건너뛴다.
+            // 마지막(항구)은 건너뛰지 않고 사흘 동안 못 가까워지면 그만둔다.
+            int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
+            if (dist < _autoBest) { _autoBest = dist; _autoStall = 0; }
+            bool last = _autoLeg == _autoRoute.Count - 1;
+            if (last ? _autoStall < Fleet.TicksPerDay * 3 : dist > 2 && _autoStall < Fleet.TicksPerDay)
             {
                 f.Heading = SteerToward(dx, dy);
                 return;
             }
             _autoLeg++;
             _autoStall = 0;
+            _autoBest = int.MaxValue;
             _autoNewLeg = true;
         }
         _autoPort = -1;   // 뱃길 끝까지 왔는데 항구 곁이 아니다 — 손으로 넘긴다
@@ -71,7 +97,7 @@ public sealed partial class SeaMapHost
     private void AutopilotMoved(double fromX, double fromY)
     {
         if (_autoPort < 0 || Fleet is not { } f) return;
-        _autoStall = (int)f.X == (int)fromX && (int)f.Y == (int)fromY ? _autoStall + 1 : 0;
+        _autoStall++;   // 가까워지면 AutopilotTick 이 0 으로 되돌린다
     }
 
     /// <summary>브레젠험처럼 대각과 곧은 걸음을 섞는다(남 함대 <c>0x00461FF8</c> 방위표와 같다).</summary>

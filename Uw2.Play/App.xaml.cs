@@ -34,6 +34,16 @@ public partial class App : Application
             t.Start();
             return;
         }
+        if (Array.IndexOf(e.Args, "--autopilot-smoke") is >= 0 and var ap && ap + 1 < e.Args.Length)
+        {
+            var map = new SeaMapWindow { Title = "대항해시대2 — 항이동 시험" };
+            map.Show();
+            map.ShowHomePort(0);
+            var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            t.Tick += (_, _) => { t.Stop(); map.DevAutopilotSmoke(e.Args[ap + 1]); Shutdown(); };
+            t.Start();
+            return;
+        }
         if (Array.IndexOf(e.Args, "--town-demo") >= 0)
         {
             // 개발 — 첫 주인공 고향 항구를 바로 띄운다(마을 사람 보기).

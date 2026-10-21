@@ -3535,6 +3535,26 @@ public sealed class SeaMapWindow : Window
     /// 개발 — 새 게임에서 고향을 떠나 바다에 나온 남 함대 곁에 서서 「공격」 판을 차리고, 제 기함까지 남 배 생각으로 끝까지 돌린 뒤
     /// 뒤끝을 셈해 <paramref name="outPath"/> 에 적는다(<c>Uw2Play.exe --battle-smoke 파일</c>). 판 그림은 <paramref name="shotPath"/> 에 뜬다.
     /// </summary>
+    public void DevAutopilotSmoke(string outPath)
+    {
+        var log = new System.Text.StringBuilder();
+        try
+        {
+            foreach (var s in _host.Player.Ships) { s.Crew = s.MaxCrew; s.Supplies[0] = s.Supplies[1] = 2000; }
+            _host.SyncLoad();
+            PutToSea(check: false);
+            foreach (string name in (string[])["세빌리아", "런던", "제노바", "이스탄불", "암스테르담"])
+            {
+                int port = _host.Ports?.ByName(name)?.Index ?? -1;
+                var (ticks, track) = _host.DevAutopilotRun(port, Fleet.TicksPerDay * 120);
+                log.AppendLine($"{name}({port}) — {(ticks >= 0 ? $"{ticks} 틱({ticks / Fleet.TicksPerDay} 일)" : "못 닿음")} · 자리 {string.Join(" ", track.Take(40))}");
+                if (ticks < 0) break;
+            }
+        }
+        catch (Exception e) { log.AppendLine(e.ToString()); }
+        File.WriteAllText(outPath, log.ToString());
+    }
+
     public void DevImportSmoke(string savePath, string outPath)
     {
         var log = new System.Text.StringBuilder();
