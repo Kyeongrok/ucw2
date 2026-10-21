@@ -57,6 +57,7 @@ namespace Uw2.Support.Local.Formats;
 ///     graph/NN.png                GRAPH.DAT 그림 예순아홉(NPK016) — 저마다 제 빛깔 열여섯(<see cref="Npk"/>)
 ///     ending/heroN.png            주인공 여섯의 엔딩 그림(END.DAT · 빛깔은 KOUKAI2.EXE)
 ///     open/NN.png                 여는 화면 그림 아흔(OPEN.DAT · 빛깔은 주인공 장면 것 0x4591D0 하나로)
+///     duel/NAME-V.png             일기토 그림 판(IAP1 ~ 6 · IAE1, 무기 갈래 V) — 줄이 무리, 칸이 장(<see cref="DuelSprites"/>)
 ///     event/F-N.png               시나리오 그림(EVENTF.DAT 의 N 번째, NPK016) — 주인공 시나리오가 CB 로 띄운다
 /// </code>
 /// </remarks>
@@ -141,6 +142,7 @@ public sealed class AssetPack
         if (File.Exists(Find("END.DAT")) && File.Exists(Find("KOUKAI2.EXE"))) BakeEndings(Find("END.DAT"), Find("KOUKAI2.EXE"), outDir);
         if (File.Exists(Find("OPEN.DAT")) && File.Exists(Find("KOUKAI2.EXE"))) BakeOpening(Find("OPEN.DAT"), Find("KOUKAI2.EXE"), outDir);
         BakeEvents(gameDirectory, outDir);
+        BakeDuel(gameDirectory, outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
         IndexedPng.Write(Path.Combine(outDir, "port", "chipno.png"),
@@ -413,6 +415,35 @@ public sealed class AssetPack
             var pic = Npk.DecodeBare(data.AsSpan(offs[i]), pal);
             IndexedPng.Write(Path.Combine(dir, $"{i:D2}.png"), pic.Pixels, pic.Width, pic.Height, pic.Palette);
         }
+    }
+
+    /// <summary>일기토 그림 판을 굽는다 — 빛깔은 GRAPH.DAT 첫 그림의 열여섯(기본 빛깔)이다.</summary>
+    public static void BakeDuel(string gameDirectory, string outDir)
+    {
+        string graph = Path.Combine(gameDirectory, "GRAPH.DAT");
+        if (!File.Exists(graph)) return;
+        var pal = Npk.Decode(File.ReadAllBytes(graph)).Palette;
+        string dir = Path.Combine(outDir, "duel");
+        foreach (string name in (string[])["IAP1", "IAP2", "IAP3", "IAP4", "IAP5", "IAP6", "IAE1"])
+        {
+            string path = Path.Combine(gameDirectory, name + ".LZW");
+            if (!File.Exists(path)) continue;
+            Directory.CreateDirectory(dir);
+            var chunks = LsArchive.ReadAll(path);
+            for (int v = 0; v < DuelSprites.Variants; v++)
+            {
+                var sheet = DuelSprites.Sheet(chunks, v, out int w, out int h);
+                IndexedPng.Write(Path.Combine(dir, $"{name}-{v}.png"), sheet, w, h, pal);
+            }
+        }
+    }
+
+    /// <summary><c>duel/NAME-V.png</c> — 없으면 null.</summary>
+    public IndexedPng.Image? DuelSheet(string name, int variant)
+    {
+        if (Folder is null) return null;
+        string path = Path.Combine(Folder, "duel", $"{name}-{variant}.png");
+        return File.Exists(path) ? IndexedPng.Read(path) : null;
     }
 
     /// <summary><c>EVENT0 ~ 6.DAT</c> 의 그림을 <c>event/F-N.png</c> 로 굽는다(파일 F 의 N 번째).</summary>

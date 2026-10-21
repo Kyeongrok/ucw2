@@ -100,6 +100,10 @@ public sealed partial class SeaMapHost : HwndHost
         Graphs = new GraphSheet(pack);
         // 시나리오 그림은 주인공(사람 표 차례) + 1 번 EVENT 파일에서(0x00415AD9).
         if (Faces != null) Faces.EventPictures = n => Graphs.Event(HeroPersonNumber + 1, n);
+        // 일기토 그림 — 주인공은 IAP(주인공 + 1), 상대는 IAE1(0x00414955).
+        var graphs = Graphs;
+        DuelWindow.Sprites = (hero, variant, group, frame) =>
+            graphs.DuelFrame(hero ? $"IAP{HeroPersonNumber + 1}" : "IAE1", variant, group, frame);
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
         if (AssetPack.FindFolder() is { } nameDir && File.Exists(Path.Combine(nameDir, "name.tbl")))

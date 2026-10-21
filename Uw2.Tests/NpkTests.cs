@@ -27,4 +27,21 @@ public class NpkTests
         Assert.Equal(new byte[] { 4, 0, 0, 0 }, p.Pixels);
         Assert.Equal(new byte[] { 85, 51, 170 }, p.Palette[3..6]);
     }
+
+    [Fact]
+    public void DuelSprite_part_blits_four_planes_per_eight_dots_and_skips_colour_8()
+    {
+        // 조각 하나 — x 1(8 점), y 0, 가로 1 바이트, 세로 1, 몸은 자리 16 부터. 끝 표시(세로 0xFF).
+        byte[] chunk = [1, 0, 1, 1, 0, 0, 0, 16, 0, 0, 0, 0xFF, 0, 0, 0, 0xFF,
+                        0b1000_0001, 0b0000_0001, 0b0000_0000, 0b1010_0001];   // 면 0 ~ 3
+        var parts = DuelSprites.Parts(chunk);
+        Assert.Single(parts);
+        var cell = new byte[16];
+        Array.Fill(cell, (byte)0xEE);
+        DuelSprites.Blit(chunk, parts[0], cell, 16);
+        Assert.Equal(9, cell[8]);            // 왼쪽 점 — 면 0 · 3
+        Assert.Equal(0, cell[9]);
+        Assert.Equal(0xEE, cell[10]);        // 색 8(면 3 만)은 비친다
+        Assert.Equal(11, cell[15]);          // 오른쪽 점 — 면 0 · 1 · 3
+    }
 }

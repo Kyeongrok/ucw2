@@ -18,6 +18,16 @@ public partial class App : Application
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         if (e.Args.Contains("--battle-demo")) { BattleWindow.Demo(); Shutdown(); return; }
+        if (Array.IndexOf(e.Args, "--duel-shot") is >= 0 and var ds && ds + 1 < e.Args.Length
+            && Uw2.Support.Local.Formats.AssetPack.FindFolder() is { } duelAssets)
+        {
+            // 개발 — 일기토 화면을 화면 밖에 그려 그림으로 적는다.
+            var graphs = new GraphSheet(Uw2.Support.Local.Formats.AssetPack.PicturesOnly(duelAssets));
+            DuelWindow.Sprites = (hero, variant, group, frame) => graphs.DuelFrame(hero ? "IAP1" : "IAE1", variant, group, frame);
+            DuelWindow.DevShot(e.Args[ds + 1]);
+            Shutdown();
+            return;
+        }
         if (Array.IndexOf(e.Args, "--battle-smoke") is >= 0 and var at && at + 1 < e.Args.Length)
         {
             // 개발 — 새 게임 바다에서 남 함대와 한 판을 돌려 보고 끝낸다.

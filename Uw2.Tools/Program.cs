@@ -85,6 +85,7 @@ public static class Program
         if (File.Exists(Path.Combine(dir, "END.DAT"))) AssetPack.BakeEndings(Path.Combine(dir, "END.DAT"), Path.Combine(dir, "KOUKAI2.EXE"), outDir);
         if (File.Exists(Path.Combine(dir, "OPEN.DAT"))) AssetPack.BakeOpening(Path.Combine(dir, "OPEN.DAT"), Path.Combine(dir, "KOUKAI2.EXE"), outDir);
         AssetPack.BakeEvents(dir, outDir);
+        AssetPack.BakeDuel(dir, outDir);
         AssetPack.BakeRoute(Path.Combine(dir, "DATA1.LZW"), outDir);
         AssetPack.BakeMenus(Path.Combine(dir, "MENU.DAT"), outDir);
         AssetPack.BakeScenario(dir, outDir);
