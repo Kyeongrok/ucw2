@@ -1959,6 +1959,12 @@ public sealed class SeaMapWindow : Window
 
         var battle = _host.OpenBattle(enemy);
         f.UnderSail = false;
+        foreach (var (side, ally) in _host.BattleAllies.OrderByDescending(a => a.Key))
+        {
+            var p = _host.StartTables!.People[Math.Clamp(ally.Admiral, 0, _host.StartTables.People.Count - 1)];
+            int id = side == 3 ? 0x30B : 0x30C;
+            Say(id, $"{p.Name} {p.Family}(가) {(side == 3 ? "수비측" : "공격측")}의 원군으로서 전투에 가담했습니다.", p.Name, p.Family);
+        }
         if (!fight) battle.Result = Engine.Sea.Battle.Outcome.EnemyLeft;
         else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter);
         f.SetTimeOfDay(battle.Time);

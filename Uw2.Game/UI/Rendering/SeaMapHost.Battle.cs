@@ -96,12 +96,45 @@ public sealed partial class SeaMapHost
                   type.Durability, ship.MaxCrew, ship);
         }
 
-        // 남 함대 — 배마다 제독이 선장이다(0x00410423). 탄약은 나라 해군(번호 % 10 이 0 · 5 ~ 9)의 돛배만 선종 대포 위끝 / 5, 그리고 rand 를 더한다.
-        var admiral = BattleCaptain(enemy.Admiral);
-        int kind = enemy.Index % 10;
+        AddNpc(b, 1, enemy);
+
+        // 원군(0x00409C30) — 둘레 두 칩 안의 나라 해군(번호 % 10 이 5 이상) 가운데 맞는 쪽 나라면 편 3(말 0x30B), 덮치는 쪽 나라면 편 2(0x30C).
+        // 편마다 하나, 주인공이 해적이면 없다.
+        BattleAllies.Clear();
+        if (HeroNation != Economy.NoNation)
+            foreach (var f in FleetsInReach())
+            {
+                if (f == enemy || f.Pirate || f.Index % 10 < 5) continue;
+                int side = f.Nation == enemy.Nation && !BattleAllies.ContainsKey(3) ? 3
+                         : f.Nation == HeroNation && !BattleAllies.ContainsKey(2) ? 2 : -1;
+                if (side < 0) continue;
+                BattleAllies[side] = f;
+                AddNpc(b, side, f);
+            }
+
+        // 펼치기 — 함대마다 맞는 쪽과의 칩 차(0x00410960).
+        int fx = (int)(Fleet?.X ?? ex), fy = (int)(Fleet?.Y ?? ey);
+        b.Deploy(0, Fleet?.Heading ?? 0, fx - ex, fy - ey);
+        b.Deploy(1, enemy.Heading, 0, 0);
+        foreach (var (side, f) in BattleAllies) b.Deploy(side, f.Heading, (int)f.X - ex, (int)f.Y - ey);
+        return b;
+    }
+
+    /// <summary>이번 판에 든 원군 — 편 2 · 3.</summary>
+    public Dictionary<int, NpcFleet> BattleAllies { get; } = [];
+
+    /// <summary>
+    /// 남 함대를 편에 들인다 — 배마다 제독이 선장이다(<c>0x00410423</c>). 탄약은 나라 해군(번호 % 10 이 0 · 5 ~ 9)의 돛배만
+    /// 선종 대포 위끝 / 5, 그리고 rand 를 더한다(<c>0x00410801</c>).
+    /// </summary>
+    private void AddNpc(Battle b, int side, NpcFleet fleet)
+    {
+        var start = StartTables!;
+        var admiral = BattleCaptain(fleet.Admiral);
+        int kind = fleet.Index % 10;
         bool navy = kind == 0 || kind >= 5;
-        bool merchant = !enemy.Pirate && kind is >= 1 and <= 4;
-        foreach (var slot in enemy.Slots)
+        bool merchant = !fleet.Pirate && kind is >= 1 and <= 4;
+        foreach (var slot in fleet.Slots)
         {
             int typeIndex = start.GuessType(slot);
             var type = start.ShipTypes[typeIndex];
@@ -109,15 +142,19 @@ public sealed partial class SeaMapHost
             int k5 = type.MaxCrew / 5;
             int shot = (navy && sailOnly ? k5 : 0) + Roll(k5);
             string name = typeIndex < start.Templates.Count ? start.Templates[typeIndex].Name : $"#{typeIndex}";
-            b.Add(1, admiral, name, slot.Crew, slot.Durability, slot.MaxDurability, slot.Upwind, slot.Sail, slot.Flags & 7,
+            b.Add(side, admiral, name, slot.Crew, slot.Durability, slot.MaxDurability, slot.Upwind, slot.Sail, slot.Flags & 7,
                   slot.Field6, shot, sailOnly ? 25 : 50, player: false, sailOnly, merchant, type.Durability, slot.Crew, slot);
         }
+    }
 
-        // 펼치기 — 함대마다 맞는 쪽과의 칩 차(0x00410960).
-        int fx = (int)(Fleet?.X ?? ex), fy = (int)(Fleet?.Y ?? ey);
-        b.Deploy(0, Fleet?.Heading ?? 0, fx - ex, fy - ey);
-        b.Deploy(1, enemy.Heading, 0, 0);
-        return b;
+    /// <summary>남 함대 배 칸에 판의 결과를 돌려 적는다. 다 잃으면 바다에서 뺀다.</summary>
+    private void StoreNpc(Battle b, int side, NpcFleet fleet, bool flagshipLost)
+    {
+        fleet.Slots.Clear();
+        foreach (var s in b.SideShips(side))
+            if (s.Tag is StartData.Slot slot && s.Crew > 0 && s.Hull > 0)
+                fleet.Slots.Add(slot with { Crew = s.Crew, Durability = s.Hull, MaxDurability = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail });
+        if (flagshipLost || fleet.Slots.Count == 0) Others.Remove(fleet);
     }
 
     /// <summary>
@@ -143,18 +180,15 @@ public sealed partial class SeaMapHost
                 if (Fleet != null && i < Fleet.Ships.Count) Fleet.Ships.RemoveAt(i);
             }
 
-        // 남 함대의 배 칸.
-        enemy.Slots.Clear();
-        foreach (var s in b.SideShips(1))
-            if (s.Tag is StartData.Slot slot && s.Crew > 0 && s.Hull > 0)
-                enemy.Slots.Add(slot with { Crew = s.Crew, Durability = s.Hull, MaxDurability = s.MaxHull, Upwind = s.Upwind, Sail = s.Sail });
-        if (b.Result is Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon || enemy.Slots.Count == 0) Others.Remove(enemy);
+        // 남 함대의 배 칸 — 나포할 배를 고르기 전에 적어 두고, 원군도 같이 적는다.
+        foreach (var (side, f) in BattleAllies) StoreNpc(b, side, f, false);
 
         var prizes = new List<Battle.Ship>();
         int gold = 0;
         string? item = null;
         if (b.Result is Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon)
             (gold, item, prizes) = Plunder(b, enemy);
+        StoreNpc(b, 1, enemy, b.Result is Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon);
         int fame = 0;
         if (b.Result is (Battle.Outcome.EnemyLeft or Battle.Outcome.EnemySunk or Battle.Outcome.DuelWon) && Scenario is { } vm)
         {
