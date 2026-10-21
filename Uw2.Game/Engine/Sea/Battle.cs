@@ -770,7 +770,7 @@ public sealed class Battle
         return v;
     }
 
-    /// <summary>그 칸 · 뱃머리에서의 기회(<c>0x00411BC0</c>) — 생각 갈래 &amp; 3 이 0 이면 없다.</summary>
+    /// <summary>그 칸 · 뱃머리에서의 기회(<c>0x00411BC0</c>) — 쏠 · 붙을 수 있는 적의 포격 · 백병 세기(대포를 앞세우면 포격 x 2, 아니면 백병 x 2) 가운데 큰 것. 생각 갈래 &amp; 3 이 0 이면 없다.</summary>
     private int Chance(Ship s, int x, int y, int heading)
     {
         if ((s.Mode & 3) == 0) return 0;
@@ -779,8 +779,9 @@ public sealed class Battle
         {
             if (!e.Alive) continue;
             int d = Distance(x, y, e.X, e.Y);
-            if (CanFire(s, heading, x, y, e.X, e.Y)) best = Math.Max(best, s.Fire[Math.Min(5, d) - 1] * gunW);
-            if (d == 1) best = Math.Max(best, s.Melee * meleeW);
+            // 값은 과녁 쪽의 세기다(0x00411C99 · 0x00411CC3 — ebp 가 적 배) — 센 적부터 노린다.
+            if (CanFire(s, heading, x, y, e.X, e.Y)) best = Math.Max(best, e.Fire[Math.Min(5, d) - 1] * gunW);
+            if (d == 1) best = Math.Max(best, e.Melee * meleeW);
         }
         return best;
     }
