@@ -282,7 +282,81 @@ public sealed partial class SeaMapHost
         var f = b.PlayerFlagship;
         int vx = Math.Clamp((f?.X ?? 0) - 6, 0, Battle.Width - 13), vy = Math.Clamp((f?.Y ?? 0) - 6, 0, Battle.Height - 12);
         var prizes = b.SideShips(EnemySide).Where(s => s.Hull > 0 && s.X >= vx && s.X < vx + 13 && s.Y >= vy && s.Y < vy + 12).ToList();
+        Booty = Salvage(b, enemy, prizes);
+        StowBooty(Booty);
         return (gold, item, prizes);
+    }
+
+    /// <summary>나포할 배들에서 거둔 보급 · 짐 — 물 · 식량 · 자재 · 탄약 · (교역품, 양).</summary>
+    public readonly record struct Spoil(int Water, int Food, int Lumber, int Shot, int Good, int Amount);
+
+    /// <summary>이번 판에서 거둔 보급 · 짐(<see cref="Salvage"/>).</summary>
+    public Spoil Booty { get; private set; }
+
+    /// <summary>
+    /// 거둘 보급 · 짐(<c>0x0040B320</c>) — 화면 안의 나포할 배 n 척(적 배 가운데 내구가 남은 것 t 척)에서.
+    /// 짐이 있으면 양 x n / t, 없으면 상선(번호 % 10 이 1 ~ 4)만 둘에 하나 꼴로 n 척 짐 자리 합만큼(열에 아홉은 교역품 rand(6) + 10,
+    /// 하나는 rand(7) + 0x1A 를 그 1/4), 그리고 다 / 5. 배마다 몫 = 양 / n, 빈 자리 = 짐 자리 − 몫 − 탄약 —
+    /// 물 · 식량 += 빈 자리 x (rand(5) + 30) / 100, 자재 += 빈 자리 x (rand(2) + 2) / 100, 탄약 += 그 배 탄약, 교역품 += 몫.
+    /// </summary>
+    private Spoil Salvage(Battle b, NpcFleet enemy, List<Battle.Ship> prizes)
+    {
+        if (StartTables is not { } start || prizes.Count == 0) return default;
+        int n = prizes.Count, total = b.SideShips(EnemySide).Count(s => s.Hull > 0);
+        int Room(Battle.Ship s) => s.Tag is StartData.Slot slot && slot.Ship - StartData.ShipTemplateFirst is >= 0 and var t && t < start.Templates.Count
+            ? start.Templates[t].CargoRoom : 0;
+        int good = enemy.CargoGood, amount = enemy.CargoAmount;
+        if (good >= 0) amount = amount * n / Math.Max(1, total);
+        else if (Roll(2) != 0 && enemy.Index % 10 is >= 1 and <= 4)
+        {
+            amount = prizes.Sum(Room);
+            if (Roll(10) != 0) good = Roll(6) + 10;
+            else { good = Roll(7) + 0x1A; amount /= 4; }
+            amount /= 5;
+        }
+        else amount = 0;
+        int share = amount / n;
+        int water = 0, food = 0, lumber = 0, shot = 0, goods = 0;
+        foreach (var s in prizes)
+        {
+            int free = Room(s) - share - s.Shot;
+            water += free * (Roll(5) + 30) / 100;
+            food += free * (Roll(5) + 30) / 100;
+            lumber += free * (Roll(2) + 2) / 100;
+            shot += s.Shot;
+            goods += share;
+        }
+        return new Spoil(Math.Max(0, water), Math.Max(0, food), Math.Max(0, lumber), shot, goods > 0 ? good : -1, Math.Max(0, goods));
+    }
+
+    /// <summary>
+    /// 거둔 것을 배에 싣는다 — 원본은 나누기 창(<c>0x004477C0</c>)으로 배마다 고르게 한다. 여기서는 앞 배부터 빈 자리만큼 채우고 남는 것은 버린다.
+    /// </summary>
+    private void StowBooty(Spoil spoil)
+    {
+        int[] left = [spoil.Water, spoil.Food, spoil.Lumber, spoil.Shot];
+        int goods = spoil.Amount;
+        foreach (var ship in Player.Ships)
+        {
+            for (int k = 0; k < 4; k++)
+            {
+                int unit = k < 2 ? PlayerState.Lot : 1;   // 물 · 식량은 열 통이 짐 하나
+                int fit = Math.Min(left[k], ship.Free * unit);
+                ship.Supplies[k] += fit;
+                left[k] -= fit;
+            }
+            if (goods > 0 && spoil.Good >= 0)
+            {
+                int slot = Array.FindIndex(ship.Cargo, c => c.Good == spoil.Good);
+                if (slot < 0) slot = Array.FindIndex(ship.Cargo, c => c.Good < 0);
+                if (slot >= 0)
+                {
+                    int fit = Math.Min(goods, ship.Free);
+                    if (fit > 0) { ship.Cargo[slot] = (spoil.Good, ship.Cargo[slot].Amount + fit); goods -= fit; }
+                }
+            }
+        }
+        SyncLoad();
     }
 
     /// <summary>

@@ -1998,6 +1998,7 @@ public sealed class SeaMapWindow : Window
                           + (spoils.Item != null ? MsgOr(0x231, $"그리고 {spoils.Item}을(를) ", spoils.Item) : "")
                           + MsgOr(0x232, "손에 넣었습니다.");
             Say(-1, loot.Trim());
+            NoteBooty();
             TakePrizes(spoils.Prizes);
         }
         if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
@@ -2009,6 +2010,15 @@ public sealed class SeaMapWindow : Window
         string text = MsgOr(id, "제독님, 상대가 너무 나쁩니다.\n나는 더이상 함께 싸울 수 없습니다.").Replace("\\n", "\n");
         int cut = text.IndexOf('\n');
         return text.StartsWith("§") && cut > 0 ? text[(cut + 1)..] : text;
+    }
+
+    /// <summary>거둔 보급 · 짐을 알림 줄에 적는다.</summary>
+    private void NoteBooty()
+    {
+        var b = _host.Booty;
+        if (b.Water + b.Food + b.Lumber + b.Shot + b.Amount == 0) return;
+        string goods = b.Good >= 0 && _host.Economy is { } eco && b.Good < eco.GoodsNames.Count ? $" · {eco.GoodsNames[b.Good]} {b.Amount}" : "";
+        Note($" · 거둔 것: 물 {b.Water} · 식량 {b.Food} · 자재 {b.Lumber} · 탄약 {b.Shot}{goods}");
     }
 
     /// <summary>
@@ -2051,7 +2061,14 @@ public sealed class SeaMapWindow : Window
             BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대", _host.DuelFighter);
             f.SetTimeOfDay(battle.Time);
             var spoils = _host.CloseBattle(battle, enemy);
-            if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon) TakePrizes(spoils.Prizes);
+            if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
+            {
+                Say(-1, (MsgOr(0x230, $"전리품으로서 금화 {spoils.Gold}닢, ", spoils.Gold)
+                         + (spoils.Item != null ? MsgOr(0x231, $"그리고 {spoils.Item}을(를) ", spoils.Item) : "")
+                         + MsgOr(0x232, "손에 넣었습니다.")).Trim());
+                NoteBooty();
+                TakePrizes(spoils.Prizes);
+            }
             if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
         }
         finally { _host.AmbushDone(enemy); }
