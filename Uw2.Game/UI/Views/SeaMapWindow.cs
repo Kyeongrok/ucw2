@@ -419,7 +419,7 @@ public sealed class SeaMapWindow : Window
 
     /// <summary>
     /// 주점 「여급과 대화」 — 목록 13(업무정보 · 그녀의취향 · 그녀의연령, <c>0x00426910</c>)과 목록 14(자랑 · 선물, <c>0x004269A0</c>)를
-    /// 한 목록으로 늘어놓는다. 업무정보(<c>0x00426410</c>)는 아직이다.
+    /// 한 목록으로 늘어놓는다. 업무정보는 <see cref="JobInfo"/>(<c>0x00426410</c>)다.
     /// </summary>
     private const int BarmaidFee = 10;
 
@@ -464,7 +464,7 @@ public sealed class SeaMapWindow : Window
     ///   2 · 6 구입  같은 셈으로 — 그 교역품이 특산품이고 경제 ≥ +0x1B x 10 인 첫 항구(0x190), 없으면 파는 시장의 지방(0xCA · 0xCB)
     ///   5 0x24D · 9 0x24A · 10 0x24B · 11 0x24C   그 밖은 0x18F 「모르겠어요」
     /// </code>
-    /// 원본은 주인공 +0x31 의 0x10 이면 늘 알려 준다. 3 은 아직이다. 7 · 8(왕궁 · 총독부 편지)은 나라와 항구 자리를 일러 준다.
+    /// 원본은 주인공 +0x31 의 0x10 이면 늘 알려 준다. 3 은 함대 조사(아래)다. 7 · 8(왕궁 · 총독부 편지)은 나라와 항구 자리를 일러 준다.
     /// </summary>
     private void JobInfo(int maid) => JobInfoFor(maid);
 
@@ -2166,7 +2166,8 @@ public sealed class SeaMapWindow : Window
     {
         var p = _host.Player;
         if (p.Gold <= 0) { Say(0x3F2, "금화도 없는 놈을 상대할 순 없지."); return; }
-        int game = BuildingMenu.Ask(this, "도박", ["Black Jack", "Dice"]);
+        // 도박판 그림(GRAPH 27, 0x00426BF9)을 깔고 고른다.
+        int game = BuildingMenu.Ask(this, "도박", ["Black Jack", "Dice"], _host.Graphs?.Get(27));
         if (game == 0) PlayBlackJack();
         else if (game == 1) PlayDice();
     }
