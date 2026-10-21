@@ -2810,6 +2810,41 @@ public sealed class SeaMapWindow : Window
     }
 
     /// <summary>항구에서 나와 앞바다에 배를 띄운다.</summary>
+    /// <summary>
+    /// 개발 — 새 게임에서 고향을 떠나 바다에 나온 남 함대 곁에 서서 「공격」 판을 차리고, 제 기함까지 남 배 생각으로 끝까지 돌린 뒤
+    /// 뒤끝을 셈해 <paramref name="outPath"/> 에 적는다(<c>Uw2Play.exe --battle-smoke 파일</c>). 판 그림은 <paramref name="shotPath"/> 에 뜬다.
+    /// </summary>
+    public void DevBattleSmoke(string outPath, string? shotPath)
+    {
+        var log = new System.Text.StringBuilder();
+        try
+        {
+            PutToSea();
+            var f = _host.Fleet ?? throw new InvalidOperationException("함대가 없습니다");
+            var enemy = _host.Others.Where(o => !o.Docked && o.Slots.Count > 0)
+                .OrderBy(o => Math.Abs(o.X - f.X) + Math.Abs(o.Y - f.Y)).First();   // 고향에서 가장 가까운 — 뭍이 보이는 판
+            log.AppendLine($"적 함대 {enemy.Index} · 제독 {_host.PersonName(enemy.Admiral)} · 배 {enemy.Slots.Count} · 자리 {enemy.X:0},{enemy.Y:0}");
+            log.AppendLine($"자리 옮김 {f.PlaceNearSea(enemy.X, enemy.Y, 6)} → {f.X:0},{f.Y:0}");
+            f.UnderSail = false;
+            var battle = _host.OpenBattle(enemy);
+            log.AppendLine($"판: 바람 {battle.WindDir}/{battle.WindPower} · 시각 {battle.Time} · 원군 {_host.BattleAllies.Count} · 달아난 동료 {_host.BattleDeserters.Count}");
+            foreach (var s in battle.All) log.AppendLine($"  편 {s.Side} {s.Name} 선원 {s.Crew} 내구 {s.Hull}/{s.MaxHull} 대포 {s.Guns}({s.GunKind}) 탄약 {s.Shot} 자리 {s.X},{s.Y} 뭍 {battle.IsLand(s.X, s.Y)}");
+            if (shotPath != null) BattleWindow.Shot(this, battle, _host.Messages, shotPath);
+            int turns = 0;
+            while (battle.NextShip() is { } ship && turns++ < 20000)
+                foreach (var h in battle.AiTurn(ship)) { }
+            log.AppendLine($"끝 {battle.Result} · 시각 {battle.Time} · 차례 {turns}");
+            int gold = _host.Player.Gold;
+            var spoils = _host.CloseBattle(battle, enemy);
+            log.AppendLine($"명성 +{spoils.Fame} · 금화 +{spoils.Gold} ({gold} → {_host.Player.Gold}) · 아이템 {spoils.Item ?? "-"} · 나포 후보 {spoils.Prizes.Count}");
+            log.AppendLine($"거둔 것 {_host.Booty}");
+            log.AppendLine($"남은 남 함대 {_host.Others.Count} · 그 함대 남음 {_host.Others.Contains(enemy)}");
+            foreach (var s in _host.Player.Ships) log.AppendLine($"  제 배 {s.Name} 선원 {s.Crew} 내구 {s.Hull}/{s.MaxHull} 탄약 {s.Supplies[3]}");
+        }
+        catch (Exception ex) { log.AppendLine("오류: " + ex); }
+        System.IO.File.WriteAllText(outPath, log.ToString());
+    }
+
     private void PutToSea()
     {
         int from = _host.CurrentPort >= 0 ? _host.CurrentPort : _homePort;

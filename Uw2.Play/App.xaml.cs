@@ -18,6 +18,22 @@ public partial class App : Application
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         if (e.Args.Contains("--battle-demo")) { BattleWindow.Demo(); Shutdown(); return; }
+        if (Array.IndexOf(e.Args, "--battle-smoke") is >= 0 and var at && at + 1 < e.Args.Length)
+        {
+            // 개발 — 새 게임 바다에서 남 함대와 한 판을 돌려 보고 끝낸다.
+            var map = new SeaMapWindow { Title = "대항해시대2 — 해전 시험" };
+            map.Show();
+            map.ShowHomePort(0);
+            var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            t.Tick += (_, _) =>
+            {
+                t.Stop();
+                map.DevBattleSmoke(e.Args[at + 1], at + 2 < e.Args.Length ? e.Args[at + 2] : null);
+                Shutdown();
+            };
+            t.Start();
+            return;
+        }
         ShowTitle();
     }
 

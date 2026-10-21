@@ -70,7 +70,7 @@ public sealed class BattleWindow : Window
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Cancel(); };
         _timer.Tick += (_, _) => Advance();
         Loaded += (_, _) => { Draw(); _timer.Start(); };
-        Closing += (_, e) => { if (_b.Result == 0) e.Cancel = true; };
+        Closing += (_, e) => { if (_b.Result == 0 && !_closeAnyway) e.Cancel = true; };
     }
 
     /// <summary>판을 끝까지 치른다 — 닫히면 <see cref="Battle.Result"/> 가 차 있다.</summary>
@@ -81,6 +81,33 @@ public sealed class BattleWindow : Window
         if (owner == null) w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         w.ShowDialog();
     }
+
+    /// <summary>개발 — 판을 띄워 그림으로 뜬 뒤 닫는다(판은 그대로 둔다).</summary>
+    public static void Shot(Window owner, Battle b, GameMessages? msg, string path)
+    {
+        var w = new BattleWindow(b, msg, "해전 — 그림") { Owner = owner };
+        w._timer.Interval = TimeSpan.FromDays(1);   // 남 배는 움직이지 않는다
+        var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        t.Tick += (_, _) =>
+        {
+            t.Stop();
+            if (w.Content is FrameworkElement root)
+            {
+                var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                bmp.Render(root);
+                var enc = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+                using var fs = System.IO.File.Create(path);
+                enc.Save(fs);
+            }
+            w._closeAnyway = true;
+            w.Close();
+        };
+        w.Loaded += (_, _) => t.Start();
+        w.ShowDialog();
+    }
+
+    private bool _closeAnyway;
 
     /// <summary>개발 — 게임 없이 판 하나를 띄운다(<c>Uw2Play.exe --battle-demo</c>). 뭍 칩 하나를 둔 바다에 네 척씩.</summary>
     public static void Demo()
