@@ -114,6 +114,12 @@ public sealed class ScenarioVm
 
         /// <summary>동료로 든 사람(FB).</summary>
         public List<int> Joined { get; } = [];
+
+        /// <summary>
+        /// 엔딩 — <c>F4 x</c>(<c>0x0043F503</c>)가 <c>0x004042C0(x)</c> 로 끝 그림(END.DAT)을 보이고 「엔딩 이후의 데이터를 저장하겠습니다.」(0x2EA)
+        /// 뒤 끝 깃발 0x88 을 세운다. 없으면 -1.
+        /// </summary>
+        public int Ending { get; set; } = -1;
         public int Gold { get; set; }
 
         /// <summary>
@@ -458,6 +464,7 @@ public sealed class ScenarioVm
                         case 0xF1: nextChapter = true; break;
                         case 0xF8: run.Stopped = true; break;
                         case 0xF2 or 0xF4:
+                            if (op == 0xF4) run.Ending = _code[ip + 1];
                             run.Gold = Memory.Gold;
                             return run;
                     }

@@ -452,6 +452,7 @@ public sealed partial class SeaMapHost : HwndHost
     /// <summary>시나리오가 돌린 결과를 들인다 — 돈, 그리고 아직 없는 선종이면 배.</summary>
     public void Apply(ScenarioVm.Run run)
     {
+        if (run.Ending >= 0) Dispatcher.BeginInvoke(() => StoryEnded?.Invoke(run.Ending));
         Player.SetGold(run.Gold);
         if (Scenario != null) ReadShipSide(Scenario.Memory);
         if (StartTables is not { } start || Fleet == null) return;
@@ -889,6 +890,9 @@ public sealed partial class SeaMapHost : HwndHost
 
     /// <summary>배가 사라졌을 때 — 배 이름을 넘긴다(말 0x150).</summary>
     public event Action<string>? ShipAdrift;
+
+    /// <summary>시나리오가 엔딩(F4)에 닿았을 때 — 엔딩 번호를 넘긴다.</summary>
+    public event Action<int>? StoryEnded;
 
     /// <summary>병이 돌기 시작했을 때 — 이름을 넘긴다.</summary>
     public event Action<string>? DiseaseCaught;

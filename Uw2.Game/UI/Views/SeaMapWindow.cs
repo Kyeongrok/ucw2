@@ -2231,6 +2231,7 @@ public sealed class SeaMapWindow : Window
             UpdateStatus();
         };
         _host.PortAhead += port => EnterPortFromSea(port);
+        _host.StoryEnded += OnStoryEnded;
         // 마을 사람과 부딪치면 말을 건다(0x004335F0).
         _host.FolkMet += kind =>
         {
@@ -3562,6 +3563,23 @@ public sealed class SeaMapWindow : Window
     /// 게임 끝(<c>0x004042C0</c>) — 끝 깃발 0x10 → 말 0x3F8(서른 해 은퇴), 0x18 → 0x3F6(폭풍), 0x19 → 0x1BA 뒤 0x3F7(선원 없음), 0x1A → 0x3F5(해전).
     /// 묘비 글은 「１５%w년%w월%w일」 과 주인공 이름 · 성 둘씩이다. 다 보이면 제목으로 돌아간다.
     /// </summary>
+    /// <summary>
+    /// 엔딩(<c>0x004042C0</c>, 깃발 0 ~ 0xF) — 끝 그림(END.DAT NPK)은 아직 못 그린다. 「엔딩 이후의 데이터를 저장하겠습니다.」(0x2EA)로 저장 칸을 고르게 하고
+    /// 끝 깃발 0x88 처럼 제목으로 돌아간다. 저장한 칸을 불러오면 엔딩 뒤로 이어 할 수 있다.
+    /// </summary>
+    private void OnStoryEnded(int code)
+    {
+        if (_over) return;
+        var (name, family) = _host.HeroName;
+        SayText($"{name} {family}의 이야기는 여기서 막을 내린다.");
+        if (MessageBox.Show(this, MsgOr(0x2EA, "엔딩 이후의 데이터를 저장하겠습니다."), "엔딩", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            SaveToSlot();
+        _over = true;
+        _host.Sailing = false;
+        Ended?.Invoke();
+        Close();
+    }
+
     private void OnGameOver(int reason)
     {
         if (_over) return;
