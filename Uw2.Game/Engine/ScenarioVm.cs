@@ -75,6 +75,11 @@ public sealed class ScenarioVm
     /// </summary>
     public Func<int, int, int>? Cargo { get; set; }
 
+    /// <summary>
+    /// <c>CA k</c> — 곡을 바꾼다(<c>0x0043F0F6</c> → <c>0x0043D2F0</c>, 표 <c>0x0049F778</c> 의 k 번째 곡). 부르는 쪽이 튼다.
+    /// </summary>
+    public Action<int>? Music { get; set; }
+
     /// <summary>장이 바뀌면 다음 장 대신 장 0 으로 — 함께 쓰는 시나리오(SNR0, 조합 일)가 이렇다(<c>0x0043F889</c>).</summary>
     public bool EndsAtChapterZero { get; init; }
 
@@ -370,6 +375,7 @@ public sealed class ScenarioVm
                             run.Lines.Add(new Line(who, body, window, face, picture));
                             break;
                         case 0xCB: picture = _code.Length > ip + 5 ? _code[ip + 5] : -1; break;   // CB x y n — 시나리오 그림(0x0043F122)
+                        case 0xCA: Music?.Invoke(a1); break;
                         case 0xC0:
                             if (a1 < 4 && a1 != window) { window = a1; face = -1; }
                             break;

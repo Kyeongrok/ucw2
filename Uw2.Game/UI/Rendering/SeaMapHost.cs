@@ -423,6 +423,7 @@ public sealed partial class SeaMapHost : HwndHost
             var code = File.ReadAllBytes(dat);
             if (Uw2.Support.Local.Formats.Scenario.OwnerOf(code) != person) continue;
             Scenario = new ScenarioVm(code, ScenarioText.Load(mes));
+            Scenario.Music = Uw2.Game.UI.Audio.Music.PlayScenario;   // CA k
             string dat0 = Path.Combine(_scenarioDir, "SNR0.DAT"), mes0 = Path.Combine(_scenarioDir, "SNR0.MES");
             Common = File.Exists(dat0) && File.Exists(mes0)
                 ? new ScenarioVm(File.ReadAllBytes(dat0), ScenarioText.Load(mes0), Scenario.Memory) { EndsAtChapterZero = true } : null;
@@ -506,6 +507,7 @@ public sealed partial class SeaMapHost : HwndHost
             Scenario.GameValues.CopyTo(Common.GameValues, 0);
             Common.FreeRoom = Scenario.FreeRoom;
             Common.Cargo = Scenario.Cargo;
+            Common.Music = Scenario.Music;
         }
         if (Economy != null) Scenario.Memory.Fill(ScenarioMemory.PortStateTable, Economy.StateBytes);
         // 은행 잔고 — 표 2 +4 낱말 x 100 + +6 바이트(0x0049F5AC · 0x0049F5AE).

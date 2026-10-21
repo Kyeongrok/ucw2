@@ -24,6 +24,16 @@ public static class Music
     public static int Town(int culture) =>
         culture is >= 0 and < 13 ? TownSongs[TownGroup[culture]] : TownSongs[0];
 
+    /// <summary>
+    /// 시나리오 <c>CA k</c> 의 곡 표(<c>0x0043D2F0</c> 가 설정 변수에서 채우는 <c>0x0049F778</c>) — 20 · 21 은 곡이 아닌 몫이라(<c>0x14</c> · <c>0x15</c>) 넘긴다.
+    /// </summary>
+    public static void PlayScenario(int k)
+    {
+        if (k >= 0 && k < ScenarioSongs.Length) Play(ScenarioSongs[k]);
+    }
+
+    private static readonly int[] ScenarioSongs = [Opening, Ending, Ending, Title, Sea, Sea, Sea, Sea, Sea, Sea, 5, 3, 4, 3, 6, SmallPort, Battle, Battle, Palace, Pub];
+
     private static readonly int[] TownGroup = [0, 0, 0, 1, 2, 1, 1, 1, 1, 2, 3, 4, 4];
     private static readonly int[] TownSongs = [5, 3, 4, 3, 6];
 
