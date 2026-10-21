@@ -356,6 +356,9 @@ public sealed class SeaMapWindow : Window
             else Say(0x62, $"어서 오세요, 셜록은행 {_host.SceneName} 지점입니다.", _host.SceneName);
         }
         if (b == ShipyardBuilding) Say(0x4D, "우리 조선소에 무슨 용건이 있는 거요？");   // 0x0042A980
+        // 교회 · 모스크(0x004219E0) — 말은 교회 0x5B ~ 0x60, 모스크는 그 + 0x2C8(0x323 ~ 0x328). 들 때 0x5B, 나갈 때 0x60.
+        if (quiet && b == ChurchBuilding)
+            Say(0x5B + ChurchLines, IsMosque ? "알라신께 기부하시는 겁니까？" : "어서 오세요, 주님의 품으로！");
         if (quiet && b == InnBuilding) Say(0x42, "피곤하시지요？\n그럼 편히 쉬세요.");     // 0x0041F3AB
         if (quiet && b == GuildBuilding) Say(0x55, "무슨 용건이오？");                    // 0x0041EF8B
         if (quiet && b == PubBuilding) PubGreeting();
@@ -372,7 +375,11 @@ public sealed class SeaMapWindow : Window
         // 건물 임자 그림(0x00436620) — 모스크는 교회 자리에 제 그림이 있다.
         var keeper = _host.Graphs?.Get(AssetPack.KeeperGraph(b, _host.PortChipSet(_host.CurrentPort) == 2));
         int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items, keeper);
-        if (pick < 0) return;
+        if (pick < 0)
+        {
+            if (b == ChurchBuilding) Say(0x60 + ChurchLines, IsMosque ? "당신에게 알라신의 은총이 깃드시길！" : "성부 성자 성신의 이름으로 아멘.");
+            return;
+        }
         if (b == HarborBuilding && pick == 0) { PutToSea(); return; }
         if (b == TradeBuilding && pick == 0) { ShowGoods(); return; }
         if (b == TradeBuilding && pick == 1) { SellGoods(); return; }
@@ -1372,22 +1379,34 @@ public sealed class SeaMapWindow : Window
         }
     }
 
-    /// <summary>교회 「예배 · 기부」 — 주인공의 운(사람 +0x23)을 올린다(<see cref="Church"/>).</summary>
+    private bool IsMosque => _host.PortChipSet(_host.CurrentPort) == 2;
+
+    /// <summary>모스크면 교회 말에 더하는 수(<c>0x0049A18C</c> x 0x2C8).</summary>
+    private int ChurchLines => IsMosque ? 0x2C8 : 0;
+
+    /// <summary>
+    /// 교회 「예배 · 기부」 — 주인공의 운(사람 +0x23)을 올린다(<see cref="Church"/>). 예배 0x5C(<c>0x004217D0</c>),
+    /// 기부(<c>0x00421830</c>)는 0x5D 로 묻고, 소지금의 1/10 에 못 미치면 0x5E, 아니면 0x5F. 모스크는 + 0x2C8.
+    /// </summary>
     private void AtChurch(int pick)
     {
         if (_host.Scenario is not { } vm) return;
         int hero = _host.HeroPersonNumber;
         var p = _host.Player;
+        bool mosque = IsMosque;
         if (pick == 0)
         {
+            Say(0x5C + ChurchLines, mosque ? "알라신께 기도합시다." : "주님께 기도드립시다.");
             int gain = _worshipped ? 0 : Church.Worship(vm.Memory, hero, _host.Roll);
             _worshipped = true;
             Note(gain > 0 ? " · 예배를 드렸습니다 · 마음이 맑아졌습니다" : " · 예배를 드렸습니다");
             return;
         }
-        int n = AmountDialog.Ask(this, $"기부 — 돈 {p.Gold}", p.Gold);
+        int n = AmountDialog.Ask(this, MsgOr(0x5D + ChurchLines, mosque ? "기부해 주시는 겁니까？" : "기부하시겠습니까？") + $" (돈 {p.Gold})", p.Gold);
         if (n <= 0) return;
         int luck = Church.Donate(vm.Memory, hero, p.Gold, n, _host.Roll);
+        if (luck < 0) Say(0x5E + ChurchLines, mosque ? "알라신께서는 경건한 회교도를 사랑하신답니다." : "주님께선 금화보다도 경건한 마음을 더 소중히 여기신답니다.");
+        else Say(0x5F + ChurchLines, mosque ? "오！ 이렇게 많이 기부해 주시다니……" : "가난한 자는 행복합니다. 천국은 당신을 위해 문을 열어 주겠지요.");
         p.SetGold(p.Gold - n);
         Note(luck < 0 ? $" · {n}을 기부했습니다" : $" · {n}을 기부했습니다 · 신의 가호가 있기를{(luck > 0 ? $"(운 +{luck})" : "")}");
     }
