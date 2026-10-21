@@ -3694,6 +3694,8 @@ public sealed class SeaMapWindow : Window
                                    p.Ships.Any(s => s.Supplies[PlayerState.Food] > 0));
         var spot = Discoveries.Get(vm.Memory, index);
         string kind = Discoveries.KindNames[spot.Kind];
+        // 뒤지는 소리(0x0041BC2F, 소리 0x12)
+        if (r != Discoveries.Outcome.NoFood && !_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Shore);
         switch (r)
         {
             case Discoveries.Outcome.NoFood: Say(0x1AC, "식량이 없습니다. 수색을 중단합시다."); return;
@@ -4183,6 +4185,8 @@ public sealed class SeaMapWindow : Window
         }
         _host.Invalidate();
         Retitle();
+        // 들인 날이 폭풍이면 폭풍 소리부터(0x00415A03)
+        if (!_devQuiet && _host.Fleet?.Weather.Current == Weather.Kind.Storm) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Storm);
     }
 
     /// <summary>게임이 끝나 제목으로 돌아간다.</summary>
