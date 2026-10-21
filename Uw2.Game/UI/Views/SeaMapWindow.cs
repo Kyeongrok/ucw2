@@ -175,21 +175,51 @@ public sealed class SeaMapWindow : Window
         var p = _host.Player;
         var used = Shipyard.Used(vm.Memory, start.ShipTypes.Count);
         if (used.Count == 0) { Note(" · 지금은 중고선이 없습니다"); return; }
-        if (p.Ships.Count >= SeaMapHost.MaxShips) { Note(" · 함대가 다 찼습니다"); return; }
+        // 함대가 다 찼으면 배 하나를 내주고 그 값의 반을 셈에 넣는다(0x004289D8 → 0x00428A30, 0x004295E9).
+        PlayerState.Ship? traded = null;
+        int credit = 0;
+        if (p.Ships.Count >= SeaMapHost.MaxShips)
+        {
+            Say(0xA7, "다른 배를 내주지 않겠소？");
+            if (ChooseTradeIn(out credit) is not { } t) return;
+            traded = t;
+        }
         int mate = _host.FreeMate;
-        if (mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
+        if (mate < 0 && traded is { Captain: >= 0 }) mate = traded.Captain;
+        if (_host.HasMates && mate < 0) { Note(M(0xA6, "새 배를 맡을 항해사가 없습니다 — 주점이나 여관에서 동료를 구하세요")); return; }
         string NameOf(int t) => t < start.Templates.Count ? start.Templates[t].Name ?? t.ToString() : t.ToString();
         int pick = BuildingMenu.Ask(this, $"중고선 구입 — 돈 {p.Gold}",
             used.Select(u => $"{NameOf(u.Type),-10} {start.ShipTypes[u.Type].Price,6}").ToList());
         if (pick < 0) return;
         var (slot, type) = used[pick];
         if (Haggle(start.ShipTypes[type].Price, building: false) is not { } price) return;
-        if (p.Gold < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
+        if (p.Gold + credit < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
+        if (traded != null && !_host.RemoveShip(p.Ships.IndexOf(traded))) return;
         if (!_host.AddShip(type, captain: mate)) return;
-        p.SetGold(p.Gold - price);
+        p.SetGold(p.Gold + credit - price);
         NameNewShip(p.Ships[^1]);
         Shipyard.TakeUsed(vm.Memory, slot);
         Note($" · 중고 {NameOf(type)}{(KoreanBatchim(NameOf(type)) ? "을" : "를")} {price}에 샀습니다 · 선장 {_host.PersonName(mate)}");
+    }
+
+    /// <summary>
+    /// 내줄 배를 고른다(<c>0x00428A30</c>) — 「매각할 배를 골라 주시오.」(0xC8), 「이 배로 하겠소？」(0xC9). 기함은 내주지 않는다(원본은 0xD1 · 0xD2 로
+    /// 새 기함을 고르게 한다). 셈에 드는 값은 배 값의 반(<see cref="Shipyard.SellPrice"/>)이다.
+    /// </summary>
+    private PlayerState.Ship? ChooseTradeIn(out int credit)
+    {
+        credit = 0;
+        if (_host.StartTables is not { } start || _host.Economy is not { } eco) return null;
+        var p = _host.Player;
+        int port = _host.CurrentPort;
+        int avg = port >= 0 && port < eco.States.Count ? Shipyard.PriceIndexAverage(eco.States[port].PriceIndex) : 50;
+        var ships = p.Ships.Skip(1).ToList();
+        int pick = BuildingMenu.Ask(this, MsgOr(0xC8, "매각할 배를 골라 주시오."),
+            [.. ships.Select(s => $"{s.Name,-10} {Shipyard.SellPrice(start.ShipTypes[s.Type].Price, s.Grade, avg),7}")]);
+        if (pick < 0) return null;
+        if (MessageBox.Show(this, MsgOr(0xC9, "이 배로 하겠소？"), ships[pick].Name, MessageBoxButton.YesNo) != MessageBoxResult.Yes) return null;
+        credit = Shipyard.SellPrice(start.ShipTypes[ships[pick].Type].Price, ships[pick].Grade, avg);
+        return ships[pick];
     }
 
     /// <summary>조선소 「수리」 — 배를 골라 고친다(<see cref="Shipyard.RepairCost"/>).</summary>
