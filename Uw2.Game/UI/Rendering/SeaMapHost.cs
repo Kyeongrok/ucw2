@@ -1026,8 +1026,12 @@ public sealed partial class SeaMapHost : HwndHost
     }
 
     /// <summary>하루 끝(<c>0x004178C0</c>) — 여급 표, 항구 편 · 쇠락 · 짓는 배(<see cref="Nations.PortsDay"/>).</summary>
+    /// <summary>흥정에서 쫓겨났다 — 하루 끝까지 조선소에 못 든다(<c>0x0049F5A4</c> &amp; 2, <c>0x004178DF</c> 가 지운다).</summary>
+    public bool ShipyardBanned { get; set; }
+
     private void PortsDay()
     {
+        ShipyardBanned = false;
         if (Scenario is { } sv) Uw2.Game.Engine.Town.Barmaids.NewDay(sv.Memory);   // 0x00417E50
         if (Economy is not { } eco || Scenario is not { } vm) return;
         Nations.PortsDay(eco.StateBytes,

@@ -85,8 +85,8 @@ public sealed class SeaMapWindow : Window
         int grade = BuildingMenu.Ask(this, $"{NameOf(type)} — 등급",
             Enumerable.Range(0, grades).Select(g => $"등급 {g}  {Shipyard.BuildPrice(basePrice, g),6}").ToList());
         if (grade < 0) return;
-        int price = Shipyard.BuildPrice(basePrice, grade);
-        if (p.Gold < price) { Note($" · 돈이 모자랍니다({NameOf(type)} {price})"); return; }
+        if (Haggle(Shipyard.BuildPrice(basePrice, grade), building: true) is not { } price) return;
+        if (p.Gold < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
         int days = _host.OrderShip(type, grade);
         if (days < 0) return;
         p.SetGold(p.Gold - price);
@@ -123,6 +123,43 @@ public sealed class SeaMapWindow : Window
         Note($" · {ship.Name}{(KoreanBatchim(ship.Name) ? "을" : "를")} 받았습니다{(captain >= 0 ? $" · 선장 {_host.PersonName(captain)}" : "")}");
     }
 
+    /// <summary>
+    /// 배 값 흥정(<c>0x004295A0</c>) — 「이 배는 금화 %ld닢에 어떻소？」(0xC2, 지으면 0x100)에 그러면 그 값. 아니면 깎는다: 바닥 값은
+    /// 값 x (500 − 주인공 매력 +0x22) / 1000. 회계 자리(처지 4)에 동료가 있으면 「틀림없이 금화 %ld닢까지 깍을 수 있을걸요」(0xC4, 바닥 x (95 + x) / 100,
+    /// 회계술이 있으면 x = 0, 없으면 rand(10)). 「자, 얼마라면 사겠소？」(0xC3, min(값, 돈)까지) — 바닥 아래면 다섯에 하나 「배의 가치도 모르는 놈은 썩 꺼져！」(0xC5,
+    /// 그날 조선소에 못 든다 — 0xF9) 아니면 0xC6. 바닥 이상이면 「손님에겐 못 당하겠네요」(0x35F) 그 값. 안 사면 null.
+    /// </summary>
+    private int? Haggle(int price, bool building)
+    {
+        if (_host.Scenario is not { } vm) return price;
+        var m = vm.Memory;
+        string ask = building ? MsgOr(0x100, $"새 배를 만드는 데는 금화 {price}닢이 들지.", price) : MsgOr(0xC2, $"이 배는 금화 {price}닢에 어떻소？", price);
+        var yes = MessageBox.Show(this, ask + "\n" + (building ? MsgOr(0xFD, "이 놈을 만들겠소？") : MsgOr(0xC1, "이 놈을 사겠소？")), "조선소", MessageBoxButton.YesNoCancel);
+        if (yes == MessageBoxResult.Cancel) return null;
+        if (yes == MessageBoxResult.Yes) return price;
+        int floor = price * (500 - HeroField(0x22)) / 1000;
+        if (Navigators.InPost(m, 1) is >= 0 and var clerk)
+        {
+            int x = (Navigators.Get(m, clerk, SkillField) & 2) != 0 ? 0 : _host.Roll(10);
+            int hint = (x + 95) * floor / 100;
+            Say(0xC4, $"틀림없이 금화 {hint}닢까지 깍을 수 있을걸요.", hint);
+        }
+        int offer = AmountDialog.Ask(this, MsgOr(0xC3, "자, 얼마라면 사겠소？"), Math.Min(price, _host.Player.Gold));
+        if (offer < 0) return null;
+        if (offer < floor)
+        {
+            if (_host.Roll(5) == 0)
+            {
+                Say(0xC5, "배의 가치도 모르는 놈은 썩 꺼져！");
+                _host.ShipyardBanned = true;
+            }
+            else Say(0xC6, "그렇게는 안되겠소.");
+            return null;
+        }
+        Say(0x35F, "손님에겐 못 당하겠네요.", offer);
+        return offer;
+    }
+
     /// <summary>조선소 「중고선 구입」 — 항구에 들 때 마련한 다섯 칸(<see cref="Shipyard.EnterPort"/>), 값은 선종 값.</summary>
     private void BuyUsedShip()
     {
@@ -138,8 +175,8 @@ public sealed class SeaMapWindow : Window
             used.Select(u => $"{NameOf(u.Type),-10} {start.ShipTypes[u.Type].Price,6}").ToList());
         if (pick < 0) return;
         var (slot, type) = used[pick];
-        int price = start.ShipTypes[type].Price;
-        if (p.Gold < price) { Note($" · 돈이 모자랍니다({NameOf(type)} {price})"); return; }
+        if (Haggle(start.ShipTypes[type].Price, building: false) is not { } price) return;
+        if (p.Gold < price) { Say(0xEF, "손님, 돈이 모자랍니다."); return; }
         if (!_host.AddShip(type, captain: mate)) return;
         p.SetGold(p.Gold - price);
         Shipyard.TakeUsed(vm.Memory, slot);
@@ -236,6 +273,8 @@ public sealed class SeaMapWindow : Window
         }
         if (!menu && b != InnBuilding) return;
         if (Watchmen(b)) return;
+        // 흥정에서 쫓겨난 날은 조선소에 못 든다(0x0042A948, 말 0xF9).
+        if (b == ShipyardBuilding && _host.ShipyardBanned) { Say(0xF9, "네 녀석은 꼴도 보기싫다. 두번 다시 이 곳에 얼굴도 내밀지 말아라."); return; }
         if (b == NpcBuilding) { AtPatron(); return; }
         var items = _host.Menus?.ForBuilding(b) ?? [];
         if (items.Count == 0) return;
