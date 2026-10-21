@@ -23,6 +23,9 @@ public sealed class FaceSheet
         _pixels = pixels; _width = width; _finds = finds ?? []; _findsWidth = findsWidth;
     }
 
+    /// <summary>시나리오 그림(<c>CB</c> 의 n → 그림) — 붙이는 쪽이 주인공의 EVENT 파일로 채운다.</summary>
+    public Func<int, ImageSource?>? EventPictures { get; set; }
+
     /// <summary>발견물 그림은 얼굴 번호 이 뒤로 이어 붙인다(원본 KAO 의 128 ~ 255).</summary>
     public const int FindFirst = KaoImages.FaceCount;
 

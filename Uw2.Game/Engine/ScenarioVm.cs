@@ -27,6 +27,7 @@ namespace Uw2.Game.Engine;
 /// <code>
 ///   C0 n       대사 창 고르기(0x0043D0E0) — 창 표 0x0045E348 의 n 번(1 위 · 2 아래 · 0 · 3 넓은 창)
 ///   CC hh ll   그 창에 얼굴(0x0043D4B0 → 0x00434E70), CD v 는 변수 v 의 얼굴
+///   CB x y n   시나리오 그림(0x0043F122 → 0x0043D420) — EVENT(주인공 + 1).DAT 의 n 번째를 (x, y) 에. 뒤 대사 줄에 실어 보낸다
 ///   C9 v hh ll 고르기(0x0043D2B0) — 글 하나를 줄 바꿈(0x0A)으로 갈라 항목으로 띄우고 고른 차례(0 부터)를 변수 v 에.
 ///              물리기는 없다(0x00437FD0 은 0xFF 면 다시 묻는다)
 ///   D0 p t r f 가리키개 p 에 표 t 의 r 번 기록 f 자리(0x0043D510). D0 은 r 을 변수 r 에서, DC 는 그대로
@@ -93,7 +94,8 @@ public sealed class ScenarioVm
     public int Section { get; set; }
 
     /// <summary>대사 한 줄 — 창(C0)과 얼굴(CC, 없으면 -1)을 함께 든다.</summary>
-    public readonly record struct Line(string Speaker, string Body, int Window = 0, int Face = -1);
+    /// <param name="Picture">그때 화면에 떠 있는 시나리오 그림(<c>CB</c> 의 n, EVENT 파일 안 차례) — 없으면 -1.</param>
+    public readonly record struct Line(string Speaker, string Body, int Window = 0, int Face = -1, int Picture = -1);
 
     /// <summary>
     /// 고르기를 묻는다 — 아직 보이지 않은 대사(<paramref name="before"/>)를 먼저 보이고 항목 중 하나의 차례를 돌려준다.
@@ -277,7 +279,7 @@ public sealed class ScenarioVm
     {
         var run = new Run { Gold = gold };
         Memory.Gold = gold;
-        int window = 0, face = -1;
+        int window = 0, face = -1, picture = -1;
         for (int step = 0; step < MaxSteps && ip >= 0 && ip < _code.Length; step++)
         {
             byte op = _code[ip];
@@ -365,8 +367,9 @@ public sealed class ScenarioVm
                     {
                         case 0xC8 or 0xD4:
                             var (who, body) = ScenarioText.Render(Expand(_text[Word(ip + 1)]), name, family);
-                            run.Lines.Add(new Line(who, body, window, face));
+                            run.Lines.Add(new Line(who, body, window, face, picture));
                             break;
+                        case 0xCB: picture = _code.Length > ip + 5 ? _code[ip + 5] : -1; break;   // CB x y n — 시나리오 그림(0x0043F122)
                         case 0xC0:
                             if (a1 < 4 && a1 != window) { window = a1; face = -1; }
                             break;

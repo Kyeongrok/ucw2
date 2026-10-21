@@ -38,6 +38,8 @@ public sealed class ScenarioDialog : Window
         HorizontalAlignment = HorizontalAlignment.Right,
     };
     private readonly Image _face = new() { Width = 128, Height = 160, Stretch = Stretch.Uniform, Margin = new Thickness(0, 0, 14, 0) };
+    private readonly Image _picture = new() { Margin = new Thickness(18, 18, 18, 0), Visibility = Visibility.Collapsed };
+    private readonly ImageSource? _fixedPicture;
     private readonly StackPanel _choices = new() { Margin = new Thickness(0, 8, 0, 0), Visibility = Visibility.Collapsed };
     private readonly Grid _row = new();
     private int _at;
@@ -72,17 +74,14 @@ public sealed class ScenarioDialog : Window
         _row.Children.Add(text);
         Grid.SetColumn(text, 1);
         _row.Margin = new Thickness(18);
-        if (picture is null) Content = _row;
-        else
-        {
-            // 사건 그림(GRAPH.DAT) — 원본은 말 창 위에 찍는다. 두 배로, 점이 뭉개지지 않게.
-            var img = new Image { Source = picture, Width = picture.Width * 2, Height = picture.Height * 2, Margin = new Thickness(18, 18, 18, 0) };
-            RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.NearestNeighbor);
-            var all = new StackPanel();
-            all.Children.Add(img);
-            all.Children.Add(_row);
-            Content = all;
-        }
+        // 그림(GRAPH.DAT 사건 그림 또는 시나리오 CB 그림) — 원본은 말 창 위에 찍는다. 두 배로, 점이 뭉개지지 않게.
+        _fixedPicture = picture;
+        RenderOptions.SetBitmapScalingMode(_picture, BitmapScalingMode.NearestNeighbor);
+        SetPicture(picture);
+        var all = new StackPanel();
+        all.Children.Add(_picture);
+        all.Children.Add(_row);
+        Content = all;
 
         MouseLeftButtonUp += (_, _) => Next();
         KeyDown += (_, e) =>
@@ -101,12 +100,20 @@ public sealed class ScenarioDialog : Window
         _speaker.Text = _lastSpeaker;
         _body.Text = line.Body;
         _page.Text = $"{i + 1} / {_lines.Count}";
+        if (_fixedPicture is null) SetPicture(line.Picture >= 0 ? _faces?.EventPictures?.Invoke(line.Picture) : null);
         var img = _faces?.Get(line.Face);
         _face.Source = img;
         _face.Visibility = img != null ? Visibility.Visible : Visibility.Collapsed;
         bool right = line.Window == 2;
         Grid.SetColumn(_face, right ? 2 : 0);
         _face.Margin = right ? new Thickness(14, 0, 0, 0) : new Thickness(0, 0, 14, 0);
+    }
+
+    private void SetPicture(ImageSource? picture)
+    {
+        _picture.Source = picture;
+        _picture.Visibility = picture != null ? Visibility.Visible : Visibility.Collapsed;
+        if (picture != null) { _picture.Width = picture.Width * 2; _picture.Height = picture.Height * 2; }
     }
 
     private void Next()

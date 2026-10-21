@@ -67,6 +67,7 @@ public static class Scenario
         0xC0 => "창",
         0xC9 => "고르기",
         0xCC or 0xCD => "얼굴",
+        0xCB => "그림",
         0xC8 or 0xD4 => "대사",
         0xD0 or 0xDC => "가리키개",
         0xF0 => "다음절",

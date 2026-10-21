@@ -57,6 +57,7 @@ namespace Uw2.Support.Local.Formats;
 ///     graph/NN.png                GRAPH.DAT 그림 예순아홉(NPK016) — 저마다 제 빛깔 열여섯(<see cref="Npk"/>)
 ///     ending/heroN.png            주인공 여섯의 엔딩 그림(END.DAT · 빛깔은 KOUKAI2.EXE)
 ///     open/NN.png                 여는 화면 그림 아흔(OPEN.DAT · 빛깔은 주인공 장면 것 0x4591D0 하나로)
+///     event/F-N.png               시나리오 그림(EVENTF.DAT 의 N 번째, NPK016) — 주인공 시나리오가 CB 로 띄운다
 /// </code>
 /// </remarks>
 public sealed class AssetPack
@@ -139,6 +140,7 @@ public sealed class AssetPack
         if (File.Exists(Find("GRAPH.DAT"))) BakeGraph(Find("GRAPH.DAT"), outDir);
         if (File.Exists(Find("END.DAT")) && File.Exists(Find("KOUKAI2.EXE"))) BakeEndings(Find("END.DAT"), Find("KOUKAI2.EXE"), outDir);
         if (File.Exists(Find("OPEN.DAT")) && File.Exists(Find("KOUKAI2.EXE"))) BakeOpening(Find("OPEN.DAT"), Find("KOUKAI2.EXE"), outDir);
+        BakeEvents(gameDirectory, outDir);
 
         var chipNo = File.ReadAllBytes(Find("CHIP_NO.DAT"));
         IndexedPng.Write(Path.Combine(outDir, "port", "chipno.png"),
@@ -411,6 +413,32 @@ public sealed class AssetPack
             var pic = Npk.DecodeBare(data.AsSpan(offs[i]), pal);
             IndexedPng.Write(Path.Combine(dir, $"{i:D2}.png"), pic.Pixels, pic.Width, pic.Height, pic.Palette);
         }
+    }
+
+    /// <summary><c>EVENT0 ~ 6.DAT</c> 의 그림을 <c>event/F-N.png</c> 로 굽는다(파일 F 의 N 번째).</summary>
+    public static void BakeEvents(string gameDirectory, string outDir)
+    {
+        string dir = Path.Combine(outDir, "event");
+        for (int f = 0; f <= 6; f++)
+        {
+            string path = Path.Combine(gameDirectory, $"EVENT{f}.DAT");
+            if (!File.Exists(path)) continue;
+            Directory.CreateDirectory(dir);
+            var pics = Npk.ReadAll(File.ReadAllBytes(path));
+            for (int n = 0; n < pics.Count; n++)
+                IndexedPng.Write(Path.Combine(dir, $"{f}-{n}.png"), pics[n].Pixels, pics[n].Width, pics[n].Height, pics[n].Palette);
+        }
+    }
+
+    /// <summary>
+    /// 시나리오 그림 — <c>CB x y n</c>(<c>0x0043F122</c> → <c>0x0043D420</c>)이 <c>EVENTF.DAT</c> 의 n 번째를 찍는다.
+    /// F 는 주인공(사람 표 차례) + 1 이다(<c>0x00415AD9</c>). 없으면 null.
+    /// </summary>
+    public IndexedPng.Image? EventPicture(int file, int n)
+    {
+        if (Folder is null || file < 0 || n < 0) return null;
+        string path = Path.Combine(Folder, "event", $"{file}-{n}.png");
+        return File.Exists(path) ? IndexedPng.Read(path) : null;
     }
 
     /// <summary><c>open/NN.png</c> — 없으면 null.</summary>

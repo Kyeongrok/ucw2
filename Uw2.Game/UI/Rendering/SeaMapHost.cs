@@ -98,6 +98,8 @@ public sealed partial class SeaMapHost : HwndHost
         StartTables = pack.Start;
         if (pack.Faces.Length > 0) Faces = new FaceSheet(pack.Faces, pack.FacesWidth, pack.Finds, pack.FindsWidth);
         Graphs = new GraphSheet(pack);
+        // 시나리오 그림은 주인공(사람 표 차례) + 1 번 EVENT 파일에서(0x00415AD9).
+        if (Faces != null) Faces.EventPictures = n => Graphs.Event(HeroPersonNumber + 1, n);
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
         if (AssetPack.FindFolder() is { } nameDir && File.Exists(Path.Combine(nameDir, "name.tbl")))
