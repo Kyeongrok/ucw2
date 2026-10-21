@@ -3265,7 +3265,7 @@ public sealed class SeaMapWindow : Window
                 said = $"{(east ? "동경" : "서경")} {lon}도 · {(north ? "북위" : "남위")} {lat}도 언저리를 가리키고 있다";
                 break;
             }
-            case _ when item == 0x19: said = MsgOr(0x44E, "야옹∼"); break;            // 고양이
+            case var _ when item == 0x19: said = MsgOr(0x44E, "야옹∼"); break;            // 고양이
             default: said = MsgOr(0x450, "별다른 일은 없었던 것 같다."); break;
         }
         if (usedUp) { int none = 0; ItemShop.Sell(m, item, 0, ref none); }
