@@ -32,6 +32,24 @@ public sealed class OpeningWindow : Window
         [(16, 0, 60), (27, 132, 300)],                        // 0x00431690 「In the name of glory …」
     ];
 
+    /// <summary>
+    /// 장면마다 깜빡이는 눈 — (장면 차례, 첫 장 번호, 화면 x, y). 장은 셋이고 첫 장이 큰 그림과 꼭 같다(그림에 맞대어 자리를 찾았다).
+    /// 카탈리나(41 ~ 43)는 다가선 그림 40 에, 에제키엘 눈빛(79 ~ 88)은 자리를 못 찾아 뺐다.
+    /// </summary>
+    private static readonly (int Scene, int First, int X, int Y)[] Blinks =
+    [
+        (3, 36, 528 + 32, 16 + 40),                            // 옷토
+        (5, 66, 512 + 24, 16 + 48),                            // 에르네스트
+        (6, 71, 528 + 16, 16 + 48),                            // 피에트로
+        (7, 46, 528 + 40, 16 + 40),                            // 알
+        (8, 55, 256, 72), (8, 58, 280, 144), (8, 61, 352, 64), // 소녀들
+        (10, 76, 280, 72),                                     // 조안
+    ];
+
+    private readonly DispatcherTimer _blink = new() { Interval = TimeSpan.FromSeconds(0.12) };
+    private readonly List<(Image View, int First, int Phase)> _eyes = [];
+    private int _tick;
+
     private const double Scale = 1.5;
     private const int ScreenW = 640, ScreenH = 400;
 
@@ -52,9 +70,20 @@ public sealed class OpeningWindow : Window
         RenderOptions.SetBitmapScalingMode(_canvas, BitmapScalingMode.NearestNeighbor);
         Content = _canvas;
         _timer.Tick += (_, _) => Next();
+        _blink.Tick += (_, _) =>
+        {
+            _tick++;
+            int[] seq = [0, 1, 2, 1];
+            foreach (var (view, first, phase) in _eyes)
+            {
+                int b = (_tick + phase) % 20;   // 스무 틱에 한 번 감았다 뜬다
+                view.Source = _graphs.Opening(first + (b < seq.Length ? seq[b] : 0)) ?? view.Source;
+            }
+        };
+        _blink.Start();
         KeyDown += (_, _) => Close();
         MouseLeftButtonUp += (_, _) => Close();
-        Closed += (_, _) => _timer.Stop();
+        Closed += (_, _) => { _timer.Stop(); _blink.Stop(); };
         Next();
         _timer.Start();
     }
@@ -70,7 +99,16 @@ public sealed class OpeningWindow : Window
             Canvas.SetLeft(view, x); Canvas.SetTop(view, y);
             _canvas.Children.Add(view);
         }
-        if (_canvas.Children.Count == 0) Close();      // 그림이 없으면(자산이 옛것) 바로 끝낸다
+        if (_canvas.Children.Count == 0) { Close(); return; }   // 그림이 없으면(자산이 옛것) 바로 끝낸다
+        _eyes.Clear();
+        foreach (var (scene, first, x, y) in Blinks)
+        {
+            if (scene != _at || _graphs.Opening(first) is not { } img) continue;
+            var view = new Image { Source = img, Width = img.Width, Height = img.Height };
+            Canvas.SetLeft(view, x); Canvas.SetTop(view, y);
+            _canvas.Children.Add(view);
+            _eyes.Add((view, first, _eyes.Count * 7));
+        }
     }
 
     /// <summary>여는 화면을 돌린다 — 그림이 없으면 아무것도 안 한다.</summary>
