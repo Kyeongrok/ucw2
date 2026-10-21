@@ -290,7 +290,7 @@ public sealed class SeaMapWindow : Window
     /// <summary>
     /// 여급 함대 조사(일 3, <c>0x00425FC0</c>) — 맡긴 것이 없으면 나라(0x216) · 함대 갈래(0x217)를 받아 맡기고 걸릴 날을 말한다(0x218).
     /// 날이 남았으면 0x219, 다 지났으면 그 나라 · 갈래의 함대마다 제독과 자리를 알린다(0x21A ~ 0x22A, <c>0x00426160</c>).
-    /// 바다에 없는 함대는 「전멸」(0x22C). 함대가 무엇을 하는지(움직임 갈래 +0x1B) 와 짐 줄은 남 함대 셈이 그 칸을 안 가져 아직 뺐다.
+    /// 바다에 없는 함대는 「전멸」(0x22C). 하는 일은 움직임 갈래(+0x1B)마다 0x21E · 0x226 · 0x227 · 0x21F · 0x225 · 0x224, 짐이 있으면 0x220.
     /// 날은 바다에서 하루가 갈 때마다 준다.
     /// </summary>
     private void ProbeFleet(int maid)
@@ -322,7 +322,22 @@ public sealed class SeaMapWindow : Window
             if (fleet == null) { Say(0x22C, $"제{number}함대는 전멸했습니다.", number); continue; }
             string admiral = _host.PersonName(fleet.Admiral);
             var (north, lat, east, lon) = Pub.Degrees((int)fleet.X, (int)fleet.Y);
-            SayText(MsgOr(0x21D, $"{admiral}제독의 함대는 ", admiral) + (fleet.Docked ? "항구에 머물고 있어요." : "") + "\n"
+            // 하는 일(0x004262C1, 손표 0x004263E8) — 사람은 성(+0x0D)으로 부른다.
+            string PortName(int p) => _host.Ports is { } pts && p >= 0 && p < pts.Ports.Count ? pts.Ports[p].Name : $"#{p}";
+            string Family(int p) => _host.PersonName(p).Split(' ').Last();
+            string doing = fleet.Mode switch
+            {
+                0 or 1 or 2 => MsgOr(0x21E, $"{PortName(fleet.Goal)}(를) 향하고 있어요.", PortName(fleet.Goal)),
+                3 => MsgOr(0x226, $"{PortName(fleet.Goal)}항에서 숨어 기다리고 있어요.", PortName(fleet.Goal)),
+                4 => MsgOr(0x227, "상선대를 무차별 공격하고 있어요."),
+                5 or 6 or 7 => MsgOr(0x21F, $"{Family(fleet.Goal)}의 함대를 노리고 있어요.", Family(fleet.Goal)),
+                8 => MsgOr(0x225, $"{Family(fleet.Goal)}제독의 함대를 호위하고 있어요.", Family(fleet.Goal)),
+                9 => MsgOr(0x224, $"{PortName(fleet.Goal)}항을 경호하고 있어요.", PortName(fleet.Goal)),
+                _ => "",
+            };
+            string cargo = fleet.CargoGood >= 0 && _host.Economy is { } eco && fleet.CargoGood < eco.GoodsNames.Count
+                ? "\n" + MsgOr(0x220, $"적하에 {eco.GoodsNames[fleet.CargoGood]}(를) 싣고 있다고 해요.", eco.GoodsNames[fleet.CargoGood]) : "";
+            SayText(MsgOr(0x21D, $"{admiral}제독의 함대는 ", admiral) + doing + cargo + "\n"
                     + MsgOr(0x229, "숙련된 항해사의 말대로라면, 현재 위치는 ")
                     + MsgOr(north ? 0x7E : 0x7F, $"{(north ? "북위" : "남위")} {lat}도, ", lat)
                     + MsgOr(east ? 0x80 : 0x81, $"{(east ? "동경" : "서경")} {lon}도", lon)
