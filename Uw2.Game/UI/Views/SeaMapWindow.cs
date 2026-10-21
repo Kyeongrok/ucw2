@@ -2763,6 +2763,44 @@ public sealed class SeaMapWindow : Window
     /// <summary>선종 그림 번호 — 원본은 배 기록 +0x0F(선종)에 28 을 더한다(<c>0x00435300</c>).</summary>
     private static int ShipGraph(int type) => 28 + type;
 
+    /// <summary>
+    /// 자함대정보 끝 줄(<c>0x00442C60</c>) — 제독(0x397) · 항해 · 전투 레벨(0x398 · 0x399), 그리고 가장 느린 배의 선회력(+4) · 추진력(+5),
+    /// 가장 낮은 내구, 선원 · 단 대포 합, 전투력 합(0x39A ~ 0x39C). 배 하나의 전투력은 갑판 선원(300 까지) + 내구 x 2
+    /// + (사거리 x 2 + 위력) x min(단 대포, 갑판 선원) / 10.
+    /// </summary>
+    private void FleetSummary(System.Text.StringBuilder sb)
+    {
+        var p = _host.Player;
+        if (p.Ships.Count == 0) { sb.AppendLine(MsgOr(0x396, "배를 한 척도 가지고 있지 않습니다.")); return; }
+        int hero = _host.HeroPersonNumber;
+        int Lv(int f) => _host.Scenario is { } vm ? Navigators.Get(vm.Memory, hero, f) : 0;
+        // 말 안의 글자 빛깔 꼬리표(C6 · C7 · B0 · B8 …)는 뗀다.
+        static string Plain(string s) => System.Text.RegularExpressions.Regex.Replace(s, "[BC][0-9A-F]", "");
+        sb.AppendLine(Plain(MsgOr(0x397, $"{_host.PersonName(hero)}제독", _host.PersonName(hero))));
+        sb.AppendLine(Plain(MsgOr(0x398, $"항해 레벨:{Lv(Navigators.NavLevel),3}", Lv(Navigators.NavLevel))));
+        sb.AppendLine(Plain(MsgOr(0x399, $"전투 레벨:{Lv(Navigators.BattleLevel),3}", Lv(Navigators.BattleLevel))));
+        int crew = 0, guns = 0, power = 0, hull = int.MaxValue, slowest = 0, slowSpeed = int.MaxValue;
+        var sailing = _host.Fleet?.Ships;
+        var wind = _host.Fleet?.LastWind ?? (0, 0);
+        int angle = Sailing.AngleOf(wind.Dir, _host.Fleet?.Heading ?? 0);
+        for (int i = 0; i < p.Ships.Count; i++)
+        {
+            var s = p.Ships[i];
+            crew += s.Crew;
+            guns += s.Mounted;
+            int deck = Math.Min(300, (100 - s.SailShare - s.WatchShare) * s.Crew / 100);
+            int gk = Math.Clamp(s.GunKind, 0, 7);
+            power += deck + s.Hull * 2 + (Battle.GunRange[gk] * 2 + Battle.GunPower[gk]) * Math.Min(s.Mounted, deck) / 10;
+            hull = Math.Min(hull, s.Hull);
+            int v = sailing != null && i < sailing.Count ? Sailing.ShipSpeed(sailing[i], angle, wind.Speed) : 0;
+            if (v < slowSpeed) { slowSpeed = v; slowest = i; }
+        }
+        var slow = p.Ships[slowest];
+        sb.AppendLine(Plain(MsgOr(0x39A, $"함대선회력:{slow.Upwind,3}  선원 총수:{crew,4}명", slow.Upwind, crew)));
+        sb.AppendLine(Plain(MsgOr(0x39B, $"함대추진력:{slow.Sail,3}  총포문수 :{guns,4}", slow.Sail, guns)));
+        sb.AppendLine(Plain(MsgOr(0x39C, $"함대내구력:{hull,3}  전투력   :{power,5}", hull, power)));
+    }
+
     private void ShowFleetInfo()
     {
         string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람", "함선정보", "항해일지", "항해도", "항구맵"];
@@ -2833,6 +2871,7 @@ public sealed class SeaMapWindow : Window
                                       + (s.Figurehead > 0 ? $" · 선수상 {Shipyard.Figureheads[s.Figurehead]}" : ""));
                 }
                 if (p.Rats || p.Scurvy) sb.AppendLine((p.Rats ? "쥐 떼 " : "") + (p.Scurvy ? "괴혈병" : ""));
+                FleetSummary(sb);
                 break;
             case 1:
                 if (vm == null) break;
