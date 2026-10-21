@@ -707,7 +707,7 @@ public sealed class SeaMapWindow : Window
         if (_host.Scenario is not { } vm) return;
         var m = vm.Memory;
         int who = Patrons.InPort(m, _host.CurrentPort);
-        if (who < 0) { Note(" · 아무도 없습니다"); return; }
+        if (who < 0) { Say(0x3A5, "제독님, 이 건물엔 열쇠가 잠겨 있어 들어갈 수 없습니다."); return; }   // 0x00422949
         string name = Patrons.Name(m, who);
         int kind = Patrons.KindOf(m, who);
         if (kind is not (Patrons.Noble or Patrons.Scholar)) { Note($" · {name}"); return; }
