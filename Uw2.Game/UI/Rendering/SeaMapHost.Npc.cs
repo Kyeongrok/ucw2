@@ -55,6 +55,48 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
         });
         Nations.Aid(m, hero);
         ForgeFleets();
+        RivalFleets(m, hero);
+    }
+
+    /// <summary>
+    /// 맞수 함대 키우기(<c>0x0042C330</c>) — 다른 주인공(사람 0 ~ 5)과, +0x2F &amp; 4 · +0x31 &amp; 0x20 · 처지 1 이고 해적이거나 해군(번호 % 10 ≥ 5)
+    /// 함대를 맡은 사람마다 그 함대에 배 한 척을 들이거나 바꾼다. 제 함대 세기(<c>0x0042ACA0</c>)가 그 함대보다 크지 않으면 셋에 하나는 건너뛴다.
+    /// 빈 칸이 있으면 그 칸, 없으면 배 기록 번호가 가장 작은 칸에 기록 (표 <c>0x00458F1C</c>[갈래] &gt;&gt; (작위 / 5 x 4)) &amp; 0xF + 0x31 —
+    /// 갈래는 사람 0 · 3 · 4 → 0, 1 → 1, 2 → 2, 5 → 3, 그 밖은 해군 7 ~ 9 이면 2 아니면 1. 바이트 표라 작위 10 넘으면 늘 0x31 이다.
+    /// </summary>
+    private void RivalFleets(ScenarioMemory m, int hero)
+    {
+        if (StartTables is not { } start) return;
+        ReadOnlySpan<byte> table = [0x05, 0xBC, 0x15, 0x02];
+        int k = m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, ScenarioMemory.RankField), false) / 5;
+        int ours = (Player.Ships.Sum(s => s.Hull) + 4) / 5;
+        for (int p = 0; p < Navigators.People; p++)
+        {
+            if (p == hero) continue;
+            int fleet = Navigators.Get(m, p, Navigators.Fleet);
+            if (p >= 6)
+            {
+                if ((Navigators.Get(m, p, Navigators.Mood) & 4) == 0 || (Navigators.Get(m, p, Navigators.Kind) & 0x20) == 0
+                    || Navigators.Get(m, p, Navigators.Status) != 1) continue;
+                if (fleet < 60 && fleet % 10 < 5) continue;
+            }
+            if (fleet >= Support.Local.Formats.StartData.FleetCount) continue;
+            var slots = Others.FirstOrDefault(o => o.Index == fleet)?.Slots
+                        ?? (FleetReserve.TryGetValue(fleet, out var r) ? r : FleetReserve[fleet] = []);
+            int theirs = (slots.Sum(s => s.Durability) + 4) / 5;
+            if (ours <= theirs && Roll(3) == 0) continue;
+            int band = p < 6 ? (p switch { 1 => 1, 2 => 2, 5 => 3, _ => 0 }) : fleet % 10 >= 7 ? 2 : 1;
+            int shift = k * 4;
+            int record = (shift < 8 ? table[band] >> shift & 0xF : 0) + 0x31;
+            var slot = FleetForge.Slot(start, record, 1, Roll);
+            if (slots.Count < Support.Local.Formats.StartData.SlotCount) slots.Add(slot);
+            else
+            {
+                int weakest = 0;
+                for (int i = 1; i < slots.Count; i++) if (slots[i].Ship < slots[weakest].Ship) weakest = i;
+                slots[weakest] = slot;
+            }
+        }
     }
 
     /// <summary>바다에 없는 함대의 배 칸(함대 번호 → 칸) — 달마다 채우고(<see cref="FleetForge"/>), 넉넉해지면 내보낸다.</summary>

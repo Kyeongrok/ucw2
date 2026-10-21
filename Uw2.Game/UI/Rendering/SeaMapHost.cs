@@ -270,7 +270,8 @@ public sealed partial class SeaMapHost : HwndHost
                     int gold = Player.Gold;
                     Uw2.Game.Engine.Town.Navigators.PayWages(Scenario.Memory, HeroPersonNumber, ref gold);
                     Player.SetGold(gold);
-                    Uw2.Game.Engine.Town.Navigators.Wander(Scenario.Memory, Roll);
+                    Uw2.Game.Engine.Town.Navigators.Wander(Scenario.Memory, Roll, NameTable);
+                    Uw2.Game.Engine.Town.Navigators.KeepUp(Scenario.Memory, HeroPersonNumber, Roll);
                     if (Uw2.Game.Engine.Town.Palace.PermitsExpire(Fleet.Month)) Uw2.Game.Engine.Town.Palace.ExpirePermits(Scenario.Memory);
                     NationsMonth();
                 }
