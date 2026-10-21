@@ -3585,6 +3585,14 @@ public sealed class SeaMapWindow : Window
         if (mode is >= 5 and <= 7 && fleet.Goal == _host.HeroPersonNumber) mode = 11;
         switch (mode)
         {
+            case 0xFF:
+            {
+                // 할 일이 없는 함대(+0x1B = 0xFF)는 이름만 댄다 — 「나는 %s의 %s(다).」(0x00441214, 나라는 사람 +0x31 & 0xF).
+                int nation = _host.Scenario is { } vm0 ? Navigators.Get(vm0.Memory, fleet.Admiral, Navigators.Kind) & 0x0F : 6;
+                string nn = NationNames7[Math.Min(6, nation)], who = _host.PersonName(fleet.Admiral);
+                Say(0xD8, $"나는 {nn}의 {who}(다).", nn, who);
+                break;
+            }
             case 0: Say(0x98, "우리들은 본국으로 돌아가는 길이다."); break;
             case 1: Say(0x99, $"우리들은 {PortName(fleet.Goal)}항에 투자하러 가는 중이다.", PortName(fleet.Goal)); break;
             case 2: Say(0x9A, $"우리들은 {PortName(fleet.Goal)}항과 교역할 예정이다.", PortName(fleet.Goal)); break;
