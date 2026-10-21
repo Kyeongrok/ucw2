@@ -1256,11 +1256,28 @@ public sealed class SeaMapWindow : Window
     /// <summary>「세력상황」 — 나라마다 몇 항구가 그 나라 것인지(항구 표 +0x15).</summary>
     private void ShowInfluence()
     {
-        if (_host.Ports is not { } ports) return;
-        var sb = new System.Text.StringBuilder();
-        foreach (var g in ports.Ports.Take(100).GroupBy(p => _host.PortNation(p.Index)).OrderBy(g => g.Key))
-            sb.AppendLine($"{(g.Key < NationNames.Length ? NationNames[g.Key] : "그 밖")}  {g.Count()}항");
-        MessageBox.Show(this, sb.ToString(), "세력상황");
+        // 세력상황(0x00426FB4) — 왕이 「아, %s공！ … 세력상황을 가르쳐 드리겠소.」(0x1C5), 「우리 나라의 동맹항의 총수는 %d이다.」(0x373),
+        // 바다 갈래 여덟(말 0x181 ~ 0x188, 항구 형편 +0x1C)을 고를 때마다 그 갈래의 이 나라 항구를 「항구명 지지율 공업가치 상업가치」(0x1DB)로,
+        // 없으면 「~에 우리 나라의 항구는 없다.」(0x1C7). 끝나면 0x1C6.
+        if (_host.Ports is not { } ports || _host.Economy is not { } eco) return;
+        int nation = _host.PortNation(_host.CurrentPort);
+        var (name, _) = _host.HeroName;
+        Say(0x1C5, $"아, {name}공！ 잘 오셨소이다. 우리 나라의 세력상황을 가르쳐 드리겠소.", name);
+        var ours = Enumerable.Range(0, Math.Min(100, eco.States.Count)).Where(p => _host.PortNation(p) == nation).ToList();
+        Say(0x373, $"우리 나라의 동맹항의 총수는 {ours.Count}이다.", ours.Count);
+        string[] regions = [.. Enumerable.Range(0, 8).Select(k => MsgOr(0x181 + k, $"바다 {k}"))];
+        while (true)
+        {
+            int pick = BuildingMenu.Ask(this, "세력상황", regions);
+            if (pick < 0) break;
+            var here = ours.Where(p => eco.StateBytes[p * Economy.StateSize + 0x1C] == pick).ToList();
+            if (here.Count == 0) { Say(-1, regions[pick] + MsgOr(0x1C7, "에 우리 나라의 항구는 없다.")); continue; }
+            var sb = new System.Text.StringBuilder("항구명       지지율 공업가치 상업가치\n");
+            foreach (int p in here)
+                sb.AppendLine($"{ports.Ports[p].Name,-10} {eco.States[p].Shares[nation],5} {eco.States[p].Industry,8} {eco.States[p].Economy,8}");
+            MessageBox.Show(this, sb.ToString(), regions[pick]);
+        }
+        Say(0x1C6, "조금은 도움이 되었는지？");
     }
 
     /// <summary>ITEM 「구입」 — 이 항구 가게의 셋(밤 6 ~ 8 시각이면 넷, <see cref="ItemShop"/>).</summary>
