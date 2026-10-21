@@ -214,7 +214,7 @@ public sealed class SeaMapWindow : Window
         if (_host.StartTables is not { } start || _host.Scenario is not { } vm) return;
         var p = _host.Player;
         var used = Shipyard.Used(vm.Memory, start.ShipTypes.Count);
-        if (used.Count == 0) { Note(" · 지금은 중고선이 없습니다"); return; }
+        if (used.Count == 0) { Say(0xA5, "지금은 매물이 없는데."); return; }
         // 함대가 다 찼으면 배 하나를 내주고 그 값의 반을 셈에 넣는다(0x004289D8 → 0x00428A30, 0x004295E9).
         PlayerState.Ship? traded = null;
         int credit = 0;
@@ -2508,7 +2508,7 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Economy is not { } eco) return;
         var cargo = _host.Player.CargoTotals().ToList();
-        if (cargo.Count == 0) { Note(" · 팔 교역품이 없습니다"); return; }
+        if (cargo.Count == 0) { Say(0x15, "상품이 없습니다."); return; }   // 0x00421021
         int pick = BuildingMenu.Ask(this, "매각 — 이 항구가 쳐 주는 값",
             cargo.Select(c => $"{eco.GoodsNames[c.Key],-6} {c.Value,4}통  {eco.SellPrice(_host.CurrentPort, c.Key),5}").ToList());
         if (pick < 0) return;
