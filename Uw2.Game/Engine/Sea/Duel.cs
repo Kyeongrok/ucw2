@@ -18,7 +18,7 @@ public sealed class Duel
     /// <summary>
     /// 한 사람의 채비(<c>0x0049A128</c>, 12 바이트 x 2) — 무기 갈래(아이템 갈래 &amp; 0xF, 1 ~ 3) · 무기 세기 · 갑옷 세기(갈래 6 의 합).
     /// </summary>
-    public sealed record Fighter(string Name, int Sword, int BattleLevel, int Style, int Weapon, int Armor);
+    public sealed record Fighter(string Name, int Sword, int BattleLevel, int Style, int Weapon, int Armor, int Person = -1);
 
     private readonly Func<int, int> _rand;
 

@@ -25,6 +25,7 @@ public partial class App : Application
             var graphs = new GraphSheet(Uw2.Support.Local.Formats.AssetPack.PicturesOnly(duelAssets));
             DuelWindow.Sprites = (hero, variant, group, frame) => graphs.DuelFrame(hero ? "IAP1" : "IAE1", variant, group, frame);
             DuelWindow.Arena = graphs.Get(24);
+            DuelWindow.Backdrop = graphs.Get(23);
             DuelWindow.DevShot(e.Args[ds + 1]);
             Shutdown();
             return;

@@ -105,6 +105,8 @@ public sealed partial class SeaMapHost : HwndHost
         DuelWindow.Sprites = (hero, variant, group, frame) =>
             graphs.DuelFrame(hero ? $"IAP{HeroPersonNumber + 1}" : "IAE1", variant, group, frame);
         DuelWindow.Arena = graphs.Get(24);
+        DuelWindow.Backdrop = graphs.Get(23);
+        DuelWindow.FaceFor = PersonFace;
         if (AssetPack.FindFolder() is { } assetDir && Directory.Exists(Path.Combine(assetDir, "snr")))
             _scenarioDir = Path.Combine(assetDir, "snr");
         if (AssetPack.FindFolder() is { } nameDir && File.Exists(Path.Combine(nameDir, "name.tbl")))
@@ -1217,6 +1219,16 @@ public sealed partial class SeaMapHost : HwndHost
             _renderer.SetShipSprite(_shipArt, _shipW, _shipH, _screenPalette,
                                     AssetPack.Transparent);
         _renderer.ShipFacesWest = false;
+    }
+
+    /// <summary>
+    /// 사람의 얼굴(<c>0x00434EC0</c>) — 사람 +0x1A 낱말. 위 두 비트(0xC000)가 서면 조각을 맞춘 얼굴이라 여기서는 없다(null).
+    /// </summary>
+    public System.Windows.Media.ImageSource? PersonFace(int person)
+    {
+        if (Scenario is not { } vm || Faces is not { } faces || person is < 0 or >= Engine.Town.Navigators.People) return null;
+        int face = vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, person, 0x1A), true);
+        return (face & 0xC000) == 0 ? faces.Get(face) : null;
     }
 
     private bool _walkerSprite;

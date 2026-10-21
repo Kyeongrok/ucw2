@@ -28,7 +28,14 @@ public sealed class DuelWindow : Window
     /// <summary>일기토 마당 그림(GRAPH 24, 480 x 176 — 원본은 화면 23 위 (80, 168) 에 깐다, <c>0x0041462B</c>).</summary>
     public static ImageSource? Arena { get; set; }
 
-    private const double SpriteScale = 1.5;
+    /// <summary>일기토 화면 바탕(GRAPH 23, 640 x 400).</summary>
+    public static ImageSource? Backdrop { get; set; }
+
+    /// <summary>사람 번호 → 얼굴(사람 +0x1A, 0x00434EC0). 붙이는 쪽이 채운다.</summary>
+    public static Func<int, ImageSource?>? FaceFor { get; set; }
+
+    private const double ScreenScale = 1.25;
+    private readonly TextBlock?[] _share = new TextBlock?[2];
     private readonly Image[] _figure = [new(), new()];      // 쪽마다(0 건 쪽 · 1 받은 쪽)
     private readonly System.Windows.Threading.DispatcherTimer _clock = new() { Interval = TimeSpan.FromMilliseconds(180) };
     private readonly Queue<(int Group0, int Frame0, int Group1, int Frame1)> _frames = new();
@@ -49,38 +56,52 @@ public sealed class DuelWindow : Window
         names.Children.Add(left);
         names.Children.Add(right);
         root.Children.Add(_turn);
-        if (Sprites != null)
+        bool art = Sprites != null;
+        if (art)
         {
-            // 두 판은 같은 무대(176 x 120)의 자리를 쓴다 — 상대가 왼쪽(오른쪽을 본다), 주인공이 오른쪽(왼쪽을 본다). 겹쳐 놓는다.
-            var stage = new Grid { HorizontalAlignment = HorizontalAlignment.Center,
-                                   Background = new SolidColorBrush(Color.FromRgb(0x10, 0x18, 0x30)), Margin = new Thickness(0, 0, 0, 6) };
-            double stageW = Uw2.Support.Local.Formats.DuelSprites.CellW * SpriteScale;
-            if (Arena is { } arena)
+            // 원본 일기토 화면(0x004145E0) — 바탕 GRAPH 23, 마당 24 를 (80, 168) 에, 얼굴 칸 둘(상대 왼쪽 · 주인공 오른쪽), 위 이름 띠,
+            // 가운데 말 칸. 두 판은 같은 무대(176 x 120)의 제 쪽에 그려져 있어 마당 가운데에 겹쳐 놓으면 마주 선다.
+            var screen = new Canvas { Width = 640, Height = 400, Background = Brushes.Black, ClipToBounds = true,
+                                      LayoutTransform = new ScaleTransform(ScreenScale, ScreenScale), Margin = new Thickness(0, 0, 0, 6) };
+            RenderOptions.SetBitmapScalingMode(screen, BitmapScalingMode.NearestNeighbor);
+            void Put(UIElement e, double x, double y) { Canvas.SetLeft(e, x); Canvas.SetTop(e, y); screen.Children.Add(e); }
+            if (Backdrop is { } back) Put(new Image { Source = back, Width = back.Width, Height = back.Height }, 0, 0);
+            if (Arena is { } arena) Put(new Image { Source = arena, Width = arena.Width, Height = arena.Height }, 80, 168);
+            int enemy = me ^ 1;
+            foreach (var (side, x) in new[] { (enemy, 96.0), (me, 480.0) })
             {
-                var floor = new Image { Source = arena, Width = arena.Width * SpriteScale, Height = arena.Height * SpriteScale };
-                RenderOptions.SetBitmapScalingMode(floor, BitmapScalingMode.NearestNeighbor);
-                stage.Children.Add(floor);
-                stageW = floor.Width;
+                if (FaceFor?.Invoke(duel.Sides[side].Person) is { } face) Put(new Image { Source = face, Width = 64, Height = 80 }, x + 2, 54);
+                Put(new TextBlock { Text = duel.Sides[side].Name, FontSize = 12, Foreground = Brushes.Black, Width = 200,
+                                    TextAlignment = side == enemy ? TextAlignment.Left : TextAlignment.Right }, side == enemy ? 100 : 340, 25);
+                Put(new TextBlock { Text = $"무기 {duel.Sides[side].Weapon} · 갑옷 {duel.Sides[side].Armor}", FontSize = 10,
+                                    Foreground = Brushes.Black }, side == enemy ? 202 : 330, 58);
+                Put(new TextBlock { Text = $"검술 {duel.Sides[side].Sword} · 레벨 {duel.Sides[side].BattleLevel}", FontSize = 10,
+                                    Foreground = Brushes.Black }, side == enemy ? 202 : 330, 80);
+                var share = new TextBlock { FontSize = 11, Foreground = Brushes.Black, Width = 48, TextAlignment = TextAlignment.Center };
+                _share[side] = share;
+                Put(share, side == enemy ? 184 : 408, 360);
             }
+            _log.Foreground = Brushes.Black;
+            _log.FontSize = 11;
+            _log.Width = 220;
+            _log.MinHeight = 0;
+            Put(_log, 212, 116);
             foreach (var fig in _figure)
             {
-                fig.Width = Uw2.Support.Local.Formats.DuelSprites.CellW * SpriteScale;
-                fig.Height = Uw2.Support.Local.Formats.DuelSprites.CellH * SpriteScale;
-                fig.VerticalAlignment = VerticalAlignment.Bottom;
-                fig.Margin = new Thickness(0, 0, 0, 8 * SpriteScale);
-                RenderOptions.SetBitmapScalingMode(fig, BitmapScalingMode.NearestNeighbor);
-                stage.Children.Add(fig);
+                fig.Width = Uw2.Support.Local.Formats.DuelSprites.CellW;
+                fig.Height = Uw2.Support.Local.Formats.DuelSprites.CellH;
+                Put(fig, 80 + (480 - Uw2.Support.Local.Formats.DuelSprites.CellW) / 2.0, 344 - Uw2.Support.Local.Formats.DuelSprites.CellH - 6);
             }
-            root.Width = stageW;
-            root.Children.Add(stage);
+            root.Width = 640 * ScreenScale;
+            root.Children.Add(screen);
             Pose(0, 0, 0, 0);
             _clock.Tick += (_, _) => Step();
         }
-        root.Children.Add(names);
+        if (!art) root.Children.Add(names);
         // 줄 — 200 쪽이 건 쪽. 막대가 왼쪽(건 쪽)으로 찰수록 건 쪽이 이긴다.
         _rope.FlowDirection = FlowDirection.RightToLeft;
         root.Children.Add(_rope);
-        root.Children.Add(_log);
+        if (!art) root.Children.Add(_log);
         root.Children.Add(_buttons);
         Content = root;
         _log.Text = intro;
@@ -98,6 +119,9 @@ public sealed class DuelWindow : Window
     private void Refresh()
     {
         _rope.Value = _duel.Rope;
+        // 아래 작은 칸 — 쪽마다 줄의 제 몫(0 건 쪽 = 줄, 1 받은 쪽 = 200 − 줄)
+        if (_share[0] != null) _share[0]!.Text = $"{_duel.Rope}";
+        if (_share[1] != null) _share[1]!.Text = $"{Duel.Full - _duel.Rope}";
         _buttons.Children.Clear();
         if (_duel.Over)
         {

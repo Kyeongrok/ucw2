@@ -53,7 +53,7 @@ public sealed partial class SeaMapHost
                 else if (it.Group == 6) armor += it.Power;
             }
         }
-        return new Duel.Fighter(PersonName(c.Person), c.Stat(5), c.BattleLevel, style, weapon, armor);
+        return new Duel.Fighter(PersonName(c.Person), c.Stat(5), c.BattleLevel, style, weapon, armor, c.Person);
     }
 
     /// <summary>싸움 뒤 사람 기록에 돌려 적는다 — 능력치 · 전투 레벨 · 경험.</summary>
