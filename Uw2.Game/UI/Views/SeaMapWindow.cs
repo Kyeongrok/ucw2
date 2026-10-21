@@ -1375,6 +1375,7 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     private bool PalaceGate()
     {
+        if (PalaceArrest()) return false;
         int rank = _host.HeroRank, nation = _host.HeroNation;
         bool favoured = _host.Common is { } c && (c.GetFlag(17) || c.GetFlag(18));
         if (rank == 0 && nation < 6 && (_host.PortNation(_host.CurrentPort) != nation || !favoured))
@@ -1385,6 +1386,42 @@ public sealed class SeaMapWindow : Window
         var (_, family) = _host.HeroName;
         if (rank > 0) Say(0x1BC, $"잘 오셨습니다. {family} {Titles[Math.Min(rank, 9)]}님,\n어서 안으로 들어 오세요.", family, Titles[Math.Min(rank, 9)]);
         else Say(0x240, "평민은 왕궁에 들어갈 수 없는 것이 원칙이지만, 폐하께서 당신에게 흥미를 가지고 계시니, 특별히 들여보내 주겠소.");
+        return true;
+    }
+
+    /// <summary>
+    /// 왕궁 체포(<c>0x00427D62</c>) — 그 나라 호의(주인공 표 +6 + 나라)가 80 이하이고 rand(100) 이 그보다 크면 「네 녀석, 악명 높은 %s(이렸다)！」(0x1BB, 성).
+    /// 거리 체포와 같은 셈(능력치 +0x21 x 전투 레벨 / 100 + 능력치 +0x21 &lt; rand(150))으로 잡히면(<c>0x00427F90</c>) 0x1BD 뒤 왕의 말 0x1C1 ~ 0x1C4 —
+    /// 돈과 은행 잔고를 5 분의 1 로, 호의를 100 으로. 빠져나오면 0x1BE · 0x1C0. 잡으러 왔으면 참.
+    /// </summary>
+    private bool PalaceArrest()
+    {
+        if (_host.Scenario is not { } vm || _host.CurrentPort < 0) return false;
+        var m = vm.Memory;
+        int nation = _host.PortNation(_host.CurrentPort), hero = _host.HeroPersonNumber;
+        if (nation >= 6) return false;
+        var favourAt = ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + nation);
+        int favour = m.Read(favourAt, false);
+        if (favour > 0x50 || _host.Roll(100) <= favour) return false;
+        var (_, family) = _host.HeroName;
+        Say(0x1BB, $"네 녀석, 악명 높은 {family}(이렸다)！ 우리 나라에 침입하다니 간도 큰 놈이군！ 원하는 대로 목을 메달아 주겠다.", family);
+        int wit = Navigators.Get(m, hero, 0x21), level = Navigators.Get(m, hero, Navigators.BattleLevel);
+        if (wit * level / 100 + wit >= _host.Roll(150))
+        {
+            Say(0x1BE, "이런 곳에서 붙잡혀서는 말이 안되지.");
+            Say(0x1C0, "휴우！ 간신히 도망쳐 나왔군요.");
+            return true;
+        }
+        Say(0x1BD, "아뿔사, 내 목숨도 이제 끝인가！");
+        Say(0x1C1, $"호오！ 그대가 {family}인가.", family);
+        Say(0x1C2, "원칙으로 하자면 교수형에 처해야겠지만, 특별히 관용을 베풀어 주지.");
+        Say(0x1C3, "재산의 ５분의 ４를 몰수하는 것으로, 지금까지의 죄를 특별히 용서해 주마.");
+        Say(0x1C4, "그만큼 혼쭐이 났으니, 더이상 우리 나라를 건드리지 마라！");
+        var p = _host.Player;
+        int kept = p.Gold - p.Gold * 4 / 5;
+        p.Transfer(-(p.Balance * 4 / 5));   // 잔고(빚도)를 5 분의 1 로 — 돈은 아래에서 다시 매긴다
+        p.SetGold(kept);
+        m.Write(favourAt, 100, false);
         return true;
     }
 
