@@ -2480,9 +2480,26 @@ public sealed class SeaMapWindow : Window
             NoteBooty();
             TakePrizes(spoils.Prizes);
         }
+        BattleEnded(battle.Result, spoils);
         if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
         if (spoils.Stripped == Nations.LostNation) Say(0x238, "국적을 박탈당했습니다.");
         else if (spoils.Stripped == Nations.LostTitle) Say(0x239, "작위를 박탈당했습니다.");
+    }
+
+    /// <summary>
+    /// 해전 끝 말 — 일몰 「전투는 승부를 가리지 못한 채 일몰을 맞았다.」(0x233), 제 기함 이탈 0x234, 적 기함 퇴각 0x235, 항복 0x236.
+    /// 물러났거나 항복했으면 떠난 선장마다 「제독님, %s의 함대가 보이지 않는데요.」(0x317).
+    /// </summary>
+    private void BattleEnded(int result, SeaMapHost.Spoils spoils)
+    {
+        switch (result)
+        {
+            case Engine.Sea.Battle.Outcome.Sunset: Say(0x233, "전투는 승부를 가리지 못한 채 일몰을 맞았다."); break;
+            case Engine.Sea.Battle.Outcome.PlayerLeft: Say(0x234, "기함의 이탈로 인해 전투는 종말로 치달았다."); break;
+            case Engine.Sea.Battle.Outcome.EnemyLeft: Say(0x235, "적기함의 퇴각으로 인해 전투는 종결되었다."); break;
+            case Engine.Sea.Battle.Outcome.Surrendered: Say(0x236, "기함의 항복으로 인해 적함대는 활을 거두었다."); break;
+        }
+        foreach (var who in spoils.Deserted ?? []) Say(0x317, $"제독님, {who}의 함대가 보이지 않는데요.", who);
     }
 
     /// <summary>떠나는 동료 말(0x313 ~ 0x316) — 첫 줄 「§%s§」 는 말하는 이 자리라 뺀다.</summary>
@@ -2586,6 +2603,7 @@ public sealed class SeaMapWindow : Window
                 NoteBooty();
                 TakePrizes(spoils.Prizes);
             }
+            BattleEnded(battle.Result, spoils);
             if (spoils.Fame > 0) Note($" · 명성 +{spoils.Fame}");
             if (spoils.Stripped == Nations.LostNation) Say(0x238, "국적을 박탈당했습니다.");
             else if (spoils.Stripped == Nations.LostTitle) Say(0x239, "작위를 박탈당했습니다.");

@@ -261,10 +261,22 @@ public sealed partial class SeaMapHost
                 for (int k = 16; k < 19; k++) job.SetFlag(k, false);
             }
         }
+        // 물러나거나 항복했으면 호감 40 아래 선장은 배를 끌고 떠난다(0x0040ADDD → 0x00412ED0, 말 0x317).
+        var deserted = new List<string>();
+        if (b.Result is Battle.Outcome.PlayerLeft or Battle.Outcome.Surrendered && Scenario is { } dvm)
+            for (int i = Player.Ships.Count - 1; i >= 1; i--)
+            {
+                int c = Player.Ships[i].Captain;
+                if (c < 0 || c == HeroPersonNumber || Navigators.Get(dvm.Memory, c, Navigators.Liking) >= 40) continue;
+                deserted.Add(PersonName(c));
+                Navigators.Leave(dvm.Memory, c, Roll);
+                Player.Ships.RemoveAt(i);
+                if (Fleet != null && i < Fleet.Ships.Count) Fleet.Ships.RemoveAt(i);
+            }
         SyncLoad();
         if (b.Result is Battle.Outcome.PlayerSunk or Battle.Outcome.DuelLost)
             Dispatcher.BeginInvoke(() => GameOver?.Invoke(EndBattle));
-        return new Spoils(fame, gold, item, prizes, stripped);
+        return new Spoils(fame, gold, item, prizes, stripped, deserted);
     }
 
     /// <summary>
@@ -286,7 +298,7 @@ public sealed partial class SeaMapHost
     }
 
     /// <summary>싸움 뒤 얻은 것 — 명성 · 금화 · 아이템 이름 · 나포할 수 있는 배.</summary>
-    public sealed record Spoils(int Fame, int Gold, string? Item, List<Battle.Ship> Prizes, int Stripped = 0);
+    public sealed record Spoils(int Fame, int Gold, string? Item, List<Battle.Ship> Prizes, int Stripped = 0, List<string>? Deserted = null);
 
     /// <summary>
     /// 노획(<c>0x0040B1F0</c>) — 금화 (함대 +0x24 낱말 + 1) x 100(말 0x230), 아이템 함대 +0x1D(0x231, 지닌 것이 스물 아래일 때).
