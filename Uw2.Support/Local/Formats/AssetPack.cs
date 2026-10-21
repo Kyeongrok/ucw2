@@ -54,6 +54,7 @@ namespace Uw2.Support.Local.Formats;
 ///     kao/
 ///       faces.png        1024x640 얼굴 64x80 백스물여덟을 16 x 8 로(값 = 색인 0~7)
 ///       finds.png        768x384  발견물 48x48 백스물여덟을 16 x 8 로
+///       parts.png        24x7224  조각 얼굴 일곱 벌(값 = 날바이트, <see cref="KaoImages.Compose"/>)
 ///     graph/NN.png                GRAPH.DAT 그림 예순아홉(NPK016) — 빛깔은 화면 빛깔(머리의 열여섯은 원본도 쓰지 않는다)
 ///     ending/heroN.png            주인공 여섯의 엔딩 그림(END.DAT · 빛깔은 KOUKAI2.EXE)
 ///     open/NN.png                 여는 화면 그림 아흔(OPEN.DAT · 빛깔은 주인공 장면 것 0x4591D0 하나로)
@@ -369,6 +370,11 @@ public sealed class AssetPack
         IndexedPng.Write(Path.Combine(outDir, "kao", "faces.png"), fa, fw, fh, pal);
         var na = KaoImages.Atlas(finds, KaoImages.FindW, KaoImages.FindH, KaoCols, out int nw, out int nh);
         IndexedPng.Write(Path.Combine(outDir, "kao", "finds.png"), na, nw, nh, pal);
+        // 조각 얼굴 일곱 벌(LS 청크 뒤 날바이트) — 한 줄 24 바이트(얼굴 한 줄)로 세워 둔다.
+        var raw = File.ReadAllBytes(kaoPath);
+        int len = KaoImages.PartSets * KaoImages.PartSetBytes;
+        if (raw.Length >= KaoImages.PartsAt + len)
+            IndexedPng.Write(Path.Combine(outDir, "kao", "parts.png"), raw.AsSpan(KaoImages.PartsAt, len), 24, len / 24, DataPalette());
     }
 
     /// <summary><c>GRAPH.DAT</c> 의 그림을 한 장씩 <c>graph/NN.png</c> 로 굽는다(<see cref="Npk"/>).</summary>
@@ -587,6 +593,8 @@ public sealed class AssetPack
             var quad = IndexedPng.Read(Path.Combine(dir, "world", "quad.png"));
             var maps = IndexedPng.Read(Path.Combine(dir, "port", "maps.png"));
             var chipNo = IndexedPng.Read(Path.Combine(dir, "port", "chipno.png"));
+            string partsPath = Path.Combine(dir, "kao", "parts.png");
+            byte[] faceParts = File.Exists(partsPath) ? IndexedPng.Read(partsPath).Pixels : [];
             string facesPath = Path.Combine(dir, "kao", "faces.png");
             IndexedPng.Image? faces = File.Exists(facesPath) ? IndexedPng.Read(facesPath) : null;
             string findsPath = Path.Combine(dir, "kao", "finds.png");
@@ -696,6 +704,7 @@ public sealed class AssetPack
                 PortWalkBounds = walkBounds,
                 Doors = doors,
                 Faces = faces?.Pixels ?? [],
+                FaceParts = faceParts,
                 FacesWidth = faces?.Width ?? 0,
                 Finds = finds?.Pixels ?? [],
                 FindsWidth = finds?.Width ?? 0,
@@ -759,6 +768,9 @@ public sealed class AssetPack
 
     /// <summary>발견물 그림 판(<c>kao/finds.png</c>) — 48 x 48 을 <see cref="KaoCols"/> 장씩. 없으면 빈 것.</summary>
     public byte[] Finds { get; private init; } = [];
+
+    /// <summary>조각 얼굴 일곱 벌(<see cref="KaoImages.Compose"/>) — 없으면 빈 것.</summary>
+    public byte[] FaceParts { get; private init; } = [];
     public int FindsWidth { get; private init; }
 
     /// <summary>항구마다 문 자리. 구워 두지 않았으면 null.</summary>

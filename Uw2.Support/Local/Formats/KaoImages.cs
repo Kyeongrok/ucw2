@@ -49,6 +49,40 @@ public static class KaoImages
         return px;
     }
 
+    /// <summary>조각 얼굴 벌의 자리(<c>KAO.LZW</c> 파일 안, LS 청크 뒤)와 벌 하나의 크기 — 나라마다 한 벌, 일곱 벌.</summary>
+    public const int PartsAt = 0x476A2, PartSetBytes = 0x60C0, PartSets = 7;
+
+    /// <summary>
+    /// 조각 얼굴(<c>0x00434CC0</c>) — 사람 +0x1A 낱말의 위 두 비트(0xC000)가 서면 얼굴 번호가 아니라 조각 고르기다.
+    /// 벌(나라, 사람 +0x31 &amp; 0xF)에서 다섯 조각을 골라 1,920 바이트 얼굴(<see cref="FaceBytes"/>)을 짓는다.
+    /// <code>
+    ///   위(머리)   w &amp; 7         0x318 바이트를 0 에        (벌 +0)        옮긴다
+    ///   아래       (w &gt;&gt; 3) &amp; 7  0x468 바이트를 0x318 에    (벌 +0x18C0)   옮긴다
+    ///   눈         (w &gt;&gt; 8) &amp; 7  0x1B0 바이트를 0x1F8 에    (벌 +0x3C00)   겹친다(OR)
+    ///   코         (w &gt;&gt; 6) &amp; 3  0x240 바이트를 0x2B8 에    (벌 +0x4980)   겹친다
+    ///   입         (w &gt;&gt; 11) &amp; 7 0x1C8 바이트를 0x438 에    (벌 +0x5280)   겹친다
+    /// </code>
+    /// <paramref name="parts"/> 는 일곱 벌을 이어 붙인 것이다.
+    /// </summary>
+    public static byte[] Compose(byte[] parts, int set, int word)
+    {
+        var face = new byte[FaceBytes];
+        int b = Math.Clamp(set, 0, PartSets - 1) * PartSetBytes;
+        void Part(int at, int size, int dst, int index, bool or)
+        {
+            int src = b + at + index * size;
+            if (src + size > parts.Length) return;
+            for (int i = 0; i < size; i++)
+                face[dst + i] = or ? (byte)(face[dst + i] | parts[src + i]) : parts[src + i];
+        }
+        Part(0, 0x318, 0, word & 7, false);
+        Part(0x18C0, 0x468, 0x318, word >> 3 & 7, false);
+        Part(0x3C00, 0x1B0, 0x1F8, word >> 8 & 7, true);
+        Part(0x4980, 0x240, 0x2B8, word >> 6 & 3, true);
+        Part(0x5280, 0x1C8, 0x438, word >> 11 & 7, true);
+        return face;
+    }
+
     /// <summary>같은 크기 그림들을 가로 <paramref name="cols"/> 장씩 깐다.</summary>
     public static byte[] Atlas(IReadOnlyList<byte[]> images, int w, int h, int cols, out int width, out int height)
     {

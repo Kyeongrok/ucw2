@@ -23,6 +23,25 @@ public sealed class FaceSheet
         _pixels = pixels; _width = width; _finds = finds ?? []; _findsWidth = findsWidth;
     }
 
+    /// <summary>조각 얼굴 일곱 벌 — 붙이는 쪽이 채운다(<see cref="KaoImages.Compose"/>).</summary>
+    public byte[] Parts { get; set; } = [];
+
+    private readonly Dictionary<(int, int), ImageSource?> _composed = [];
+
+    /// <summary>조각 얼굴 하나(벌 = 나라, 낱말 아래 열네 비트) — 조각이 없으면 null.</summary>
+    public ImageSource? Composed(int set, int word)
+    {
+        if (Parts.Length == 0) return null;
+        var key = (set, word & 0x3FFF);
+        if (_composed.TryGetValue(key, out var hit)) return hit;
+        var px = KaoImages.Decode(KaoImages.Compose(Parts, set, word), KaoImages.FaceW, KaoImages.FaceH);
+        var bgra = new uint[px.Length];
+        for (int i = 0; i < px.Length; i++) bgra[i] = _palette[px[i]] | 0xFF000000;
+        var bmp = BitmapSource.Create(KaoImages.FaceW, KaoImages.FaceH, 96, 96, PixelFormats.Bgra32, null, bgra, KaoImages.FaceW * 4);
+        bmp.Freeze();
+        return _composed[key] = bmp;
+    }
+
     /// <summary>시나리오 그림(<c>CB</c> 의 n → 그림) — 붙이는 쪽이 주인공의 EVENT 파일로 채운다.</summary>
     public Func<int, ImageSource?>? EventPictures { get; set; }
 

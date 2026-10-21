@@ -96,7 +96,7 @@ public sealed partial class SeaMapHost : HwndHost
         Chips = pack.ToChipMap();
         Wind = pack.Wind.Length > 0 ? WindCurTable.FromBytes(pack.Wind) : null;
         StartTables = pack.Start;
-        if (pack.Faces.Length > 0) Faces = new FaceSheet(pack.Faces, pack.FacesWidth, pack.Finds, pack.FindsWidth);
+        if (pack.Faces.Length > 0) Faces = new FaceSheet(pack.Faces, pack.FacesWidth, pack.Finds, pack.FindsWidth) { Parts = pack.FaceParts };
         Graphs = new GraphSheet(pack);
         // 시나리오 그림은 주인공(사람 표 차례) + 1 번 EVENT 파일에서(0x00415AD9).
         if (Faces != null) Faces.EventPictures = n => Graphs.Event(HeroPersonNumber + 1, n);
@@ -1222,13 +1222,16 @@ public sealed partial class SeaMapHost : HwndHost
     }
 
     /// <summary>
-    /// 사람의 얼굴(<c>0x00434EC0</c>) — 사람 +0x1A 낱말. 위 두 비트(0xC000)가 서면 조각을 맞춘 얼굴이라 여기서는 없다(null).
+    /// 사람의 얼굴(<c>0x00434EC0</c>) — 사람 +0x1A 낱말. 위 두 비트(0xC000)가 서면 나라(+0x31 &amp; 0xF) 벌에서 조각을 맞춘 얼굴이다
+    /// (<c>0x00434F00</c>, <see cref="KaoImages.Compose"/>).
     /// </summary>
     public System.Windows.Media.ImageSource? PersonFace(int person)
     {
         if (Scenario is not { } vm || Faces is not { } faces || person is < 0 or >= Engine.Town.Navigators.People) return null;
         int face = vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, person, 0x1A), true);
-        return (face & 0xC000) == 0 ? faces.Get(face) : null;
+        if ((face & 0xC000) == 0) return faces.Get(face);
+        int nation = vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PeopleTable, person, 0x31), false) & 0xF;
+        return faces.Composed(nation, face);
     }
 
     private bool _walkerSprite;
