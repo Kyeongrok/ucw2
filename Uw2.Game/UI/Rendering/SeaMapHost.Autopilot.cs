@@ -14,6 +14,7 @@ public sealed partial class SeaMapHost
     private int _autoLeg, _autoErr, _autoStall, _autoPort = -1;
     private bool _autoNewLeg;
     private int _autoBest = int.MaxValue;
+    private int _autoReach = 2;
 
     /// <summary>항이동 중인 항구, 아니면 -1.</summary>
     public int AutoPort => _autoPort;
@@ -21,11 +22,23 @@ public sealed partial class SeaMapHost
     /// <summary>그 항구로 항이동을 건다. 뱃길이 없으면 false.</summary>
     public bool StartAutopilot(int port)
     {
-        if (Fleet is not { } f || Routes is not { } g || Ports is not { } pt || port < 0 || port >= pt.Ports.Count) return false;
+        if (Fleet is not { } f || Ports is not { } pt || port < 0 || port >= pt.Ports.Count) return false;
         _autoRoute.Clear();
-        foreach (int n in g.Path(g.Nearest((int)f.X, (int)f.Y), g.Nearest(pt.Ports[port].X, pt.Ports[port].Y)))
-            _autoRoute.Add((g.Nodes[n].X, g.Nodes[n].Y));
-        _autoRoute.Add((pt.Ports[port].X, pt.Ports[port].Y));
+        var goal = (pt.Ports[port].X, pt.Ports[port].Y);
+        // 제 함대가 설 수 있는 칸으로 길을 찾아(SeaPath) 칸마다 따라간다. 못 찾으면 남 함대 뱃길 그래프로.
+        _autoReach = 2;
+        if (SeaPath.Find((x, y) => f.CanSail(x, y), ((int)f.X, (int)f.Y), goal) is { Count: > 0 } path)
+        {
+            _autoRoute.AddRange(path);
+            _autoReach = 0;
+        }
+        else if (Routes is { } g)
+        {
+            foreach (int n in g.Path(g.Nearest((int)f.X, (int)f.Y), g.Nearest(goal.Item1, goal.Item2)))
+                _autoRoute.Add((g.Nodes[n].X, g.Nodes[n].Y));
+            _autoRoute.Add(goal);
+        }
+        else return false;
         _autoLeg = 0; _autoStall = 0; _autoNewLeg = true; _autoBest = int.MaxValue;
         _autoPort = port;
         _portAsked = -1;
@@ -43,13 +56,12 @@ public sealed partial class SeaMapHost
         {
             if (PortBeside() == port) return (t, track);
             AutopilotTick();
-            if (_autoPort < 0) { track.Add((-t, _autoLeg)); track.AddRange(_autoRoute); track.Add(((int)f.X, (int)f.Y)); return (PortBeside() == port ? t : -1, track); }
+            if (_autoPort < 0) return (PortBeside() == port ? t : -1, track);
             double fx = f.X, fy = f.Y;
             f.Step();
             AutopilotMoved(fx, fy);
             if (t % 72 == 0) track.Add(((int)f.X, (int)f.Y));
         }
-        track.Add((-maxTicks, _autoLeg)); track.AddRange(_autoRoute); track.Add(((int)f.X, (int)f.Y));
         return (-1, track);
     }
 
@@ -80,7 +92,7 @@ public sealed partial class SeaMapHost
             int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
             if (dist < _autoBest) { _autoBest = dist; _autoStall = 0; }
             bool last = _autoLeg == _autoRoute.Count - 1;
-            if (last ? _autoStall < Fleet.TicksPerDay * 3 : dist > 2 && _autoStall < Fleet.TicksPerDay)
+            if (last ? _autoStall < Fleet.TicksPerDay * 3 : dist > _autoReach && _autoStall < Fleet.TicksPerDay)
             {
                 f.Heading = AvoidLand(f, SteerToward(dx, dy), goal);
                 return;

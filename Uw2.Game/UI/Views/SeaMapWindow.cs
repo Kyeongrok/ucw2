@@ -3663,7 +3663,7 @@ public sealed class SeaMapWindow : Window
         var log = new System.Text.StringBuilder();
         try
         {
-            foreach (var s in _host.Player.Ships) { s.Crew = s.MaxCrew; s.Supplies[0] = s.Supplies[1] = 2000; }
+            foreach (var s in _host.Player.Ships) { s.Crew = s.MaxCrew; s.Supplies[0] = s.Supplies[1] = 200; }
             _host.SyncLoad();
             PutToSea(check: false);
             foreach (string name in (string[])["세빌리아", "런던", "제노바", "이스탄불", "암스테르담"])
