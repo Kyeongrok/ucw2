@@ -3936,9 +3936,11 @@ public sealed class SeaMapWindow : Window
         var lines = new List<ScenarioVm.Line>();
         foreach (var s in seen)
         {
-            string what = s.Port && _host.Ports is { } pt && s.Index < pt.Ports.Count ? pt.Ports[s.Index].Name + "항" : "부락";
+            // 「제독, 」(0x494) + 「%s항을 」(0x495) · 「부락을 」(0x496) + 「발견했습니다.」(0x497)
+            string what = s.Port && _host.Ports is { } pt && s.Index < pt.Ports.Count
+                ? MsgOr(0x495, $"{pt.Ports[s.Index].Name}항을 ", pt.Ports[s.Index].Name) : MsgOr(0x496, "부락을 ");
             string fame = s.Fame > 0 ? "\n" + MsgOr(0x1DC, $"모험가의 명성이 {s.Fame} 높아졌습니다.", s.Fame) : "";
-            lines.Add(new ScenarioVm.Line("", $"제독, {Josa(what, "을", "를")} 발견하였다" + fame));
+            lines.Add(new ScenarioVm.Line("", MsgOr(0x494, "제독, ") + what + MsgOr(0x497, "발견했습니다.") + fame));
         }
         ScenarioDialog.Play(this, _host.Faces, lines);
     }
