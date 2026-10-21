@@ -345,6 +345,9 @@ public sealed class SeaMapWindow : Window
             else Say(0x62, $"어서 오세요, 셜록은행 {_host.SceneName} 지점입니다.", _host.SceneName);
         }
         if (b == ShipyardBuilding) Say(0x4D, "우리 조선소에 무슨 용건이 있는 거요？");   // 0x0042A980
+        // 조합 — 깃발 16 · 17 이 둘 다 섰으면 「~왕이 당신을 찾고 있어.」(0x0041E99B)
+        if (b == GuildBuilding && _host.Common is { } gc && gc.GetFlag(16) && gc.GetFlag(17) && _host.HeroNation < 6)
+            Say(-1, KingCalls(_host.HeroNation) + MsgOr(0x3A4, "당신을 찾고 있어."));
         if (b == FortuneBuilding) Say(0x12A, "점술관에 어서 오세요.");                     // 0x00428402
         int pick = BuildingMenu.Ask(this, PortDoors.Names[b], items);
         if (pick < 0) return;
@@ -880,9 +883,13 @@ public sealed class SeaMapWindow : Window
             Say(0x221, $"항해 레벨까지 경험 {nav}", nav);
             Say(0x222, $"전투 레벨까지 경험 {battle}", battle);
             // 나라가 있으면(+0x31 & 0xF ≠ 6) 다음 작위까지의 명성도 말한다(0x223).
-            if ((Navigators.Get(vm.Memory, hero, 0x31) & 0xF) != 6
-                && Palace.FameToNextRank(vm.Memory, _host.HeroPersonNumber, _host.HeroRank) is > 0 and var fame)
-                Say(0x223, $"한 단계 위의 작위를 얻기 위해선 {fame} 정도의 명성이 필요하겠지요.", fame);
+            // 이미 넉넉하면 「저의 수정구슬엔 당신을 찾는 고귀한 분의 모습이 비치고 있습니다.」(0x2F2, 0x00428279).
+            if ((Navigators.Get(vm.Memory, hero, 0x31) & 0xF) != 6)
+            {
+                int fame = Palace.FameToNextRank(vm.Memory, _host.HeroPersonNumber, _host.HeroRank);
+                if (fame > 0) Say(0x223, $"한 단계 위의 작위를 얻기 위해선 {fame} 정도의 명성이 필요하겠지요.", fame);
+                else if (_host.HeroRank < 9) Say(0x2F2, "그리고, 저의 수정구슬엔 당신을 찾는 고귀한 분의 모습이 비치고 있습니다.");
+            }
             return;
         }
         if (pick == 2)
@@ -2746,7 +2753,26 @@ public sealed class SeaMapWindow : Window
                 Note($" · {Josa(who, "이", "가")} {name}에 남았습니다");
             }
         }
+        RoyalSummons(port);
         if (port >= SeaMapHost.SmallPortFirst) SmallPortMenu();
+    }
+
+    /// <summary>나라마다 「~왕이 」(0x19A + 나라).</summary>
+    private string KingCalls(int nation) =>
+        MsgOr(0x19A + Math.Clamp(nation, 0, 5), "왕이 ");
+
+    /// <summary>
+    /// 기항 끝 소문(<c>0x00423F1A</c>) — SNR0 일이 없고 깃발 16 · 17 가운데 하나가 섰으며 18 이 아니고 제 나라 항구면
+    /// 「그리고 보니, ~왕이 당신을 찾고 있다는 소문이 있소.」(0x199 · 0x19A + 나라 · 0x1A0), 그리고 깃발 17 을 세운다.
+    /// </summary>
+    private void RoyalSummons(int port)
+    {
+        if (_host.Common is not { } c || c.Chapter != 0 || port >= SeaMapHost.SmallPortFirst) return;
+        if (!(c.GetFlag(16) || c.GetFlag(17)) || c.GetFlag(18)) return;
+        int nation = _host.HeroNation;
+        if (nation >= 6 || _host.PortNation(port) != nation) return;
+        Say(-1, MsgOr(0x199, "그리고 보니, ") + KingCalls(nation) + MsgOr(0x1A0, "당신을 찾고 있다는 소문이 있소."));
+        c.SetFlag(17, true);
     }
 
     /// <summary>
