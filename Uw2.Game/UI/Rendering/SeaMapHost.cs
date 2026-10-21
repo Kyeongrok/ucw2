@@ -1645,11 +1645,20 @@ public sealed partial class SeaMapHost : HwndHost
     /// <summary>다음 프레임에 다시 그리라고 표시한다.</summary>
     public void Invalidate() => _dirty = true;
 
+    /// <summary>손으로 키를 잡으면 닻을 걷고 뭍에서 돌아온다.</summary>
+    private void Weigh()
+    {
+        if (Fleet == null) return;
+        Fleet.Anchored = false;
+        Player.Ashore = false;
+    }
+
     /// <summary>뱃머리를 돌린다.</summary>
     public void Steer(int by)
     {
         if (Fleet == null) return;
         StopAutopilot();
+        Weigh();
         Fleet.Turn(by);
         _dirty = true;
     }
@@ -1659,6 +1668,7 @@ public sealed partial class SeaMapHost : HwndHost
     {
         if (Fleet == null) return;
         StopAutopilot();
+        Weigh();
         Fleet.Heading = ((dir % Fleet.DirCount) + Fleet.DirCount) % Fleet.DirCount;
         _dirty = true;
     }

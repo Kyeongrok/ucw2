@@ -2755,11 +2755,25 @@ public sealed class SeaMapWindow : Window
         Note($" · {pt.Ports[known[pick]].Name}(으)로 항이동을 시작합니다");
     }
 
+    /// <summary>
+    /// 상륙 「대기」(<c>0x0041B1B0</c>) — 뭍에 머물며 닻을 내린다(0x0045A1A8 |= 0x2000 과 0x800 · 0x1000). 날은 흐르고 물 · 식량은 반만 먹는다.
+    /// 다시 「정박」 을 풀거나 키를 잡으면 배로 돌아간다.
+    /// </summary>
+    private void CampAshore()
+    {
+        if (_host.Fleet is not { } f) return;
+        f.Anchored = true;
+        f.UnderSail = true;
+        _host.Player.Ashore = true;
+        Note(" · 뭍에서 대기합니다 — 물 · 식량을 반만 먹습니다");
+    }
+
     /// <summary>「정박」(<c>0x00445690</c>) — 닻을 내리고 올린다. 내린 동안은 서 있지만 날은 흐른다.</summary>
     private void ToggleAnchor()
     {
         if (_host.Fleet is not { } f || _host.CurrentPort >= 0) return;
         f.Anchored = !f.Anchored;
+        if (!f.Anchored) _host.Player.Ashore = false;
         if (f.Anchored) f.UnderSail = true;
         Note(f.Anchored ? " · 정박합니다." : " · 이동을 시작합니다.");
         _host.Invalidate();
@@ -2990,7 +3004,7 @@ public sealed class SeaMapWindow : Window
     private void AtVillage(int index)
     {
         _searchBonus = 0;
-        string[] items = ["보물탐색", "환  대", "식량약탈", "출  항"];
+        string[] items = _host.Menus?.Lists is { Count: > 35 } l35 ? [.. l35[35]] : ["보물탐색", "환  대", "식량약탈", "출  항", "대  기"];
         while (true)
         {
             int pick = BuildingMenu.Ask(this, "부락", items);
@@ -2999,6 +3013,7 @@ public sealed class SeaMapWindow : Window
                 case 0: SearchVillage(index); break;
                 case 1: Feast(); break;
                 case 2: Loot(); break;
+                case 4: CampAshore(); return;
                 default: Note(" · 배로 돌아왔습니다"); return;
             }
         }
@@ -3007,12 +3022,13 @@ public sealed class SeaMapWindow : Window
     /// <summary>뭍 — 목록 36(출항 · 응급수리 · 탐색 · 대기, <c>0x0041B090</c>).</summary>
     private void OnShore()
     {
-        string[] items = ["출  항", "응급수리", "탐  색"];
+        string[] items = _host.Menus?.Lists is { Count: > 36 } l36 ? [.. l36[36]] : ["출  항", "응급수리", "탐  색", "대  기"];
         while (true)
         {
             int pick = BuildingMenu.Ask(this, "상륙", items);
             if (pick == 1) PatchShip();
             else if (pick == 2) { if (!DigTreasure()) SearchWater(); }
+            else if (pick == 3) { CampAshore(); return; }
             else { Note(" · 배로 돌아왔습니다"); return; }
         }
     }

@@ -160,7 +160,7 @@ public sealed class PlayerState
             {
                 var ship = Ships[i];
                 int rate = kind == Food ? FoodRate : WaterRate;
-                int need = DailyUse(ship.Crew, rate);
+                int need = DailyUse(ship.Crew, rate, Ashore);
                 var from = ship.Supplies[kind] > 0 ? ship : Ships.FirstOrDefault(s => s.Supplies[kind] > 0);
                 if (from == null)
                 {
@@ -219,8 +219,11 @@ public sealed class PlayerState
         return caught;
     }
 
-    /// <summary>하루에 먹는 양 — <c>선원 x 비율 / 100 + 1</c>(<c>0x004175C3</c>). 원본은 깃발 0x0045A1A8 &amp; 0x1800 이면 / 200 이다.</summary>
-    public static int DailyUse(int crew, int rate) => crew * rate / 100 + 1;
+    /// <summary>하루에 먹는 양 — <c>선원 x 비율 / 100 + 1</c>(<c>0x004175C3</c>). 뭍에서 쉬면(깃발 0x0045A1A8 &amp; 0x1800) / 200 이다.</summary>
+    public static int DailyUse(int crew, int rate, bool ashore = false) => crew * rate / (ashore ? 200 : 100) + 1;
+
+    /// <summary>뭍에 올라 「대기」 하는 중(<c>0x0041B1B0</c>, 깃발 0x0045A1A8 의 0x800 · 0x1000) — 먹는 양이 반이다.</summary>
+    public bool Ashore { get; set; }
 
     /// <summary>모든 배의 선원 빈 자리.</summary>
     public int Vacancy => Ships.Sum(s => s.Vacancy);
