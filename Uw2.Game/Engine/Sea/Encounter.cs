@@ -5,7 +5,7 @@ namespace Uw2.Game.Engine.Sea;
 /// 머리 말은 0x333(원수의 함대여) 뒤, 제 힘의 3/2 가 남보다 작으면 0x334(위험), 아니면 0x335(반격).
 /// </summary>
 /// <remarks>
-/// 만남을 일으키는 셈과 교전(해전)은 아직 옮기지 않았다 — 여기는 항복 셈만 있다.
+/// 여기는 항복 셈만 있다 — 만남을 일으키는 셈은 <see cref="Sighting"/> · <see cref="NpcFleet"/>, 교전은 <see cref="Battle"/> 이다.
 /// </remarks>
 public static class Encounter
 {

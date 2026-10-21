@@ -23,7 +23,7 @@ namespace Uw2.Game.Engine.Sea;
 /// (<see cref="CellUnits"/>, <c>0x00448BC0</c>). 화면에는 <c>(빠르기+1)/2</c> 를 노트로 적는다(<c>0x0043410F</c>).
 ///
 /// 남의 함대(<c>0x00418020</c>)는 셈이 조금 다르다 — 선원·짐을 안 보고 제독 하나의 능력만 쓰며,
-/// 해류를 빠르기에 더하고 뺀다. 그쪽은 아직 옮기지 않았다.
+/// 해류를 빠르기에 더하고 뺀다(<see cref="NpcFleet"/>).
 /// </remarks>
 public static class Sailing
 {
@@ -120,7 +120,7 @@ public static class Sailing
     /// 한 칸 돈다(<c>rand(5)/4 x (rand(3)-1)</c>).
     /// </summary>
     /// <remarks>
-    /// 폭풍 · 무풍 같은 날씨가 걸려 있으면 게임은 흔들지 않고 지난 바람을 그대로 둔다. 날씨는 아직 없다.
+    /// 폭풍 · 무풍 같은 날씨가 걸려 있으면 게임은 흔들지 않고 지난 바람을 그대로 둔다(<see cref="Fleet"/> 가 가른다).
     /// </remarks>
     public static (int Dir, int Speed) Gust((int Dir, int Speed) table, Random rng)
     {

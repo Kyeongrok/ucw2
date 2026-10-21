@@ -28,7 +28,7 @@ namespace Uw2.Game.Engine.Sea;
 /// 폭풍이 배를 치는 셈(<c>0x00419502</c>)은 배마다 <c>k = min(10, (100 - 항해술) / (항해 레벨 / 5 + 3) + 1)</c>,
 /// <c>d = k + rand(2)</c>(튼튼한 배가 아니면 x5)만큼 내구를, 그 절반만큼 돛 · 역풍 성능을 깎고 최대 내구를 1 줄인다
 /// (선종 내구의 1/4 아래로는 안 내려간다). 내구가 0 이면 난파 — 기함이면 게임이 끝난다.
-/// <b>우리 배에는 아직 내구가 없어 이 셈은 옮기지 않았다.</b>
+/// 셈은 <see cref="StormDamage"/>, 배에 매기는 것은 <see cref="StormHit"/> 를 받는 쪽(SeaMapHost)이다.
 /// </remarks>
 public sealed class Weather
 {
