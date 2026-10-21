@@ -352,6 +352,13 @@ public sealed class SeaMapWindow : Window
             else Say(0x62, $"어서 오세요, 셜록은행 {_host.SceneName} 지점입니다.", _host.SceneName);
         }
         if (b == ShipyardBuilding) Say(0x4D, "우리 조선소에 무슨 용건이 있는 거요？");   // 0x0042A980
+        if (quiet && b == InnBuilding) Say(0x42, "피곤하시지요？\n그럼 편히 쉬세요.");     // 0x0041F3AB
+        if (quiet && b == GuildBuilding) Say(0x55, "무슨 용건이오？");                    // 0x0041EF8B
+        if (quiet && b == ItemBuilding)                                                   // 0x00420270 — 시각 12 ~ 17 틱(4 ~ 6 시)은 비밀 가게
+        {
+            if (_host.Fleet?.TimeOfDay is >= 12 and < 18) Say(0x2FC, "비밀 아이템 가게에 어서 오세요！\n흔히 볼 수 없는 진귀한 물건이 있지요.");
+            else Say(0xEB, "어서 오세요.\n무슨 용건입니까？");
+        }
         if (b == HarborBuilding) AtHarbor();
         // 조합 — 깃발 16 · 17 이 둘 다 섰으면 「~왕이 당신을 찾고 있어.」(0x0041E99B)
         if (b == GuildBuilding && _host.Common is { } gc && gc.GetFlag(16) && gc.GetFlag(17) && _host.HeroNation < 6)
