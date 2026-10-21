@@ -1546,8 +1546,23 @@ public sealed class SeaMapWindow : Window
                 int price = cls < Navigators.TreatPrice.Length ? Navigators.TreatPrice[cls] : 1;
                 if (_host.Player.Gold < price) { Say(0x4C, "금화가 부족한 것 같군."); return; }   // 0x00425295
                 _host.Player.SetGold(_host.Player.Gold - price);
+                // 고맙다는 말(0x00425320) — 기질(+0x2F & 3)이 주인공과 같으면 0x2C, 다르면 0x2D. 해적(함대 60 ~ 69)이면 0x35D · 0x35E.
+                bool same = ((Navigators.Get(m, nav, Navigators.Mood) ^ Navigators.Get(m, hero, Navigators.Mood)) & 3) == 0;
+                bool pirate = Navigators.Get(m, nav, Navigators.Fleet) is >= 60 and < 70;
+                Say((pirate ? 0x35D : 0x2C) + (same ? 0 : 1),
+                    pirate ? (same ? "술로 나를 꾀는 건 무리겠지." : "그건 아니겠지.") : (same ? "한턱 내주는 거요？" : "고마워！"));
                 int gain = Navigators.Treat(m, nav, hero);
                 Note($" · {name}에게 한턱냈습니다({price}) · 호감 +{gain}");
+                // 호감이 30 을 넘고 능력 다섯(+0x1C ~ +0x20) 가운데 가장 큰 것이 75 를 넘으면 자랑한다(0x004253CE) —
+                // 「나는 이래봬도 」(0x2E) + 「%s에는 자신 있지.」(0x8B). 원본 이름표 0x00457418 은 일본어 그대로라 우리 이름을 쓴다.
+                int best = 0;
+                for (int k = 1; k < 5; k++)
+                    if (Navigators.Get(m, nav, Navigators.Stats + k) > Navigators.Get(m, nav, Navigators.Stats + best)) best = k;
+                if (Navigators.Get(m, nav, Navigators.Liking) > 30 && Navigators.Get(m, nav, Navigators.Stats + best) > 75)
+                {
+                    string[] stats = ["통솔력", "항해술", "지식", "직감", "용기"];
+                    Say(-1, MsgOr(0x2E, "나는 이래봬도 ") + MsgOr(0x8B, $"{stats[best]}에는 자신 있지.", stats[best]));
+                }
                 // 조합 「희귀한 물건」 일(SNR0 변수 6 = 11)에서 지도를 가진 이가 이 사람(변수 17)이면 지도를 판다(0x004252DD).
                 if (_host.Common is { Chapter: not 0 } job && job.GetVar(6) == 11 && (job.GetVar(17) & 0xFF) == nav && job.GetVar(18) != 0)
                     SellMap(job.GetVar(18) & 0xFF);
