@@ -13,6 +13,11 @@ public sealed partial class SeaMapHost : NpcFleet.IWorld
     int NpcFleet.IWorld.Nation(int nation, int field) =>
         Scenario?.Memory.Read(ScenarioMemory.At(ScenarioMemory.NationTable, nation, field), false) ?? 0;
 
+    int NpcFleet.IWorld.NationPower(int nation) =>
+        Scenario?.Memory.Read(ScenarioMemory.At(ScenarioMemory.NationTable, nation, 0), true) ?? 0;
+
+    Support.Local.Formats.Economy? NpcFleet.IWorld.Economy => Economy;
+
     int NpcFleet.IWorld.HeroRank => HeroRank;
     int NpcFleet.IWorld.HeroNation => HeroNation;
     int NpcFleet.IWorld.HeroFleetIndex =>

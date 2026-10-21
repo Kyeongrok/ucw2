@@ -160,6 +160,73 @@ public sealed class Economy
     }
 
     /// <summary>
+    /// 남 함대가 짐을 판다(<c>0x004021A2</c>) — 그 항구 값 지수 열 저마다 −min(지수, rand(3)), 판 짐의 갈래는 2 를 더 뺀다.
+    /// </summary>
+    public void NpcSell(int port, int good, Func<int, int> rand)
+    {
+        var r = StateBytes;
+        int o = port * StateSize;
+        if (port < 0 || o + StateSize > r.Length) return;
+        int cat = CategoryOf(good);
+        for (int i = 0; i < 10; i++)
+        {
+            int idx = r[o + 0x0E + i];
+            r[o + 0x0E + i] = (byte)(idx - Math.Min(idx, rand(3) + (i == cat ? 2 : 0)));
+        }
+        States = [.. Enumerable.Range(0, r.Length / StateSize).Select(k => ParseState(r, k * StateSize))];
+    }
+
+    /// <summary>
+    /// 남 함대가 투자한다(<c>0x00402587</c>) — 돈 / 2 x 100 을 경제 투자(+2, 경제 &lt; 공업일 때 — 가득하면 공업) 또는 공업 투자(+6)에 넣고
+    /// 돈은 반을 쓴다. 나라 몫은 min(남은 돈 x 6 / 10, 100 − 몫) 오르고, 다른 나라 몫에서(그 합까지) 하나씩 돌아가며 뺀다. 남은 돈을 돌려준다.
+    /// </summary>
+    public int NpcInvest(int port, int nation, int gold)
+    {
+        var r = StateBytes;
+        int o = port * StateSize;
+        if (port < 0 || o + StateSize > r.Length || nation is < 0 or >= 6) return gold;
+        int Word(int f) => r[o + f] | r[o + f + 1] << 8;
+        void Put(int f, int v) { r[o + f] = (byte)v; r[o + f + 1] = (byte)(v >> 8); }
+        int add = gold / 2 * 100;
+        int first = Word(0) < Word(4) ? 2 : 6, second = first == 2 ? 6 : 2;
+        int at = Word(first) != InvestCap ? first : Word(second) != InvestCap ? second : -1;
+        if (at >= 0) Put(at, Math.Min(InvestCap, Word(at) + add));
+        gold -= gold / 2;
+        int others = 0;
+        for (int k = 0; k < 6; k++) if (k != nation) others += r[o + 8 + k];
+        int own = r[o + 8 + nation];
+        int gain = Math.Min(gold * 6 / 10, 100 - own);
+        r[o + 8 + nation] = (byte)(own + gain);
+        int take = Math.Min(gain, others);
+        while (take > 0)
+            for (int k = 0; k < 6 && take > 0; k++)
+                if (k != nation && r[o + 8 + k] > 0) { r[o + 8 + k]--; take--; }
+        States = [.. Enumerable.Range(0, r.Length / StateSize).Select(k => ParseState(r, k * StateSize))];
+        return gold;
+    }
+
+    /// <summary>
+    /// 남 함대가 사들인다(<c>0x00402798</c>) — 교역품 <paramref name="good"/>(원본은 rand(16) + 10)의 값 = (갈래 지수 + 50) x 그 시장이 쳐 주는 값 / 100.
+    /// 돈 x 100 이 값보다 적으면 못 산다. 양 = min(1000, 돈 x 100 / 값), 그 갈래 지수 +min(100 − 지수, rand(3) + 3), 돈 −값 x 양 / 100.
+    /// </summary>
+    public (int Amount, int Cost)? NpcBuy(int port, int good, int gold, Func<int, int> rand)
+    {
+        var r = StateBytes;
+        int o = port * StateSize;
+        if (port < 0 || o + StateSize > r.Length || good < 0 || good >= GoodsCount) return null;
+        int market = r[o + 0x21];
+        if (market >= Markets.Count) return null;
+        int cat = CategoryOf(good);
+        int idx = r[o + 0x0E + cat];
+        int price = (idx + 50) * Markets[market].Pays[good] / 100;
+        if (price <= 0 || gold * 100 < price) return null;
+        int amount = Math.Min(1000, gold * 100 / price);
+        r[o + 0x0E + cat] = (byte)(idx + Math.Min(100 - idx, rand(3) + 3));
+        States = [.. Enumerable.Range(0, r.Length / StateSize).Select(k => ParseState(r, k * StateSize))];
+        return (amount, price * amount / 100);
+    }
+
+    /// <summary>
     /// 달이 바뀔 때 항구 형편 백을 고친다(<c>0x0042B8A0</c>).
     /// 경제(+0)에 경제 투자(+2) / 300, 공업(+4)에 공업 투자(+6) / 300 을 더해 1000 에서 자르고 투자는 0 으로.
     /// 값 지수 열(+0x0E)은 저마다 1~5 씩 50 쪽으로 간다(50 을 넘으면 빼고 아니면 더한다).

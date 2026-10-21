@@ -220,14 +220,10 @@ public sealed partial class SeaMapHost
     /// </summary>
     private (int Gold, string? Item, List<Battle.Ship> Prizes) Plunder(Battle b, NpcFleet enemy)
     {
-        var start = StartTables!;
-        int Byte(int field) =>
-            Scenario is { } vm ? vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.FleetTable, enemy.Index, field), false)
-            : enemy.Index * StartData.FleetSize + field < start.FleetBytes.Length ? start.FleetBytes[enemy.Index * StartData.FleetSize + field] : 0;
-        int gold = ((Byte(0x24) | Byte(0x25) << 8) + 1) * 100;
+        int gold = (enemy.Gold + 1) * 100;
         Player.SetGold(Player.Gold + gold);
         string? item = null;
-        int it = Byte(0x1D);
+        int it = enemy.Items[0];
         if (it != 0xFF && Scenario is { } m && ItemShop.Owned(m.Memory).Count < ItemShop.OwnedSlots && ItemShop.Give(m.Memory, it))
             item = ItemShop.Get(m.Memory, it).Name;
 

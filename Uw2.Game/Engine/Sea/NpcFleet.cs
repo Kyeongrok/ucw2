@@ -57,6 +57,14 @@ public sealed class NpcFleet
         })];
         _home = home; _away = target;
         Goal = record.Home;
+        int fo = record.Index * StartData.FleetSize;
+        if (fo + StartData.FleetSize <= start.FleetBytes.Length)
+        {
+            Gold = start.FleetBytes[fo + 0x24] | start.FleetBytes[fo + 0x25] << 8;
+            for (int i = 0; i < Items.Length; i++) Items[i] = start.FleetBytes[fo + 0x1D + i];
+            CargoGood = start.FleetBytes[fo + 0x21] == 0xFF ? -1 : start.FleetBytes[fo + 0x21];
+            CargoAmount = start.FleetBytes[fo + 0x22] | start.FleetBytes[fo + 0x23] << 8;
+        }
         Plan(target);
     }
 
@@ -116,8 +124,14 @@ public sealed class NpcFleet
     {
         (int X, int Y)? PortPos(int port);
 
-        /// <summary>나라 표(<c>0x0043AD80</c>, 32 바이트) — +2 노리는 나라(7 이면 주인공) · +3 방침 · +4 상선 행선 항구 · +0x0A 본거지 항구.</summary>
+        /// <summary>나라 표(<c>0x0043AD80</c>, 32 바이트) — +0 세기(낱말) · +2 노리는 나라(7 이면 주인공) · +3 방침 · +4 상선 행선 항구 · +0x0A 본거지 항구.</summary>
         int Nation(int nation, int field);
+
+        /// <summary>나라 세기(+0 낱말).</summary>
+        int NationPower(int nation);
+
+        /// <summary>항구 형편 — 남 함대의 교역 · 투자 · 사들이기가 바꾼다.</summary>
+        Support.Local.Formats.Economy? Economy { get; }
 
         int HeroRank { get; }
         int HeroNation { get; }
@@ -139,6 +153,16 @@ public sealed class NpcFleet
     /// <summary>+0x1C — 갈래 0 ~ 2 · 9 는 항구 번호, 4 ~ 8 은 따라갈 사람.</summary>
     public int Goal { get; set; }
 
+    /// <summary>돈(+0x24 낱말) — 노획 금화가 (이것 + 1) x 100 이다.</summary>
+    public int Gold { get; set; }
+
+    /// <summary>아이템 넷(+0x1D ~ +0x20, 0xFF 빈 칸) — 노획 아이템은 첫 칸.</summary>
+    public int[] Items { get; } = [0xFF, 0xFF, 0xFF, 0xFF];
+
+    /// <summary>짐(+0x21 교역품, 0xFF 없음 → -1 · +0x22 양).</summary>
+    public int CargoGood { get; set; } = -1;
+    public int CargoAmount { get; set; }
+
     /// <summary>고향 항구(+0x26).</summary>
     public int HomePort => Record.Port;
 
@@ -149,9 +173,43 @@ public sealed class NpcFleet
     /// </summary>
     private void PortStay()
     {
-        if (Mode == 0 || Mode == 9) Mode = PolicyMode();
-        else if (Mode is 1 or 2) Mode = 0;
+        var w = World!;
+        bool capital = w.Nation(Nation, 0x0A) == Goal;
+        switch (Mode)
+        {
+            case 0 or 9:
+                Trade(w);
+                Mode = PolicyMode();
+                break;
+            case 1:
+                if (Gold >= 2 && !capital && w.Economy is { } e && !Pirate) Gold = e.NpcInvest(Goal, Nation, Gold);
+                Mode = 0;
+                break;
+            case 2:
+                if (!capital && w.Economy is { } eb)
+                {
+                    int good = _rng.Next(16) + 10;
+                    if (eb.NpcBuy(Goal, good, Gold, _rng.Next) is var (amount, cost)) { Gold -= cost; CargoGood = good; CargoAmount = amount; }
+                }
+                Mode = 0;
+                break;
+        }
         Destination();
+    }
+
+    /// <summary>
+    /// 교역(<c>0x00402180</c>) — 짐이 있으면 그 항구에 팔고(<see cref="Support.Local.Formats.Economy.NpcSell"/>), 배 내구를 최대로 고치고,
+    /// 빈 아이템 칸을 둘에 하나 꼴로 rand(20) + 50 으로 채우고(넷까지, 처음 빈 칸이 아니면 그대로), 돈 = 나라 세기 / 10 + rand(3) + 1.
+    /// </summary>
+    private void Trade(IWorld w)
+    {
+        if (CargoGood >= 0) w.Economy?.NpcSell(Goal, CargoGood, _rng.Next);
+        for (int i = 0; i < Slots.Count; i++) Slots[i] = Slots[i] with { Durability = Slots[i].MaxDurability };
+        for (int i = 0; i < Items.Length && _rng.Next(2) == 0; i++)
+            if (Items[i] == 0xFF) Items[i] = _rng.Next(20) + 50;
+        Gold = (short)w.NationPower(Nation) / 10 + _rng.Next(3) + 1;
+        CargoGood = -1;
+        CargoAmount = 0;
     }
 
     /// <summary>

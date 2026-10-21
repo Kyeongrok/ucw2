@@ -62,4 +62,39 @@ public class NationsTests
         Assert.InRange(Nations.MerchantPort(0, read(2), p => owner[p], 1, n => 0), 75, 92);
         Assert.InRange(Nations.MerchantPort(0, read(3), p => owner[p], 1, n => 0), 11, 19);   // 주인공 나라(1) 항구, 본거지 10 말고
     }
+
+    private static Uw2.Support.Local.Formats.Economy OnePort(int economy, int industry, byte[] shares)
+    {
+        var state = new byte[Uw2.Support.Local.Formats.Economy.StateSize * 2];
+        state[0] = (byte)economy; state[1] = (byte)(economy >> 8);
+        state[4] = (byte)industry; state[5] = (byte)(industry >> 8);
+        for (int k = 0; k < 6; k++) state[8 + k] = shares[k];
+        for (int i = 0; i < 10; i++) state[0x0E + i] = 50;
+        var market = new byte[Uw2.Support.Local.Formats.Economy.MarketSize];
+        for (int g = 0; g < 46; g++) { market[g * 2] = 100; }
+        return Uw2.Support.Local.Formats.Economy.FromParts([.. Enumerable.Range(0, 46).Select(g => $"g{g}")], market, state);
+    }
+
+    [Fact]
+    public void Npc_invest_raises_share_and_takes_round_robin()
+    {
+        var e = OnePort(100, 300, [10, 0, 5, 0, 0, 0]);
+        int left = e.NpcInvest(0, 1, 20);   // 20 / 2 x 100 = 1000 을 경제 투자에(경제 < 공업), 돈 10 남고 몫 +6
+        Assert.Equal(10, left);
+        Assert.Equal(1000, e.StateBytes[2] | e.StateBytes[3] << 8);
+        Assert.Equal(6, e.StateBytes[8 + 1]);
+        Assert.Equal(15 - 6, e.StateBytes[8] + e.StateBytes[8 + 2]);
+    }
+
+    [Fact]
+    public void Npc_buy_and_sell_move_price_index()
+    {
+        var e = OnePort(100, 100, [0, 0, 0, 0, 0, 0]);
+        var bought = e.NpcBuy(0, 12, 50, n => 0);   // 값 (50 + 50) x 100 / 100 = 100, 양 min(1000, 5000 / 100) = 50
+        Assert.Equal((50, 50), bought);
+        int cat = Uw2.Support.Local.Formats.Economy.CategoryOf(12);
+        Assert.Equal(53, e.StateBytes[0x0E + cat]);
+        e.NpcSell(0, 12, n => 0);
+        Assert.Equal(51, e.StateBytes[0x0E + cat]);
+    }
 }
