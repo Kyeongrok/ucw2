@@ -497,8 +497,12 @@ public sealed class Battle
     /// 세기가 10 아래면 다섯에 넷은 그것뿐이고, 아니면 rand(19) 로 덤 피해(최대 내구 · 돛 · 역풍)를 고른다 — 20 넘으면 더, 40 넘으면 다.
     /// 내구가 0 이면 가라앉고, 선원이 0 이면 빈 배가 남는다. 쏠 때마다 탄약 하나.
     /// </summary>
+    /// <summary>포격(참) · 백병(거짓)이 일어날 때마다 — 원본은 소리 0x0C(<c>0x0040E92A</c>) · 0x0D(<c>0x0040F426</c>)를 낸다.</summary>
+    public event Action<bool>? Struck;
+
     public Hit Fire(Ship s, Ship t)
     {
+        Struck?.Invoke(true);
         int d = Distance(s.X, s.Y, t.X, t.Y);
         int dmg = GunDamage(s, d);
         int extra = 0;
@@ -538,6 +542,7 @@ public sealed class Battle
     /// </summary>
     public Hit Board(Ship s, Ship t)
     {
+        Struck?.Invoke(false);
         int lossT = Math.Min(t.Crew, MeleeLoss(s));
         t.Crew -= lossT;
         int lossS = Math.Min(s.Crew, MeleeLoss(t));

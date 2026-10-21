@@ -49,6 +49,7 @@ public sealed class BattleWindow : Window
     private BattleWindow(Battle b, GameMessages? msg, string title, Func<Battle.Ship, Duel.Fighter>? gear = null, Action<Window>? items = null)
     {
         _b = b; _msg = msg; _gear = gear; _items = items;
+        b.Struck += gun => Uw2.Game.UI.Audio.Sound.Play(gun ? Uw2.Game.UI.Audio.Sound.Cannon : Uw2.Game.UI.Audio.Sound.Melee);
         b.Duels = gear != null;
         Title = title;
         SizeToContent = SizeToContent.WidthAndHeight;
