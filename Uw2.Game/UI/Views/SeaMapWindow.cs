@@ -1025,6 +1025,7 @@ public sealed class SeaMapWindow : Window
         if (_host.Messages is { } m && MessageBox.Show(this, m[0x12B], "점술가", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         if (p.Gold < 50) { Say(0x12C, "돈이 모자랍니다."); return; }
         p.SetGold(p.Gold - 50);
+        Say(0x12D, "그럼 점을 치겠습니다.");   // 0x004284A4
         int hero = _host.HeroPersonNumber;
         if (pick == 0)
         {
