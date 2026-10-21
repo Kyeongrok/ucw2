@@ -1289,6 +1289,7 @@ public sealed class SeaMapWindow : Window
         if (who < 0) return;
         int nav = here[who];
         string name = _host.PersonName(nav);
+        if (!NavigatorIntro(nav, pub)) return;
         var items = _host.Menus?.Lists is { Count: > 12 } lists ? lists[12].Take(3).ToList() : ["한턱내기", "항해자정보", "고용"];   // 넷째 「결투」는 원본도 안 보인다(0x00425919 push 3)
         if (!pub) items = items.Skip(1).Take(2).ToList();
         while (true)
@@ -1328,6 +1329,48 @@ public sealed class SeaMapWindow : Window
             }
             else { Note(" · 결투는 아직 없습니다"); return; }
         }
+    }
+
+    /// <summary>처지(+0x2E)마다 직함(<c>0x004572D8</c>, 11 바이트씩).</summary>
+    private static readonly string[] Ranks = ["", "제독", "선장", "부선장", "경리주임", "수석항해사", "항해사", ""];
+
+    /// <summary>
+    /// 항해자와 말을 트는 첫마디 — 주점(<c>0x00425960</c>)은 우리 동료면 0x86 ~ 0x88 가운데 하나로 끝(목록 없음), 해적 함대(60 ~ 69)면 0x35B + rand(2),
+    /// 아니면 「여어！ 내게 무슨 용건이 있는 거요？」(0x29) 뒤 제 소개. 여관(<c>0x0041F19D</c>)은 0x48 뒤 제 소개.
+    /// 소개는 함대에 들었으면 나라 · 함대 갈래(목록 11, 번호 % 10 이 0 이면 함대 · 1 ~ 4 상선대 · 5 ~ 9 전함대) · 직함으로
+    /// 제독이면 0x89(여관 0x49), 아니면 0x8A(0x4A), 함대가 없으면 「항구를 떠도는 철새」(0x2B · 0x4B). 목록을 띄울지 돌려준다.
+    /// </summary>
+    private bool NavigatorIntro(int nav, bool pub)
+    {
+        if (_host.Scenario is not { } vm) return true;
+        var m = vm.Memory;
+        int fleet = Navigators.Get(m, nav, Navigators.Fleet);
+        if (pub && fleet != 0xFF && fleet == Navigators.Get(m, _host.HeroPersonNumber, Navigators.Fleet))
+        {
+            int k = _host.Roll(3);
+            Say(0x86 + k, k == 0 ? "제독님, 역시 육지는 좋군요." : k == 1 ? "제독님, 술은 적당히 합시다." : "제독님, 다음 기항지는 어딥니까？");
+            return false;
+        }
+        if (pub && fleet is >= 60 and < 70)
+        {
+            int k = _host.Roll(2);
+            Say(0x35B + k, k == 0 ? "목숨이 아깝거든 썩 꺼져！" : "내게 걸려 살아 남은 놈은 없다.");
+            return true;
+        }
+        Say(pub ? 0x29 : 0x48, "여어！ 내게 무슨 용건이 있는 거요？");
+        string name = _host.PersonName(nav);
+        if (fleet == 0xFF) { Say(pub ? 0x2B : 0x4B, "나는 항구를 떠도는 철새요."); return true; }
+        string[] kinds = _host.Menus?.Lists is { Count: > 0xB } l11 ? [.. l11[0xB]] : ["함대", "상선대", "전함대"];
+        string nation = NationNames7[Math.Min(6, fleet / 10)], kind = kinds[fleet % 10 == 0 ? 0 : fleet % 10 / 5 + 1];
+        int status = Navigators.Get(m, nav, Navigators.Status);
+        string rank = Ranks[Math.Clamp(status, 0, Ranks.Length - 1)];
+        string intro = pub
+            ? MsgOr(0x2A, "저는 ") + (status == 1 ? MsgOr(0x89, $"{nation} {kind}의 {name}(다).", nation, kind, name)
+                                                 : MsgOr(0x8A, $"{nation} {kind}의 {rank}, {name}(다).", nation, kind, rank, name))
+            : status == 1 ? MsgOr(0x49, $"나는 {nation} {kind}의 {name}제독이다.", nation, kind, name)
+                          : MsgOr(0x4A, $"나는 {nation} {kind}의 {rank}, {name}(이다).", nation, kind, rank, name);
+        Say(-1, intro);
+        return true;
     }
 
     /// <summary>항구 형편 +0x24 갈래마다 주점 술(<c>0x00457148</c>, 11 바이트씩).</summary>
