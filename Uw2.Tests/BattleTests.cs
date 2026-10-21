@@ -182,4 +182,19 @@ public class BattleTests
         Assert.NotEqual(0, b.Result);
         Assert.True(turns < 100_000);
     }
+
+    [Fact]
+    public void Order_flips_offense_between_zero_and_three()
+    {
+        var b = OpenSea();
+        var s = Add(b, 0, 10, 10);
+        s.Mode = 3;
+        Battle.Order(s, 0);
+        Assert.Equal(0, s.Mode);
+        Battle.Order(s, 0);
+        Assert.Equal(3, s.Mode);
+        bool g = s.Gunner;
+        Battle.Order(s, 1);
+        Assert.Equal(!g, s.Gunner);
+    }
 }

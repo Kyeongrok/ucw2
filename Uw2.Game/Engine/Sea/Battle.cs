@@ -104,7 +104,7 @@ public sealed class Battle
         public int Mode { get; set; }
 
         /// <summary>대포를 앞세우는 배(+0x16 의 0x10).</summary>
-        public bool Gunner { get; init; }
+        public bool Gunner { get; set; }
 
         /// <summary>노리는 배(+0x0C, +0x16 의 0x80).</summary>
         public Ship? Target { get; set; }
@@ -686,6 +686,26 @@ public sealed class Battle
         CheckEnd();
         return hits;
     }
+
+    /// <summary>
+    /// 「작전」(<c>0x0040D260</c>) 한 가지 — 0 공세 · 수세(+0x16 의 비트 1 을 뒤집고 비트 0 을 같게: 갈래 0 ↔ 3),
+    /// 1 포격 · 돌격(0x10), 2 목표(0x80 과 +0x0C — 고르지 않으면 푼다, 말 0x306).
+    /// </summary>
+    public static void Order(Ship s, int what, Ship? target = null)
+    {
+        switch (what)
+        {
+            case 0:
+                int m = (s.Mode ^ 2) & ~1;
+                s.Mode = m | (m >> 1 & 1);
+                break;
+            case 1: s.Gunner = !s.Gunner; break;
+            default: s.Target = s.Target == null ? target : null; break;
+        }
+    }
+
+    /// <summary>작전 창 글(<c>0x0040D3D0</c>) — 공세 · 수세, 포격 · 돌격, 목표.</summary>
+    public static bool Offensive(Ship s) => (s.Mode & 2) != 0;
 
     /// <summary>일기토를 치를 수 있는지 — 화면이 일기토를 옮기기 전까지는 꺼 두고 백병전으로 친다.</summary>
     public bool Duels { get; set; }

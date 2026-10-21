@@ -15,7 +15,7 @@ namespace Uw2.Game.UI.Views;
 /// <remarks>
 /// 원본은 헥스를 한 칸씩 골라 길을 잇는다(<c>0x0040BD60</c>, 말 0x2FF · 0x300). 여기서는 갈 수 있는 칸(<see cref="Battle.Reach"/>)을
 /// 칠해 두고 닿을 칸을 누르면 꺾음이 가장 적은 길로 간다. 다 가면 칠 적을 고른다(<c>0x0040C510</c>, 말 0x304).
-/// 신호 · 작전 · ITEM 과 일기토는 아직 없다.
+/// 신호(제 기함 +0x16 의 비트만 뒤집고 읽는 데가 없다) · ITEM 과 일기토는 아직 없다.
 /// </remarks>
 public sealed class BattleWindow : Window
 {
@@ -36,7 +36,7 @@ public sealed class BattleWindow : Window
     private readonly StackPanel _buttons = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(90) };
 
-    private enum Pick { None, Move, Attack, Info }
+    private enum Pick { None, Move, Attack, Info, Order, OrderTarget }
     private Pick _pick;
     private List<Battle.Route> _routes = [];
     private (List<Battle.Ship> Guns, List<Battle.Ship> Board) _targets = ([], []);
@@ -173,6 +173,8 @@ public sealed class BattleWindow : Window
         Add("이동", () => BeginMove());
         Add("공격", () => BeginAttack(), guns.Count + board.Count > 0);
         Add("정보", () => { _pick = Pick.Info; Say("볼 배를 고르세요."); });
+        Add("작전", () => { _pick = Pick.Order; Say(Msg(0x305, "작전을 전달할 배를 선택해 주세요.")); },
+            _b.Friends(f).Any(s => s != f && s.Alive));
         Add("정선", () =>
         {
             if (MessageBox.Show(this, Msg(0x307, "아무 것도 안해도 좋습니까？"), Title, MessageBoxButton.YesNo) == MessageBoxResult.Yes) EndTurn();
@@ -221,6 +223,7 @@ public sealed class BattleWindow : Window
     }
 
     private bool _moved;
+    private Battle.Ship? _ordered;
 
     private void OnBoardClick(object sender, MouseButtonEventArgs e)
     {
@@ -235,6 +238,42 @@ public sealed class BattleWindow : Window
                 if (_b.ShipAt(x, y) is { } info) MessageBox.Show(this, Describe(info), Title);
                 _pick = Pick.None;
                 break;
+            case Pick.Order when f != null:
+            {
+                if (_b.ShipAt(x, y) is not { } ally || ally == f || !_b.Friends(f).Contains(ally)) break;
+                _ordered = ally;
+                while (true)
+                {
+                    string[] items =
+                    [
+                        Battle.Offensive(ally) ? Msg(0x401, "공세").Trim() : Msg(0x402, "수세").Trim(),
+                        ally.Gunner ? Msg(0x405, "포격").Trim() : Msg(0x406, "돌격").Trim(),
+                        ally.Target is { } tg ? $"목표 {tg.Name}" : "목표 없음",
+                    ];
+                    int k = BuildingMenu.Ask(this, $"{ally.Name} 작전", items);
+                    if (k < 0) break;
+                    if (k == 2 && ally.Target == null)
+                    {
+                        _pick = Pick.OrderTarget;
+                        Say(Msg(0x306, "공격상대를 선택해 주세요."));
+                        Draw();
+                        return;
+                    }
+                    Battle.Order(ally, k);
+                }
+                _pick = Pick.None;
+                ShowCommands();
+                break;
+            }
+            case Pick.OrderTarget when f != null && _ordered != null:
+            {
+                if (_b.ShipAt(x, y) is not { } enemy || !_b.Enemies(f).Contains(enemy)) break;
+                Battle.Order(_ordered, 2, enemy);
+                Log($"{_ordered.Name} → 목표 {Who(enemy)}");
+                _pick = Pick.None;
+                ShowCommands();
+                break;
+            }
             case Pick.Move when f != null:
             {
                 var route = _routes.Where(r => r.X == x && r.Y == y && r.Dirs.Count > 0).OrderBy(r => r.Turns).FirstOrDefault();
