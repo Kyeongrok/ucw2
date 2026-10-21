@@ -2255,9 +2255,12 @@ public sealed class SeaMapWindow : Window
             string purse = $"소지금 금화 {p.Gold % 10000} · 금괴 {p.Gold / 10000}";
             int bet = AmountDialog.Ask(this, MsgOr(0x3C2, "도박금은 얼마요？") + $" ({BlackJack.MinBet}-{most}) — {purse}", most);
             if (bet <= 0) break;
-            if (bet < BlackJack.MinBet) { Say(0x3C3, "뭐야 이거！ 애들 장난도 아니구."); continue; }
+            if (bet < BlackJack.MinBet) continue;
             p.SetGold(p.Gold - bet);
-            Say(0x3C5, "그럼 카드를 돌리겠다.");                 // 0x00407540
+            // 건 돈을 두고 한마디(0x00407520) — 20 아래 「애들 장난」, 200 넘으면 「정말로 좋겠소？」, 그 밖은 「카드를 돌리겠다」. 판은 그대로 간다.
+            if (bet < 20) Say(0x3C3, "뭐야 이거！ 애들 장난도 아니구.");
+            else if (bet > 200) Say(0x3C4, "정말로 좋겠소？");
+            else Say(0x3C5, "그럼 카드를 돌리겠다.");
             var deck = BlackJack.Shuffle(Random.Shared.Next);
             int next = 4;
             List<int> mine = [deck[0], deck[2]], his = [deck[1], deck[3]];
