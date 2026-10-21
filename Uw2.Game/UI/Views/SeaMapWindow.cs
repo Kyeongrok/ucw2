@@ -1659,6 +1659,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("편성", (_, _) => Organize()));
         bar.Children.Add(Button("지휘", (_, _) => Command()));
         bar.Children.Add(Button("상륙", (_, _) => Land()));
+        bar.Children.Add(Button("공격", (_, _) => Attack()));
         bar.Children.Add(Button("아이템", (_, _) => UseItem()));
 
         // 항구 고르개. 표를 못 읽으면 번호만 늘어놓는다.
@@ -1916,6 +1917,53 @@ public sealed class SeaMapWindow : Window
                 break;
         }
         MessageBox.Show(this, sb.Length > 0 ? sb.ToString() : "—", items[pick]);
+    }
+
+    /// <summary>
+    /// 「공격」(<c>0x00409DC0</c>) — 시각이 15 ~ 59 틱이어야 한다(아니면 말 0x30D). 둘레 두 칩 안의 함대를 고르고(없으면 0x30A),
+    /// 같은 나라면 0x30E 로 묻는다. 걸 때 말(<c>0x00410CB0</c>): 해적이면 0x32B 뒤 0x32D, 아니면 0x32C. 상선(번호 % 10 이 1 ~ 4)은
+    /// 맞는 쪽 세기 x 3/2 가 덮치는 쪽보다 작으면 0x32F 로 배를 세우겠다고 하고 — 받아들이면 싸우지 않고 적 기함 이탈(2)로 끝난다 —
+    /// 아니면 0x330, 그 밖의 함대는 0x32E 뒤 싸운다. 세기는 함대마다 (내구 합 + 4) / 5(<c>0x0042ACA0</c>).
+    /// </summary>
+    private void Attack()
+    {
+        if (_host.Fleet is not { } f || _host.CurrentPort >= 0 || _host.StartTables == null) return;
+        if (f.TimeOfDay is < 15 or >= 60) { Say(0x30D, "야간에는 전쟁을 개시할 수 없습니다."); return; }
+        var near = _host.FleetsInReach();
+        if (near.Count == 0) { Say(0x30A, "전투 가능한 함대는 없습니다."); return; }
+        int pick = BuildingMenu.Ask(this, "공격", [.. near.Select(n => MsgOr(0x376, $"{_host.PersonName(n.Admiral)} 함대", _host.PersonName(n.Admiral)))]);
+        if (pick < 0) return;
+        var enemy = near[pick];
+        if (!enemy.Pirate && enemy.Nation == _host.HeroNation && _host.HeroNation != 6
+            && MessageBox.Show(this, MsgOr(0x30E, "같은 나라 사람을 공격할 셈입니까？"), "공격", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+
+        string admiral = _host.PersonName(enemy.Admiral);
+        int ours = (_host.Player.Ships.Sum(s => s.Hull) + 4) / 5, theirs = (enemy.Slots.Sum(s => s.Durability) + 4) / 5;
+        bool fight = true;
+        if (enemy.Pirate)
+        {
+            Say(0x32B, $"해적 {admiral}！", "", admiral);
+            Say(0x32D, "뭘 씨부렁거리고 있냐！");
+        }
+        else
+        {
+            Say(0x32C, "거기 있는 함대는 멈춰라！ 멈추지 않으면 공격하겠다！");
+            if (enemy.Index % 10 is >= 1 and <= 4)
+            {
+                if (theirs * 3 / 2 < ours)
+                    fight = MessageBox.Show(this, MsgOr(0x32F, "배를 정지시키겠다."), "공격", MessageBoxButton.YesNo) != MessageBoxResult.Yes;
+                else Say(0x330, "너 같은 놈에게, 귀중한 돈과 적하를 넘겨줄 순 없다！");
+            }
+            else Say(0x32E, "우리 함대를 상대하려 하다니, 겁도 없는 녀석이군！");
+        }
+
+        var battle = _host.OpenBattle(enemy);
+        f.UnderSail = false;
+        if (!fight) battle.Result = Engine.Sea.Battle.Outcome.EnemyLeft;
+        else BattleWindow.Run(this, battle, _host.Messages, $"해전 — {admiral} 함대");
+        f.SetTimeOfDay(battle.Time);
+        int fame = _host.CloseBattle(battle, enemy);
+        if (fame > 0) Note($" · 명성 +{fame}");
     }
 
     /// <summary>

@@ -42,6 +42,8 @@ public sealed class NpcFleet
                     (int X, int Y) home, (int X, int Y) target)
     {
         _sea = sea; _graph = graph; _rng = rng;
+        Record = record;
+        Slots = [.. record.Slots.Where(s => s.Present)];
         Index = record.Index;
         _cellX = record.X; _cellY = record.Y;
         Heading = record.Heading & 7;
@@ -58,6 +60,18 @@ public sealed class NpcFleet
     }
 
     public int Index { get; }
+
+    /// <summary>처음 함대 기록(SDATA).</summary>
+    public StartData.Fleet Record { get; }
+
+    /// <summary>배 칸(함대 +0x2B) — 해전이 선원 · 내구를 깎는다. 다 잃으면 함대가 바다에서 빠진다.</summary>
+    public List<StartData.Slot> Slots { get; }
+
+    /// <summary>해적 함대(60 ~ 69) — 나라 6.</summary>
+    public bool Pirate => Index >= 60;
+
+    /// <summary>나라(함대 번호 / 10).</summary>
+    public int Nation => Index / 10;
 
     /// <summary>제독 사람 번호 — 함대 +0x2A.</summary>
     public int Admiral { get; }

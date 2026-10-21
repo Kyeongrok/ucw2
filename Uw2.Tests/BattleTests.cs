@@ -160,4 +160,26 @@ public class BattleTests
         Assert.False(b.IsLand(21, 24));
         Assert.False(b.IsLand(19, 17));
     }
+
+    [Fact]
+    public void Ai_battle_runs_to_an_end()
+    {
+        var rng = new Random(7);
+        var b = new Battle(n => n < 2 ? 0 : rng.Next(n));
+        b.BuildMap((cx, cy) => !(cx == 0 && cy == 0));
+        b.RollWind();
+        for (int i = 0; i < 4; i++)
+        {
+            b.Add(0, Cap(), $"우리{i}", 80, 60, 60, 60, 60, 1 + i, 20, 30, 50, i == 0, true, false, 60, 80);
+            b.Add(1, Cap(), $"적{i}", 80, 60, 60, 60, 60, 4, 20, 30, 50, false, i % 2 == 0, false, 60, 80);
+        }
+        b.Deploy(0, 2, -1, 0);
+        b.Deploy(1, 6, 0, 0);
+        Assert.All(b.All, s => Assert.False(b.IsLand(s.X, s.Y)));
+        b.Time = 15;
+        int turns = 0;
+        while (b.NextShip() is { } s && turns++ < 100_000) b.AiTurn(s);
+        Assert.NotEqual(0, b.Result);
+        Assert.True(turns < 100_000);
+    }
 }

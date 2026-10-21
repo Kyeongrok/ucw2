@@ -23,7 +23,7 @@ namespace Uw2.Game.UI.Rendering;
 /// 거치지 않으려는 것이다 — 대신 airspace 규칙대로 이 자식 창은 WPF 콘텐츠보다 늘 위에
 /// 그려지니 그 위에 WPF 를 얹을 수는 없다.
 /// </remarks>
-public sealed class SeaMapHost : HwndHost
+public sealed partial class SeaMapHost : HwndHost
 {
     // 창 클래스를 새로 등록하지 않고 미리 있는 STATIC 을 쓴다. 정적 컨트롤은 WM_NCHITTEST 에
     // HTTRANSPARENT 를 돌려주므로 마우스가 WPF 쪽으로 그대로 넘어간다 — 끌기·휠이 산다.

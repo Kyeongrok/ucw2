@@ -43,6 +43,13 @@ public sealed class Battle
         public bool Gunnery { get; init; }
 
         public int Stat(int k) => k >= 0 && k < Stats.Length ? Stats[k] : 0;
+
+        /// <summary>주인공이 탄 배면 부선장 · 수석항해사(처지 3 · 5)도 거든다(<c>0x004129E0</c> · <c>0x00412A60</c> · <c>0x00412AD0</c>).</summary>
+        public IReadOnlyList<Captain> Aides { get; init; } = [];
+
+        public int Best(int k) => Aides.Select(a => a.Stat(k)).Append(Stat(k)).Max();
+        public int BestBattleLevel => Aides.Select(a => a.BattleLevel).Append(BattleLevel).Max();
+        public bool AnyGunnery => Gunnery || Aides.Any(a => a.Gunnery);
     }
 
     /// <summary>배 한 척 — 배 칸(<c>0x00470FA0</c>, 0x24 바이트) 과 그 함대 칸(9 바이트).</summary>
@@ -209,7 +216,7 @@ public sealed class Battle
     /// <summary>
     /// 배를 그 편에 들인다(<c>0x00410350</c>). 생각 갈래(<c>0x00410560</c>) — 용기 &lt; rand(50) 이면 2, 아니면 3.
     /// 대포가 있고 돛만 쓰는 배면 대포를 앞세운다. 기함은 0x22. <paramref name="merchant"/> 는 상선(함대 번호 % 10 이 1 ~ 4, 해적 아님)이라
-    /// 처음부터 물러난다(+8).
+    /// 처음부터 물러난다(+8). 백병 세기(<c>0x00410900</c>)는 (검술 x 전투 레벨 / 100 + 검술 / 2) x (제 배 · 남 기함 3, 남 배 2) / 3.
     /// </summary>
     public Ship Add(int side, Captain captain, string name, int crew, int hull, int maxHull, int upwind, int sail,
                     int gunKind, int guns, int shot, int deckShare, bool player, bool sailOnly, bool merchant,
@@ -217,7 +224,7 @@ public sealed class Battle
     {
         var list = _sides[side];
         int range = GunRange[Math.Clamp(gunKind, 0, 7)];
-        int melee = (captain.Stat(5) * captain.BattleLevel / 100 + captain.Stat(5) / 2) * (player ? 2 : 3) / 6;
+        int melee = (captain.Stat(5) * captain.BattleLevel / 100 + captain.Stat(5) / 2) * (player || list.Count == 0 ? 3 : 2) / 3;
         var ship = new Ship
         {
             Side = side, Slot = list.Count, Captain = captain, Name = name, Player = player,
@@ -435,12 +442,13 @@ public sealed class Battle
     public int GunDamage(Ship s, int distance)
     {
         var c = s.Captain;
-        int a = c.Stat(0) * c.BattleLevel / 100 + c.Stat(0) / 2;
+        int lead = c.Best(0);
+        int a = lead * c.BestBattleLevel / 100 + lead / 2;
         int guns = Math.Min(s.Guns / 2, s.Crew * s.DeckShare / 100 / 2);
         int fire = distance is >= 1 and <= 5 ? s.Fire[distance - 1] : 0;
         int b = fire * guns / 10;
-        b = c.Gunnery ? (b + 19) / 20 : (b + 39) / 40;
-        int dmg = a * b / 100 * (_rand(c.Stat(5) / 2) + 50) / 100;
+        b = c.AnyGunnery ? (b + 19) / 20 : (b + 39) / 40;
+        int dmg = a * b / 100 * (_rand(c.Best(5) / 2) + 50) / 100;
         dmg = Math.Min(dmg, _rand(c.BattleLevel / 2) + 50);
         return Math.Max(1, dmg);
     }
@@ -482,7 +490,7 @@ public sealed class Battle
     {
         int k = (_rand(10) + s.Crew) * s.DeckShare / 100;
         int v = s.Melee * k / 100;
-        int dmg = (_rand(s.Captain.Stat(5) / 2) + 50) * v / 100;
+        int dmg = (_rand(s.Captain.Best(5) / 2) + 50) * v / 100;
         return Math.Clamp(dmg, 1, 50);
     }
 
@@ -530,22 +538,32 @@ public sealed class Battle
     }
 
     /// <summary>
-    /// 전투 경험(<c>0x00412500</c> → <c>0x0041A4C0</c>) — 오른 레벨마다 용기 +rand(3) · 검술 +rand(2)(100 에서 자른다).
-    /// 레벨 잣대는 <see cref="LevelUp"/> 가 맡는다 — 바깥 세계가 사람 기록에 적는다.
+    /// 전투 경험(<c>0x00412500</c> → <c>0x0041A4C0</c>) — 경험(+0x28 낱말)이 min(레벨, 18)² x 30 을 넘을 때마다 레벨(+0x25)이 오른다(100 이 끝,
+    /// 거기서는 경험을 0 으로). 한 번이라도 오르면 능력치 0 ~ 3 이 rand(3)씩(100 까지), 오른 레벨마다 용기 +rand(3) · 검술 +rand(2)(100 에서 자른다).
     /// </summary>
-    private void Experience(Captain c, int exp)
+    public int Experience(Captain c, int exp)
     {
-        c.BattleExp += exp;
-        int ups = LevelUp?.Invoke(c) ?? 0;
+        int ups = 0;
+        c.BattleExp = (short)(c.BattleExp + exp);
+        while (c.BattleExp >= LevelNeed(c.BattleLevel))
+        {
+            if (c.BattleLevel == 100) { c.BattleExp = 0; break; }
+            c.BattleExp -= LevelNeed(c.BattleLevel);
+            c.BattleLevel++;
+            ups++;
+        }
+        if (ups == 0) return 0;
+        for (int k = 0; k < 4; k++) c.Stats[k] += Math.Min(100 - c.Stats[k], _rand(3));
         for (int i = 0; i < ups; i++)
         {
             c.Stats[4] = Math.Min(100, c.Stats[4] + _rand(3));
             c.Stats[5] = Math.Min(100, c.Stats[5] + _rand(2));
         }
+        return ups;
     }
 
-    /// <summary>경험이 쌓였을 때 레벨을 올리고 오른 수를 돌려준다(없으면 안 오른다).</summary>
-    public Func<Captain, int>? LevelUp { get; set; }
+    /// <summary>다음 레벨까지의 경험(<c>0x0041A490</c>).</summary>
+    public static int LevelNeed(int level) { int l = Math.Min(level, 18); return l * l * 30; }
 
     // ── 끝 ─────────────────────────────────────────────────────────────────
 
@@ -659,7 +677,7 @@ public sealed class Battle
             if (near && (!s.Gunner || !gun))
             {
                 var pf = PlayerFlagship;
-                if (pf != null && e == pf && WantsDuel(s, pf)) { DuelRequested = (s, e); return hits; }
+                if (Duels && pf != null && e == pf && WantsDuel(s, pf)) { DuelRequested = (s, e); return hits; }
                 hits.Add(Board(s, e));
             }
             else hits.Add(Fire(s, e));
@@ -668,6 +686,9 @@ public sealed class Battle
         CheckEnd();
         return hits;
     }
+
+    /// <summary>일기토를 치를 수 있는지 — 화면이 일기토를 옮기기 전까지는 꺼 두고 백병전으로 친다.</summary>
+    public bool Duels { get; set; }
 
     /// <summary>남이 제 기함에 일기토를 걸었다 — 화면이 일기토를 치르고 <see cref="DuelOver"/> 를 부른다.</summary>
     public (Ship By, Ship To)? DuelRequested { get; set; }

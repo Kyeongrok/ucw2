@@ -45,6 +45,9 @@ public sealed class Fleet
     /// <summary>하루 안 시각(0~71). 새 게임은 24(아침 8시)에서 시작한다(<c>SDATA.DAT</c> 머리 +7).</summary>
     public int TimeOfDay { get; private set; } = MorningTick;
 
+    /// <summary>해전이 흘린 시각을 그대로 잇는다 — 판도 같은 시각(<c>0x004703E4</c>)을 센다.</summary>
+    public void SetTimeOfDay(int tick) => TimeOfDay = Math.Clamp(tick, 0, TicksPerDay - 1);
+
     /// <summary>바다에서 보낸 날 수(<c>0x0045BDA8</c>) — 항에서 나갈 때 0 으로(<c>0x00422C36</c>).</summary>
     public int DaysAtSea { get; private set; }
 
