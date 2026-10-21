@@ -86,6 +86,11 @@ public sealed class Fleet
     /// <summary>돛을 폈는지. 접으면 그 자리에 선다.</summary>
     public bool UnderSail { get; set; } = true;
 
+    /// <summary>
+    /// 「정박」(<c>0x00445690</c>, <c>0x0045A1A8</c> &amp; 0x2000) — 닻을 내리면 움직이지 않지만 시각 · 날씨 · 날마다 셈은 그대로 흐른다.
+    /// </summary>
+    public bool Anchored { get; set; }
+
     /// <summary>날짜. 날 넘김마다 오른다.</summary>
     public GameDate Date = GameDate.NewGame;
 
@@ -222,11 +227,11 @@ public sealed class Fleet
         }
         LastCurrent = _wind?.Current(_cellX, _cellY) ?? (0, 0);
 
-        int speed = Sailing.FleetSpeed(Ships, Heading, LastWind.Dir, LastWind.Speed);
+        int speed = Anchored ? 0 : Sailing.FleetSpeed(Ships, Heading, LastWind.Dir, LastWind.Speed);
         LastSpeed = speed;
 
         // 뱃머리대로 못 가면 한 칸씩 비껴 본다 — 게임도 +1 다음 -1 이다(0x00448836 · 0x00448857).
-        if (!TryMove(Heading, speed))
+        if (!Anchored && !TryMove(Heading, speed))
         {
             Blocked = true;
             if (!TryMove(Heading + 1, speed)) TryMove(Heading - 1, speed);

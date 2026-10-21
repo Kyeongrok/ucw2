@@ -1170,6 +1170,7 @@ public sealed partial class SeaMapHost : HwndHost
         Log.Add(Fleet.Date.Year, Fleet.Date.Month, Fleet.Date.Day, Logbook.Departed, Player.SupplyDays, port);   // 0x00422C1F
 
         Fleet.Heading = 0;
+        Fleet.Anchored = false;
         Fleet.UnderSail = true;
         AtSea = true;
         CenterOnShip();

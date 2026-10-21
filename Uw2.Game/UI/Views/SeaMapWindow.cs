@@ -2118,6 +2118,7 @@ public sealed class SeaMapWindow : Window
         bar.Children.Add(Button("함대", (_, _) => ShowFleetInfo()));
         bar.Children.Add(Button("편성", (_, _) => Organize()));
         bar.Children.Add(Button("지휘", (_, _) => Command()));
+        bar.Children.Add(Button("정박", (_, _) => ToggleAnchor()));
         bar.Children.Add(Button("입항", (_, _) => EnterPortFromSea(-1)));
         bar.Children.Add(Button("상륙", (_, _) => Land()));
         bar.Children.Add(Button("공격", (_, _) => Attack()));
@@ -2666,6 +2667,16 @@ public sealed class SeaMapWindow : Window
         if (spot is { } s) AtVillage(s.Index);
         else OnShore();
         f.UnderSail = true;
+    }
+
+    /// <summary>「정박」(<c>0x00445690</c>) — 닻을 내리고 올린다. 내린 동안은 서 있지만 날은 흐른다.</summary>
+    private void ToggleAnchor()
+    {
+        if (_host.Fleet is not { } f || _host.CurrentPort >= 0) return;
+        f.Anchored = !f.Anchored;
+        if (f.Anchored) f.UnderSail = true;
+        Note(f.Anchored ? " · 정박합니다." : " · 이동을 시작합니다.");
+        _host.Invalidate();
     }
 
     /// <summary>
