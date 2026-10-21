@@ -269,6 +269,7 @@ public sealed partial class SeaMapHost : HwndHost
                     Player.SetGold(gold);
                     Uw2.Game.Engine.Town.Navigators.Wander(Scenario.Memory, Roll);
                     if (Uw2.Game.Engine.Town.Palace.PermitsExpire(Fleet.Month)) Uw2.Game.Engine.Town.Palace.ExpirePermits(Scenario.Memory);
+                    NationsMonth();
                 }
             };
             Crew(Fleet);
