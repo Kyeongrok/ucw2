@@ -16,7 +16,7 @@ public sealed class AmountDialog : Window
     private AmountDialog(string title, int max)
     {
         _max = max;
-        Title = title;
+        Title = title.Split('\n')[^1];
         SizeToContent = SizeToContent.WidthAndHeight;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;

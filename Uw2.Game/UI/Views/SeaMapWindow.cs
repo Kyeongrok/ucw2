@@ -51,7 +51,9 @@ public sealed class SeaMapWindow : Window
         if (pick < 0) return;
         int price = eco.SupplyPrice(_host.CurrentPort, pick);
         int most = Math.Min(p.Free / PlayerState.Lot, price > 0 ? p.Gold / price : int.MaxValue);
-        int lots = AmountDialog.Ask(this, $"{Economy.SupplyNames[pick]} 몇 단(열 통)", most);
+        // 값 말(0x00422E80) — 물은 「물은 무료입니다.」(0x3E), 식량 · 자재 · 포탄은 「…１통에 금화 %ld닢입니다.」(0x3F ~ 0x41).
+        string head = pick == 0 ? MsgOr(0x3E, "물은 무료입니다.") : MsgOr(0x3E + pick, $"{Economy.SupplyNames[pick]}은 １통에 금화 {price}닢입니다.", price);
+        int lots = AmountDialog.Ask(this, $"{head}\n{Economy.SupplyNames[pick]} 몇 단(열 통)", most);
         if (lots <= 0) return;
         int bought = p.BuySupply(pick, lots, price);
         _host.SyncLoad();
