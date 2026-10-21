@@ -2509,9 +2509,19 @@ public sealed class SeaMapWindow : Window
 
     private void ShowFleetInfo()
     {
-        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람", "함선정보", "항해일지"];
+        string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람", "함선정보", "항해일지", "항해도", "항구맵"];
         int pick = BuildingMenu.Ask(this, "함대", items);
         if (pick < 0) return;
+        if (pick is 8 or 9 && _host.Map is { } chart)
+        {
+            // 「항해도」(0x004437E0) · 「항구맵」(0x00444250) — 조사 판으로 가린 세계지도, 항구맵은 들른 항구를 더한다.
+            var ports = pick == 9 && _host.Ports is { } pt
+                ? pt.Ports.Where(q => _host.PortVisited(q.Index)).Select(q => (q.Name, q.X, q.Y)).ToList()
+                : [];
+            (double, double)? at = _host.Fleet is { } fl ? (fl.X, fl.Y) : null;
+            SeaChartWindow.Show(this, items[pick], chart, _host.Survey, at, ports);
+            return;
+        }
         if (pick == 7) { ShowLogbook(); return; }
         if (pick == 5) { CargoAdvice(); return; }
         if (pick == 6)

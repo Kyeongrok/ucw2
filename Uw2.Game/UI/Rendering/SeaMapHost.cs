@@ -1282,6 +1282,11 @@ public sealed partial class SeaMapHost : HwndHost
     }
 
     /// <summary>그 항구의 칩 벌 번호(<c>CHIP_NO.DAT</c>) — 2 는 이슬람 거리라 교회가 모스크다(<c>0x00421910</c>).</summary>
+    /// <summary>들른 항구인지 — 항구 표 +0x15 의 0x40(기항 때 0x50 을 세운다, <see cref="Arrive"/>).</summary>
+    public bool PortVisited(int port) =>
+        Scenario is { } vm && port >= 0
+        && (vm.Memory.Read(ScenarioMemory.At(ScenarioMemory.PortTable, port, 0x15), false) & 0x40) != 0;
+
     public int PortChipSet(int port) => _portChipNo != null && port is >= 0 and < PortChipNumbers.Count ? _portChipNo[port] : -1;
 
     /// <summary>지금 화면의 이름.</summary>
