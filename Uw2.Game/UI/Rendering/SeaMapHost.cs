@@ -131,6 +131,10 @@ public sealed partial class SeaMapHost : HwndHost
             _walkArt = pack.Walker;
             _walkArtW = pack.WalkerSize.W;
             _walkArtH = pack.WalkerSize.H;
+            _heroWalkBase = _walkArt;
+            _heroWalkers = pack.HeroWalkers;
+            _folkArt = pack.Folk;
+            _folkArtW = pack.FolkWidth;
             JoinFolkSheet(pack.Folk, pack.FolkWidth);
         }
 
@@ -1065,6 +1069,7 @@ public sealed partial class SeaMapHost : HwndHost
         int person = HeroPerson[Hero];
         var captain = start.People[person];
         HeroName = (captain.Name, captain.Family);
+        UseHeroWalker(person);
         LoadScenario(person);
         int type = person < start.HeroShips.Count && start.HeroShips[person] is >= 0 and var t ? t : StandInShipType;
         bool oars = type < start.Templates.Count && start.Templates[type].Oars;

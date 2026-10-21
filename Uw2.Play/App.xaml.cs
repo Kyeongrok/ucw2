@@ -39,7 +39,8 @@ public partial class App : Application
             // 개발 — 첫 주인공 고향 항구를 바로 띄운다(마을 사람 보기).
             var map = new SeaMapWindow { Title = "대항해시대2 — 도시 시험", WindowState = WindowState.Maximized };
             map.Show();
-            map.ShowHomePort(0);
+            int td = Array.IndexOf(e.Args, "--town-demo");
+            map.ShowHomePort(td + 1 < e.Args.Length && int.TryParse(e.Args[td + 1], out int hero) ? hero : 0);
             return;
         }
         if (Array.IndexOf(e.Args, "--import-smoke") is >= 0 and var ia && ia + 2 < e.Args.Length)

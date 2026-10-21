@@ -168,6 +168,14 @@ public sealed class AssetPack
             var walk = WalkerSheet(chunks[0], out int ww, out int wh);
             IndexedPng.Write(Path.Combine(outDir, "char.png"), walk, ww, wh, pal);
             // 마지막 청크(일곱째, 24576 바이트)는 마을 사람 스물넷 장 — 걷는 여자 · 걷는 남자 여덟씩, 서 있는 이 넷 x 둘(0x004335F0 이 쓴다).
+            // 주인공 여섯 — 청크 번호가 곧 주인공 사람 번호다(0x00436106 이 0x0049F5AF 로 고른다). 줄마다 하나씩.
+            if (chunks.Length >= FolkChunk)
+            {
+                var rows = new byte[ww * wh * FolkChunk];
+                for (int c = 0; c < FolkChunk; c++)
+                    WalkerSheet(chunks[c], out _, out _).CopyTo(rows, c * ww * wh);
+                IndexedPng.Write(Path.Combine(outDir, "walkers.png"), rows, ww, wh * FolkChunk, pal);
+            }
             if (chunks.Length > FolkChunk)
             {
                 var folk = WalkerSheet(chunks[FolkChunk], out int fw, out int fh, FolkPoses);
@@ -460,6 +468,13 @@ public sealed class AssetPack
                 var w = IndexedPng.Read(charPath2);
                 walker = w.Pixels; walkerW = w.Width; walkerH = w.Height;
             }
+            string walkersPath = Path.Combine(dir, "walkers.png");
+            byte[] heroWalk = [];
+            if (File.Exists(walkersPath))
+            {
+                var h = IndexedPng.Read(walkersPath);
+                if (h.Width == walkerW && walkerH > 0 && h.Height % walkerH == 0) heroWalk = h.Pixels;
+            }
             string folkPath = Path.Combine(dir, "folk.png");
             byte[] folk = []; int folkW = 0;
             if (File.Exists(folkPath))
@@ -546,6 +561,7 @@ public sealed class AssetPack
                 Walker = walker,
                 WalkerSize = (walkerW, walkerH),
                 Folk = folk,
+                HeroWalkers = heroWalk,
                 FolkWidth = folkW,
                 Font = font,
             };
@@ -636,6 +652,9 @@ public sealed class AssetPack
 
     /// <summary>마을 사람 스물넷 장(<see cref="Walker"/> 와 같은 높이). 없으면 빈 것.</summary>
     public byte[] Folk { get; private init; } = [];
+
+    /// <summary>주인공 여섯의 걷는 그림 — 사람 번호 줄마다 <see cref="Walker"/> 한 판. 없으면 빈 것.</summary>
+    public byte[] HeroWalkers { get; private init; } = [];
     public int FolkWidth { get; private init; }
 
     // ------------------------------------------------------------------ 잔손

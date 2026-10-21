@@ -84,6 +84,21 @@ public sealed partial class SeaMapHost
         _othersScale = -1;   // 바다에 나가면 남 함대를 다시 올린다
     }
 
+    private byte[] _heroWalkBase = [], _heroWalkers = [], _folkArt = [];
+    private int _folkArtW;
+
+    /// <summary>주인공 그림을 그 사람 번호 줄로 갈고(<c>0x00436106</c>) 마을 사람 판을 다시 붙인다.</summary>
+    private void UseHeroWalker(int person)
+    {
+        if (_heroWalkBase.Length == 0) return;
+        int w = _heroWalkBase.Length / Math.Max(1, _walkArtH), size = w * _walkArtH;
+        _walkArt = _heroWalkers.Length >= (person + 1) * size && person >= 0
+            ? _heroWalkers.AsSpan(person * size, size).ToArray() : _heroWalkBase;
+        _walkArtW = w;
+        JoinFolkSheet(_folkArt, _folkArtW);
+        if (Walker != null) UseWalkerSprite(true);
+    }
+
     /// <summary>사람 판 뒤에 마을 사람 판을 붙인다(높이가 같을 때만).</summary>
     private void JoinFolkSheet(byte[] folk, int folkW)
     {
