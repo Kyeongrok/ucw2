@@ -52,7 +52,7 @@ public sealed class NpcFleet
         _navLevel = admiral.NavLevel; _seamanship = admiral.Seamanship;
         _ships = [.. record.Slots.Where(s => s.Present).Select(s =>
         {
-            var t = start.ShipTypes[start.GuessType(s)];
+            var t = start.ShipTypes[start.TypeOf(s)];
             return new ShipSailing(t.SailKind, s.Sail, s.Upwind, false, 0, 0, 0, 0, 0, 0, 0);
         })];
         _home = home; _away = target;

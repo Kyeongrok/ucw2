@@ -29,6 +29,19 @@ public class AssetTests
     }
 
     [Fact]
+    public void NpcSlotTypeComesFromTheShipRecord()
+    {
+        var start = Pack.Start!;
+        var slots = start.Fleets.SelectMany(f => f.Slots).Where(s => s.Present).ToList();
+        // 남 함대 칸은 다 본보기 배(40 ~ 64)를 짚는다
+        Assert.All(slots, s => Assert.InRange(s.Ship, StartData.ShipTemplateFirst, StartData.ShipTemplateFirst + StartData.ShipTypeCount - 1));
+        Assert.All(slots, s => Assert.Equal(start.Templates[s.Ship - StartData.ShipTemplateFirst].Type, start.TypeOf(s)));
+        // 배 45(카라벨 라티나)는 다우와 값이 같아 어림으로는 2 가 나오던 것
+        var latina = slots.First(s => s.Ship == 45);
+        Assert.Equal(5, start.TypeOf(latina));
+    }
+
+    [Fact]
     public void StartTablesMatchTheOriginal()
     {
         var start = Pack.Start!;

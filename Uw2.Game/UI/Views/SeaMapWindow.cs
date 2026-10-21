@@ -4015,7 +4015,7 @@ public sealed class SeaMapWindow : Window
         string[] dirs = _host.Menus?.Lists is { Count: > 40 } l40 ? [.. l40[40]] : ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
         int k = fleet.Index % 10 == 0 ? 0 : (fleet.Index % 10 - 1) / 5 + 1;
         string nation = NationNames7[Math.Min(6, fleet.Nation)];
-        var ships = fleet.Slots.Select(s => st.GuessType(s) is var t && t < st.Templates.Count ? st.Templates[t].Name ?? "?" : "?").ToList();
+        var ships = fleet.Slots.Select(s => st.TypeOf(s) is var t && t < st.Templates.Count ? st.Templates[t].Name ?? "?" : "?").ToList();
         SayText($"{_host.PersonName(fleet.Admiral)}\n{nation} {kinds[Math.Min(k, kinds.Length - 1)]} · 뱃머리 {dirs[fleet.Heading & 7]}\n"
                 + string.Join("\n", ships.Chunk(2).Select(c => string.Join(" · ", c))));
         if (fleet.Pirate && fleet.Index != 60 && _host.Scenario is { } vm)

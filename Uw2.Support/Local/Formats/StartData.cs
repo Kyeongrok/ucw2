@@ -206,10 +206,14 @@ public sealed class StartData
     }
 
     /// <summary>
-    /// 칸의 선종을 어림한다 — 내구 최대 · 역풍 · 돛이 다 맞는 첫 선종. 배 기록(+0x0F 선종)을 아직 안 읽어서다.
+    /// 칸의 선종 — 배 번호(+7)가 본보기(40 ~ 64)면 그 배 기록의 +0x0F 를 쓴다. 남 함대는 다 본보기를 짚는다
+    /// (카라벨 라티나와 다우는 내구 · 역풍 · 돛이 같아 값으로는 못 가른다).
+    /// 그 밖(제 함대 몫 0 ~ 39)은 내구 최대 · 역풍 · 돛이 다 맞는 첫 선종으로 어림한다.
     /// </summary>
-    public int GuessType(Slot slot)
+    public int TypeOf(Slot slot)
     {
+        int t0 = slot.Ship - ShipTemplateFirst;
+        if (t0 >= 0 && t0 < Templates.Count && Templates[t0].Type < ShipTypeCount) return Templates[t0].Type;
         foreach (var t in ShipTypes)
             if (t.Durability == slot.MaxDurability && t.Upwind == slot.Upwind && t.Sail == slot.Sail) return t.Index;
         return 0;

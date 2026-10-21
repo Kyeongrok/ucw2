@@ -173,7 +173,7 @@ public sealed partial class SeaMapHost
         bool merchant = !fleet.Pirate && kind is >= 1 and <= 4;
         foreach (var slot in fleet.Slots)
         {
-            int typeIndex = start.GuessType(slot);
+            int typeIndex = start.TypeOf(slot);
             var type = start.ShipTypes[typeIndex];
             bool sailOnly = typeIndex < start.Templates.Count && !start.Templates[typeIndex].Oars;
             int k5 = type.MaxCrew / 5;
@@ -422,7 +422,7 @@ public sealed partial class SeaMapHost
     public bool TakePrize(Battle.Ship prize, int captain, string name)
     {
         if (StartTables is not { } start || prize.Tag is not StartData.Slot slot) return false;
-        int type = start.GuessType(slot);
+        int type = start.TypeOf(slot);
         if (!AddShip(type, captain: captain)) return false;
         var ship = Player.Ships[^1];
         ship.Name = name;
