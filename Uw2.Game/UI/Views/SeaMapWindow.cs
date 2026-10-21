@@ -2400,6 +2400,8 @@ public sealed class SeaMapWindow : Window
             UpdateStatus();
             // 열려 있으면 그 건물의 MENU.DAT 목록을 띄운다 — 그림을 그리는 틈 안이라 한 박자 뒤에 연다.
             if (open) Dispatcher.BeginInvoke(() => EnterBuilding(b));
+            // 닫힌 시각이면 「문이 잠겨 있습니다.」 창(0x2FD, 0x00431F5D → 0x00432160).
+            else Dispatcher.BeginInvoke(() => Say(0x2FD, PortDoors.LockedText));
         };
         Loaded += (_, _) => OpenBest();
         KeyDown += OnKey;
@@ -3177,8 +3179,8 @@ public sealed class SeaMapWindow : Window
                 case 0: SearchVillage(index); break;
                 case 1: Feast(); break;
                 case 2: Loot(); break;
+                case 3 when ConfirmSail(): Note(" · 배로 돌아왔습니다"); return;
                 case 4: CampAshore(); return;
-                default: Note(" · 배로 돌아왔습니다"); return;
             }
         }
     }
@@ -3193,9 +3195,16 @@ public sealed class SeaMapWindow : Window
             if (pick == 1) PatchShip();
             else if (pick == 2) { if (!DigTreasure()) SearchWater(); }
             else if (pick == 3) { CampAshore(); return; }
-            else { Note(" · 배로 돌아왔습니다"); return; }
+            else if (pick == 0 && ConfirmSail()) { Note(" · 배로 돌아왔습니다"); return; }
         }
     }
+
+    /// <summary>
+    /// 뭍 · 부락의 「출항」(<c>0x0041B210</c>) — 부선장이 「출항하겠습니다.」(0x1A1)라고 다짐받는다. 아니라면 목록이 다시 뜬다.
+    /// 원본은 목록을 물려도(오른쪽 단추) 다시 뜬다 — 뭍에서 나가는 길은 출항 · 대기뿐이다.
+    /// </summary>
+    private bool ConfirmSail() =>
+        MessageBox.Show(this, MsgOr(0x1A1, "출항하겠습니다."), "출항", MessageBoxButton.YesNo) == MessageBoxResult.Yes;
 
     /// <summary>
     /// 「응급수리」(<c>0x0041B240</c>) — 배를 고르고 내구 · 역풍 · 돛 가운데 하나를 자재로 고친다. 상한은 선종 값이다.
