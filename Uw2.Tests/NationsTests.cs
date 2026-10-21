@@ -97,4 +97,19 @@ public class NationsTests
         e.NpcSell(0, 12, n => 0);
         Assert.Equal(51, e.StateBytes[0x0E + cat]);
     }
+
+    [Fact]
+    public void Aid_accrues_with_favour()
+    {
+        var m = new ScenarioMemory();
+        m.Write(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, ScenarioMemory.RankField), 2, false);
+        m.Write(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 1), 150, false);   // 에스파니아 호감 150
+        m.Write(ScenarioMemory.At(ScenarioMemory.HeroTable, 0, 6 + 2), 50, false);    // 오스만 호감 50
+        m.Write(ScenarioMemory.At(ScenarioMemory.NationTable, 1, 0), 9000, true);
+        m.Write(ScenarioMemory.At(ScenarioMemory.NationTable, 2, 8), 3, false);
+        Nations.Aid(m, 0);
+        int F(int n, int f) => m.Read(ScenarioMemory.At(ScenarioMemory.NationTable, n, f), false);
+        Assert.Equal((6, 18, 4, 4), (F(1, 5), F(1, 6), F(1, 7), F(1, 8)));   // k = 18000
+        Assert.Equal((0, 0xFF, 0), (F(2, 5), F(2, 7), F(2, 8)));
+    }
 }

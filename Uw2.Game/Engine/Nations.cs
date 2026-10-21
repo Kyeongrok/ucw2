@@ -11,7 +11,7 @@ namespace Uw2.Game.Engine;
 ///   +0x0B  나라마다 사이(일곱, 100 이 제 나라)  +0x12 나라마다 맞섬(여섯)
 /// </code>
 /// 여기 옮긴 것은 세기(<c>0x0042B980</c>) · 노리는 나라(<c>0x0042BB60</c>) · 방침(<c>0x0042BCB0</c>) · 상선 행선(<c>0x0042BD90</c>)이다.
-/// 맞섬(<c>0x0042BEA0</c>) · <c>0x0042B0F0</c> 은 아직이다.
+/// 원조 쌓기(<c>0x0042B540</c>)도 옮겼다. 맞섬(<c>0x0042BEA0</c>) · 함대 다시 짓기(<c>0x0042ACF0</c> ~ <c>0x0042B3E0</c>)는 아직이다.
 /// </remarks>
 public static class Nations
 {
@@ -146,6 +146,36 @@ public static class Nations
             if (!any && policy == 2 && portCount <= 75) return read(nation, PortField);
         }
         return read(nation, PortField);
+    }
+
+    /// <summary>
+    /// 원조 쌓기(<c>0x0042B540</c>) — 여섯 나라마다 주인공 호감(주인공 표 +6 + 나라)이 130 이상이면 k = 작위(+0x0D) x 나라 세기로
+    /// 나라 +5(자금원조, x 1000 닢) += k / 3000, +6 += k / 1000 (둘 다 100 까지), +7(원조 선종) = min(7, k / 4000), +8(원조 척수) += min(10, k / 4000).
+    /// 호감이 70 아래면 넷 다 거둔다(+7 은 0xFF).
+    /// </summary>
+    public static void Aid(ScenarioMemory m, int hero)
+    {
+        int rank = m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, ScenarioMemory.RankField), false);
+        for (int n = 0; n < 6; n++)
+        {
+            ScenarioMemory.Pointer At(int f) => ScenarioMemory.At(ScenarioMemory.NationTable, n, f);
+            int favour = m.Read(ScenarioMemory.At(ScenarioMemory.HeroTable, hero, 6 + n), false);
+            if (favour >= 130)
+            {
+                int k = rank * (short)m.Read(At(PowerField), true);
+                m.Write(At(5), Math.Min(100, (m.Read(At(5), false) + k / 3000) & 0xFF), false);
+                m.Write(At(6), Math.Min(100, (m.Read(At(6), false) + k / 1000) & 0xFF), false);
+                m.Write(At(7), Math.Min(7, k / 4000), false);
+                m.Write(At(8), (m.Read(At(8), false) + Math.Min(10, k / 4000)) & 0xFF, false);
+            }
+            else if (favour < 70)
+            {
+                m.Write(At(5), 0, false);
+                m.Write(At(6), 0, false);
+                m.Write(At(7), 0xFF, false);
+                m.Write(At(8), 0, false);
+            }
+        }
     }
 
     /// <summary>
