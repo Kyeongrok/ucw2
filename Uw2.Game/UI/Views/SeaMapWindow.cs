@@ -1894,6 +1894,15 @@ public sealed class SeaMapWindow : Window
                                     goods.Select(g => $"{eco.GoodsNames[g.Good],-6}  {g.Price,5}").ToList());
         if (pick < 0) return;
         var (good, price) = goods[pick];
+        // 말을 거드는 동료(0x004207B6) — 돈이 한 통 값의 반도 안 되면 「금화가 부족한 것 같습니다만.」(0x16).
+        //   아니면 그 갈래 시세(항구 +0xE + 갈래)가 40 이하 0x17 · 60 넘음 0x18 · 그 사이 0x19.
+        if (price / 2 > p.Gold) { Say(0x16, "금화가 부족한 것 같습니다만."); return; }
+        if (_host.CurrentPort < eco.States.Count)
+        {
+            int index = eco.States[_host.CurrentPort].PriceIndex[Economy.CategoryOf(good)];
+            Say(index <= 40 ? 0x17 : index > 60 ? 0x18 : 0x19,
+                index <= 40 ? "이 상품은 지금이 살 찬스군요." : index > 60 ? "좀 비싼 거래군요." : "그저 그만한 가격이군요.");
+        }
         // 시세를 말하고(0x96) 마다하면 값을 깎는다(0x00420B70).
         if (MessageBox.Show(this, MsgOr(0x96, $"{eco.GoodsNames[good]} 시세는 금화 {price}닢입니다. 좋습니까？", eco.GoodsNames[good], price),
                             "구입", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
