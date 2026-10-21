@@ -459,7 +459,13 @@ public sealed class SeaMapWindow : Window
         }
         if (b == BankBuilding) { UseBank(pick); return; }
         if (b == ChurchBuilding) { AtChurch(pick); return; }
-        if (b == PalaceBuilding) { AtPalace(pick); return; }
+        if (b == PalaceBuilding)
+        {
+            AtPalace(pick);
+            // 왕궁 일을 마칠 때마다 작위가 9(공작)이고 아직 엔딩 전이면(0x0045A1E0 & 2) 엔딩 0xF(0x00427F4E).
+            if (_host.HeroRank == 9 && !_host.StoryOver) OnStoryEnded(0xF);
+            return;
+        }
         if (b == GuildBuilding && pick == 0) { OfferJobs(); return; }
         if (b == GuildBuilding && pick == 1) { NationInfo(); return; }
         if (b == FortuneBuilding) { TellFortune(pick); return; }
