@@ -2963,10 +2963,17 @@ public sealed class SeaMapWindow : Window
         string[] items = ["자함대정보", "인물정보", "주인공정보", "적하정보", "발견물정보", "적하일람", "함선정보", "항해일지", "항해도", "항구맵"];
         int pick = BuildingMenu.Ask(this, "함대", items);
         if (pick < 0) return;
-        if (pick is 8 or 9 && _host.Map is { } chart)
+        if (pick == 9)
         {
-            // 「항해도」(0x004437E0) · 「항구맵」(0x00444250) — 조사 판으로 가린 세계지도, 항구맵은 들른 항구를 더한다.
-            var ports = pick == 9 && _host.Ports is { } pt
+            // 「항구맵」(0x00444250) — 지금 항구의 지도와 건물 · 사람 자리. 원본은 바다에서는 흐리게 한다(0x00445143).
+            if (_host.TownMap() is not { } town) { Note(" · 항구맵은 항구에서만 볼 수 있습니다"); return; }
+            PortMapWindow.Show(this, $"{items[pick]} — {_host.SceneName}", town.Bgra, town.Size, SeaMapHost.TownMapScale, town.Doors, town.Me);
+            return;
+        }
+        if (pick == 8 && _host.Map is { } chart)
+        {
+            // 「항해도」(0x004437E0) — 조사 판으로 가린 세계지도에 들른 항구를 더한다.
+            var ports = _host.Ports is { } pt
                 ? pt.Ports.Where(q => _host.PortVisited(q.Index)).Select(q => (q.Name, q.X, q.Y)).ToList()
                 : [];
             (double, double)? at = _host.Fleet is { } fl ? (fl.X, fl.Y) : null;

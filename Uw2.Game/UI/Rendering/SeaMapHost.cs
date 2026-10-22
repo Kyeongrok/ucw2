@@ -1446,6 +1446,33 @@ public sealed partial class SeaMapHost : HwndHost
     private ChipSheet? _worldSheet;
     private PortMap? _portMaps;
     private ChipSheet[]? _portSets;
+
+    /// <summary>항구맵에서 칸 하나를 몇 점으로 찍는지.</summary>
+    public const int TownMapScale = 4;
+
+    /// <summary>
+    /// 「항구맵」(<c>0x00444250</c>) — 지금 항구 지도(96 x 96 칸)를 칸마다 <see cref="TownMapScale"/> 점으로 줄여 그리고,
+    /// 건물 문 자리와 사람 자리를 함께 돌려준다. 원본은 항구에서만 고를 수 있다(바다면 가림 0x200, <c>0x00445143</c>). 항구가 아니면 null.
+    /// </summary>
+    public (uint[] Bgra, int Size, (int X, int Y)?[] Doors, (double X, double Y)? Me)? TownMap()
+    {
+        int port = CurrentPort;
+        if (port < 0 || _portMaps == null || _portSets == null || _portChipNo == null || port >= _portMaps.Ports) return null;
+        var cells = _portMaps[port];
+        var sheet = _portSets[Math.Clamp(_portChipNo[port], 0, _portSets.Length - 1)];
+        int k = TownMapScale, n = PortMap.Size * k, step = ChipSheet.Size / k;
+        var bgra = new uint[n * n];
+        for (int cy = 0; cy < PortMap.Size; cy++)
+            for (int cx = 0; cx < PortMap.Size; cx++)
+            {
+                int chip = cells[cy * PortMap.Size + cx];
+                for (int y = 0; y < k; y++)
+                    for (int x = 0; x < k; x++)
+                        bgra[(cy * k + y) * n + cx * k + x] = _screenPalette.Bgra[sheet[chip, x * step, y * step] & 0xF];
+            }
+        return (bgra, n, _doors?.Of(port) ?? new (int X, int Y)?[PortDoors.PerPort],
+                Walker is { } w ? (w.X, w.Y) : null);
+    }
     private WalkBounds[]? _portBounds;
     private PortDoors? _doors;
     private PortChipNumbers? _portChipNo;
