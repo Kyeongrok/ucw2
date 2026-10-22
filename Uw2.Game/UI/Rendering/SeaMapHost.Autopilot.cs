@@ -90,6 +90,7 @@ public sealed partial class SeaMapHost
         _autoPort = port;
         _portAsked = -1;
         f.Anchored = false;
+        Player.Ashore = false;   // 닻을 걷으면 뭍에서 배로 돌아온다(Weigh 와 같다)
         f.UnderSail = true;
         return true;
     }

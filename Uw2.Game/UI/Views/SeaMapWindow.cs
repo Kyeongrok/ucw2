@@ -3365,6 +3365,8 @@ public sealed class SeaMapWindow : Window
     /// </summary>
     private void SailToPort()
     {
+        // 뭍에서 대기 중이면(0x0045A1A8 & 0x1800) 원본은 항이동 · 출항 · 기항을 흐리게 한다(0x004455C9).
+        if (_host.Player.Ashore) { Note(" · 뭍에서 대기 중입니다 — 먼저 「정박」을 풀어 배로 돌아오세요"); return; }
         if (_host.Fleet is null || _host.CurrentPort >= 0 || _host.Scenario is not { } vm || _host.Ports is not { } pt) return;
         var m = vm.Memory;
         int mate = Navigators.InPost(m, 0);
@@ -3424,6 +3426,7 @@ public sealed class SeaMapWindow : Window
         if (_host.Fleet is not { } f) return;
         if (_host.CurrentPort >= SeaMapHost.SmallPortFirst) { SmallPortMenu(); return; }
         if (_host.CurrentPort >= 0) return;
+        if (port < 0 && _host.Player.Ashore) { Note(" · 뭍에서 대기 중입니다 — 먼저 「정박」을 풀어 배로 돌아오세요"); return; }   // 0x004455C9
         if (port < 0) port = _host.PortBeside();
         if (port < 0) { Note(" · 바로 옆에 항구가 없습니다"); return; }
         string name = _host.Ports is { } pt && port < pt.Ports.Count ? pt.Ports[port].Name : $"#{port}";
