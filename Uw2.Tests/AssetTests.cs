@@ -29,6 +29,19 @@ public class AssetTests
     }
 
     [Fact]
+    public void ItemGradesOfTheNewGame()
+    {
+        // 풀이 창 등급(0x0041F54B) — 새 게임 아이템 표로: 단도 Ｄ · 레이피어 Ｃ · 롱 소드 Ｂ · 일본도 Ａ · 요도촌정 ☆, 플레이트 메일 Ａ · 성기사의 갑옷 ☆.
+        var m = new Uw2.Game.Engine.ScenarioMemory();
+        m.Fill(Uw2.Game.Engine.Town.ItemShop.Table, Pack.Start!.ItemBytes);
+        var items = Enumerable.Range(0, Uw2.Game.Engine.Town.ItemShop.Count).Select(i => Uw2.Game.Engine.Town.ItemShop.Get(m, i)).ToList();
+        int G(string name) => Uw2.Game.Engine.Town.ItemShop.Grade(items.First(it => it.Name == name));
+        Assert.Equal((0, 1, 2, 3, 4), (G("단도"), G("레이피어"), G("롱 소드"), G("일본도"), G("요도촌정")));
+        Assert.Equal((3, 4), (G("플레이트 메일"), G("성기사의 갑옷")));
+        Assert.Equal("자돌검", Uw2.Game.Engine.Town.ItemShop.GroupNames[items.First(it => it.Name == "레이피어").Group]);
+    }
+
+    [Fact]
     public void TitleNamesComeFromData1Chunks16And17()
     {
         // 원본은 주인공 사람 번호가 5(알)면 17번, 아니면 16번을 작위 표 1 칸에 덮어 쓴다(0x00415B9C).
