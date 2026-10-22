@@ -4307,7 +4307,7 @@ public sealed class SeaMapWindow : Window
         Close();
     }
 
-    /// <summary>목록 20 「환경」 — 목록 30 의 ＢＧＭ 처럼 음악 · 효과음을 켜고 끈다(표시 · 이동 속도 · 빛깔은 아직).</summary>
+    /// <summary>목록 20 「환경」(<c>0x00444CA0</c>) — 음악 · 효과음을 켜고 끄고 洋上速度(바다 한 틱의 기다림, <c>0x0045A1D8</c>)를 고른다.</summary>
     private void Environment_()
     {
         while (true)
@@ -4316,6 +4316,7 @@ public sealed class SeaMapWindow : Window
             [
                 $"ＢＧＭ        {(Uw2.Game.UI.Audio.Music.Enabled ? "켜짐" : "꺼짐")}",
                 $"효과음        {(Uw2.Game.UI.Audio.Sound.Enabled ? "켜짐" : "꺼짐")}",
+                $"항해 빠르기   {Uw2.Game.UI.Audio.AudioSettings.SeaSpeed}",
             ];
             int pick = BuildingMenu.Ask(this, "환경", items);
             if (pick < 0) return;
@@ -4325,7 +4326,17 @@ public sealed class SeaMapWindow : Window
                 _forceSceneMusic = true;
                 PlaySceneMusic();
             }
-            else Uw2.Game.UI.Audio.Sound.Enabled = !Uw2.Game.UI.Audio.Sound.Enabled;
+            else if (pick == 1) Uw2.Game.UI.Audio.Sound.Enabled = !Uw2.Game.UI.Audio.Sound.Enabled;
+            else
+            {
+                // 洋上速度(0x0045A1D8) — 0 이 가장 빠르고 10 이 가장 느리다. 한 틱에 (값 + 1) x 20 밀리초.
+                string[] speeds = [.. Enumerable.Range(0, Uw2.Game.UI.Audio.AudioSettings.MaxSeaSpeed + 1)
+                    .Select(v => v switch { 0 => "0  가장 빠르게", Uw2.Game.UI.Audio.AudioSettings.MaxSeaSpeed => $"{v}  가장 느리게", _ => $"{v}" })];
+                int speed = BuildingMenu.Ask(this, "항해 빠르기", speeds);
+                if (speed < 0) continue;
+                Uw2.Game.UI.Audio.AudioSettings.SeaSpeed = speed;
+                if (_host.Fleet is { } f) f.SpeedSetting = speed;
+            }
             Uw2.Game.UI.Audio.AudioSettings.Save();
         }
     }

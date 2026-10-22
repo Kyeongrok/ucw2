@@ -272,6 +272,7 @@ public sealed partial class SeaMapHost : HwndHost
         if (Map != null && Chips != null)
         {
             Fleet = new Fleet(Map, Chips, Wind);
+            Fleet.SpeedSetting = Uw2.Game.UI.Audio.AudioSettings.SeaSpeed;
             Fleet.Weather.StormHit += OnStormHit;
             Fleet.Weather.Adrift += OnAdrift;
             Fleet.NewDay += () =>
