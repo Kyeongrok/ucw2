@@ -509,6 +509,8 @@ public sealed class SeaMapWindow : Window
             if (pick < 0) return;
             switch (pick)
             {
+                // 업무정보는 조합 일을 맡고 있을 때만(SNR0 장 0x0049F3EC · 절 0x0049F3E8 이 다 0 이 아님) — 원본은 아니면 흐리게 한다(0x0042693E).
+                case 0 when _host.Common is not { Chapter: not 0, Section: not 0 }: Note(" · 맡은 일이 없어 업무정보는 들을 게 없습니다"); break;
                 case 0: JobInfo(maid); break;
                 case 1:
                     if (Barmaids.AskTaste(m, maid, Random.Shared.Next) is { } taste) Say(taste, "당신의 성의가 제일 기뻐요.");
@@ -908,6 +910,8 @@ public sealed class SeaMapWindow : Window
     private void LearnCartography()
     {
         if (_host.Scenario is not { } vm) return;
+        // 이미 지도작성술(사람 +0x30 & 8)이 있으면 원본은 「기능 습득」을 흐리게 한다(0x00422500).
+        if ((HeroField(0x30) & 8) != 0) { Note(" · 지도작성술은 이미 익혔습니다"); return; }
         Say(0x1F5, "지도작성술을 습득하고 싶은 것이군요.");
         string[] names = ["항해술", "지식", "직감"];
         for (int k = 0; k < 3; k++)
