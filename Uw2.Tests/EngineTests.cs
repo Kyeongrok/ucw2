@@ -126,6 +126,20 @@ public class EngineTests
     }
 
     [Fact]
+    public void ItemGradeFollowsPowerAndGroup()
+    {
+        // 0x0041F54B — 칼붙이 (힘 − 5) / 6, 35 이상 ☆ · 갑옷 (힘 − 10) / 5, 40 넘으면 ☆ · 그 밖은 없다.
+        static Uw2.Game.Engine.Town.ItemShop.Item I(int power, int kind) => new(0, "", 0, power, kind);
+        Assert.Equal(0, Uw2.Game.Engine.Town.ItemShop.Grade(I(8, 0)));
+        Assert.Equal(3, Uw2.Game.Engine.Town.ItemShop.Grade(I(34, 2)));
+        Assert.Equal(4, Uw2.Game.Engine.Town.ItemShop.Grade(I(35, 3)));
+        Assert.Equal(2, Uw2.Game.Engine.Town.ItemShop.Grade(I(20, 6)));
+        Assert.Equal(3, Uw2.Game.Engine.Town.ItemShop.Grade(I(40, 6)));
+        Assert.Equal(4, Uw2.Game.Engine.Town.ItemShop.Grade(I(41, 6)));
+        Assert.Equal(-1, Uw2.Game.Engine.Town.ItemShop.Grade(I(50, 7)));
+    }
+
+    [Fact]
     public void EnemyPartingLineFollowsFleetKind()
     {
         // 0x0040AC16 — 해적 60 ~ 69 · 상선(% 10 이 1 ~ 4) · 해군, 이탈이면 그대로 아니면 −4. 해가 지거나 진 판은 말이 없다.

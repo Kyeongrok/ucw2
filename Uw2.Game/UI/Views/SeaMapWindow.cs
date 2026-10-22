@@ -3555,7 +3555,7 @@ public sealed class SeaMapWindow : Window
         if (pick < 0) return;
         int item = owned[pick];
         var it = ItemShop.Get(m, item);
-        ShowItem(item, w);
+        ShowItem(item, w, owned: true);
         int how = BuildingMenu.Ask(w, it.Name, ["장  비", "사  용"]);
         if (how < 0) return;
         if (how == 0)
@@ -3611,14 +3611,23 @@ public sealed class SeaMapWindow : Window
         ScenarioDialog.Play(w, _host.Faces, [new ScenarioVm.Line(it.Name, said)]);
     }
 
-    /// <summary>아이템 하나의 풀이(<c>ITEM.MES</c>)와 그림(KAO 발견물 판 0x55 + 아이템 +0x0F, <c>0x0041F4F4</c>).</summary>
-    private void ShowItem(int item, Window? owner = null)
+    /// <summary>
+    /// 아이템 하나의 풀이(<c>ITEM.MES</c>)와 그림(KAO 발견물 판 0x55 + 아이템 +0x0F, <c>0x0041F4F4</c>) — 머리는 「이름（갈래）」 에
+    /// 가진 것을 볼 때는 「장비」 표시, 풀이 뒤에 공격력 · 방어력 등급(목록 34, <see cref="ItemShop.Grade"/>)을 붙인다(<c>0x0041F450</c>).
+    /// </summary>
+    private void ShowItem(int item, Window? owner = null, bool owned = false)
     {
         var w = owner ?? this;
         if (_host.Scenario is not { } vm || _host.ItemNotes?[item] is not { Length: > 0 } note) return;
         int pic = vm.Memory.Read(ScenarioMemory.At(ItemShop.Table, item, 0x0F), false);
+        var it = ItemShop.Get(vm.Memory, item);
+        string head = it.Group < ItemShop.GroupNames.Length ? $"{it.Name}（{ItemShop.GroupNames[it.Group]}）" : it.Name;
+        if (owned && ItemShop.IsEquipped(vm.Memory, item)) head += "  장비";
+        string[] grades = _host.Menus?.Lists is { Count: > 34 } l34 && l34[34].Count >= 5 ? [.. l34[34]] : ["Ｄ", "Ｃ", "Ｂ", "Ａ", "☆"];
+        int g = ItemShop.Grade(it);
+        if (g >= 0) note += $"\n\n{(it.Group == 6 ? "방어력" : "공격력")} {grades[g]}";
         ScenarioDialog.Play(w, _host.Faces,
-            [new ScenarioVm.Line(ItemShop.Get(vm.Memory, item).Name, note, Face: pic > 0 ? FaceSheet.FindFirst + 0x55 + pic : -1)]);
+            [new ScenarioVm.Line(head, note, Face: pic > 0 ? FaceSheet.FindFirst + 0x55 + pic : -1)]);
     }
 
     /// <summary>탐색 덤(<c>0x0049A164</c>) — 부락에 내릴 때마다 0 에서 시작하고 「환대」 가 5 씩 올린다.</summary>

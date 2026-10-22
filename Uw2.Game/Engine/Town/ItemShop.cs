@@ -28,6 +28,20 @@ public static class ItemShop
         public bool Sellable => (Kind & 0x10) == 0 && Power > 0;
     }
 
+    /// <summary>갈래 이름(<c>0x00457598</c>, 9 바이트씩 — EXE 는 일본어라 옮겨 적는다).</summary>
+    public static readonly string[] GroupNames = ["검", "자돌검", "곡도", "만도", "방패", "방어무기", "갑옷", "측량기", "항해용품", "소모품"];
+
+    /// <summary>
+    /// 풀이 창의 등급(<c>0x0041F54B</c>) — 목록 34(Ｄ · Ｃ · Ｂ · Ａ · ☆)의 차례. 칼붙이(갈래 0 ~ 3)는 공격력 (힘 − 5) / 6(힘 35 이상이면 ☆),
+    /// 갑옷(6)은 방어력 (힘 − 10) / 5(힘 40 넘으면 ☆). 그 밖은 등급이 없다(-1).
+    /// </summary>
+    public static int Grade(Item it) => it.Group switch
+    {
+        <= 3 => it.Power >= 35 ? 4 : Math.Clamp((it.Power - 5) / 6, 0, 3),
+        6 => it.Power > 40 ? 4 : Math.Clamp((it.Power - 10) / 5, 0, 3),
+        _ => -1,
+    };
+
     public static Item Get(ScenarioMemory m, int index)
     {
         var raw = new byte[Size];
