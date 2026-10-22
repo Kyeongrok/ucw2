@@ -7,8 +7,8 @@ namespace Uw2.Game.UI.Rendering;
 /// <summary>도시의 마을 사람(<see cref="Townsfolk"/>) — 내놓기 · 걸음 · 부딪치면 말 걸기 · 그리기.</summary>
 public sealed partial class SeaMapHost
 {
-    /// <summary>마을 사람 한 걸음 틱(초) — 우리 사람이 한 칸 가는 사이(<see cref="Walker.Step"/> x 30 틱).</summary>
-    public const double FolkTickSeconds = 1.0 / (Walker.Step / Walker.TickSeconds);
+    /// <summary>마을 사람 한 걸음 틱(초) — 우리 사람이 한 칸 가는 사이(<see cref="Walker.CellTicks"/> 틱).</summary>
+    public const double FolkTickSeconds = Walker.CellTicks * Walker.TickSeconds;
 
     /// <summary>말을 건 뒤 다시 말을 걸 수 있는 걸음(칸) — <c>0x00459C68</c> 이 열이 되어야 한다.</summary>
     public const double FolkTalkSteps = 10;

@@ -376,7 +376,7 @@ public sealed partial class SeaMapHost : HwndHost
     /// </summary>
     private void PushOthers()
     {
-        double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale;
+        double scale = ShipDrawScale;
         bool hidden = Fleet?.Weather.Current is Weather.Kind.Storm or Weather.Kind.Fog;
         if (Math.Abs(scale - _othersScale) < 1e-9 && !_othersMoved && hidden == _othersHidden) return;
         _othersScale = scale;
@@ -388,7 +388,7 @@ public sealed partial class SeaMapHost : HwndHost
             : Others.Where(f => !f.Docked).Select(f => _seaShips
                 ? ((float)f.X, (float)f.Y, false, AssetPack.SeaShipFrame(f.SailsOnly ? 3 : 2, f.Heading, step))
                 : ((float)f.X, (float)f.Y, f.Heading is > 4, -1)).ToList();
-        _renderer.SetOthers(list, (float)(_shipW * scale * SeaShipScale), (float)(_shipH * scale * SeaShipScale));
+        _renderer.SetOthers(list, (float)(_shipW * scale), (float)(_shipH * scale));
     }
 
     /// <summary>선종 · 사람 표(<c>SDATA.DAT</c>). 없으면 배를 띄우지 못한다.</summary>
@@ -1255,8 +1255,17 @@ public sealed partial class SeaMapHost : HwndHost
     /// <summary>배 그림 한 변을 몇 배로 늘려 그릴지.</summary>
     public double ShipScale { get; set; } = 1;
 
-    /// <summary>바다 배 그림 판(32 x 32)은 부두에서 오린 그림(64 x 80)보다 작아 두 배로 찍는다.</summary>
-    private double SeaShipScale => _seaShips ? 2 : 1;
+    /// <summary>
+    /// 배 그림을 몇 배로 찍을지. 바다 배 그림 판(32 x 32)은 원본처럼 칩 2 x 2 크기 그대로다 — 칩 한 변이 <see cref="ChipSheet.Size"/> 점이므로
+    /// 지도를 줄이면 같이 줄어든다(세계지도 전체 보기에서도 보이게 <see cref="MinSeaShipPx"/> 점 밑으로는 안 줄인다).
+    /// 부두에서 오린 그림(64 x 80)은 예전처럼 눈금에 따라 늘이고 자른다.
+    /// </summary>
+    private double ShipDrawScale => _seaShips
+        ? Math.Max(1.0 / (ChipSheet.Size * CellsPerPixel), (double)MinSeaShipPx / AssetPack.SeaShipSize)
+        : Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale;
+
+    /// <summary>바다 배 그림을 이보다 작게는 안 찍는다(점).</summary>
+    private const int MinSeaShipPx = 8;
 
     private byte[] _shipArt = [];
     private int _shipW, _shipH;
@@ -1754,8 +1763,7 @@ public sealed partial class SeaMapHost : HwndHost
         double px = sx / CellsPerPixel;
         double py = (Fleet.Y - origin.Y) / CellsPerPixel;
 
-        // 확대할수록 배도 커지되 너무 작아지지도 크지도 않게 잡는다.
-        double scale = Math.Clamp(1.0 / CellsPerPixel / 2.0, 0.35, 2.5) * ShipScale * SeaShipScale;
+        double scale = ShipDrawScale;
         float dw = (float)(_shipW * scale), dh = (float)(_shipH * scale);
         return ((float)(px - dw / 2), (float)(py - dh), dw, dh);
     }
