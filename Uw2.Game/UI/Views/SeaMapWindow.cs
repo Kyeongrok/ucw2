@@ -469,7 +469,13 @@ public sealed class SeaMapWindow : Window
         if (b == ItemBuilding && pick == 0) { BuyItem(); return; }
         if (b == ItemBuilding && pick == 1) { SellItem(); return; }
         if (b == HarborBuilding && pick == 1) { ShowSupplies(); return; }
-        if (b == HarborBuilding && pick == 2) { AtDock(); return; }
+        if (b == HarborBuilding && pick == 2)
+        {
+            // 도크는 나라 서울에만 있다 — 원본은 서울(나라 표 +0x0A)이 아니면 목록에서 흐리게 한다(0x00423FCA → 0x00431A70, 가림 4).
+            if (_host.StartTables is { } cap && !cap.Capitals.Take(6).Contains(_host.CurrentPort)) { Note(" · 도크는 나라의 서울에만 있습니다"); return; }
+            AtDock();
+            return;
+        }
         _doorNote = $" · 「{items[pick]}」은 아직 없습니다";
         UpdateStatus();
     }
