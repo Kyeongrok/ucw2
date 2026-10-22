@@ -1030,6 +1030,23 @@ public sealed class SeaMapWindow : Window
     private void Say(int id, string fallback, params object[] args) => SayWith(-1, id, fallback, args);
 
     /// <summary>말 한 줄을 <c>GRAPH.DAT</c> 그림 <paramref name="graph"/> 와 함께 띄운다(-1 이면 그림 없이).</summary>
+    /// <summary>해전 뒤 적 제독의 마지막 말(<see cref="Encounter.PartingLine"/>) — 그 제독 얼굴로(<c>0x0040ACB0</c>).</summary>
+    private void EnemyParting(int result, NpcFleet enemy)
+    {
+        int id = Encounter.PartingLine(result, enemy.Index);
+        if (id < 0 || _devQuiet) return;
+        string text = MsgOr(id, id switch
+        {
+            0x342 => "쳇！ 상대가 안 좋았군.\n모두 철수다！",
+            0x344 => "제기랄！ 이 해적 놈아！\n언젠가 반드시 앙갚음해 주겠다.",
+            0x343 => "네 놈은 절대로 잊지 않겠다.\n내 생애를 걸고 네 놈을 쳐 없애겠다！",
+            0x33E => "쳇！ 이까짓 놈에게 죽임을 당하다니……",
+            0x340 => "살려 줘∼\n이런 곳에서 죽기 싫어∼",
+            _ => "이번엔 네 놈의 승리다.\n하지만, 조국이 언젠가 네 놈의 함대를 쳐부술 것이다！\n언젠가…… 반드시……",
+        });
+        ScenarioDialog.Play(this, _host.Faces, [new ScenarioVm.Line(_host.PersonName(enemy.Admiral), text)], _host.PersonFace(enemy.Admiral));
+    }
+
     private void SayWith(int graph, int id, string fallback, params object[] args)
     {
         if (_devQuiet) return;
@@ -3114,6 +3131,7 @@ public sealed class SeaMapWindow : Window
         f.SetTimeOfDay(battle.Time);
         var spoils = _host.CloseBattle(battle, enemy);
         if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon && !_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Victory);   // 0x0040AF2B
+        EnemyParting(battle.Result, enemy);
         if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
         {
             var st = _host.StartTables!;
@@ -3245,6 +3263,7 @@ public sealed class SeaMapWindow : Window
             f.SetTimeOfDay(battle.Time);
             var spoils = _host.CloseBattle(battle, enemy);
             if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon && !_devQuiet) Uw2.Game.UI.Audio.Sound.Play(Uw2.Game.UI.Audio.Sound.Victory);   // 0x0040AF2B
+            EnemyParting(battle.Result, enemy);
         if (battle.Result is Engine.Sea.Battle.Outcome.EnemySunk or Engine.Sea.Battle.Outcome.DuelWon)
             {
                 Say(-1, (MsgOr(0x230, $"전리품으로서 금화 {spoils.Gold}닢, ", spoils.Gold)

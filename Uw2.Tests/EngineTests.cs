@@ -126,6 +126,20 @@ public class EngineTests
     }
 
     [Fact]
+    public void EnemyPartingLineFollowsFleetKind()
+    {
+        // 0x0040AC16 — 해적 60 ~ 69 · 상선(% 10 이 1 ~ 4) · 해군, 이탈이면 그대로 아니면 −4. 해가 지거나 진 판은 말이 없다.
+        Assert.Equal(0x342, Encounter.PartingLine(Battle.Outcome.EnemyLeft, 63));
+        Assert.Equal(0x33E, Encounter.PartingLine(Battle.Outcome.EnemySunk, 63));
+        Assert.Equal(0x344, Encounter.PartingLine(Battle.Outcome.EnemyLeft, 12));
+        Assert.Equal(0x340, Encounter.PartingLine(Battle.Outcome.DuelWon, 12));
+        Assert.Equal(0x343, Encounter.PartingLine(Battle.Outcome.EnemyLeft, 15));
+        Assert.Equal(0x33F, Encounter.PartingLine(Battle.Outcome.EnemySunk, 20));
+        Assert.Equal(-1, Encounter.PartingLine(Battle.Outcome.Sunset, 15));
+        Assert.Equal(-1, Encounter.PartingLine(Battle.Outcome.PlayerSunk, 15));
+    }
+
+    [Fact]
     public void FigureheadAverageKeepsWeatherAway()
     {
         // 날씨 바다(0x80) · 폭풍 갈래(해류 0x40) · 풍속 3, 운 0 — 선수상 평균이 rand(5) 보다 작아야 인다(0x00419058).
