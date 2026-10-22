@@ -29,6 +29,22 @@ public class AssetTests
     }
 
     [Fact]
+    public void HeroProfilesOfTheNewGame()
+    {
+        // 주인공 신상(0x00416770) — 연령 +0x2A, 능력치 +0x1C ~, 소개 말 0x32 + 사람 번호(표 0x00457FB8).
+        var raw = Pack.Start!.PeopleBytes;
+        int Age(int p) => raw[p * StartData.PersonSize + 0x2A];
+        int Stat(int p, int k) => raw[p * StartData.PersonSize + 0x1C + k];
+        Assert.Equal([18, 18, 25, 23, 33, 19], Enumerable.Range(0, 6).Select(Age));
+        Assert.Equal(92, Stat(1, 5));   // 카탈리나 검술
+        Assert.Equal(92, Stat(2, 0));   // 옷토 통솔력
+        Assert.Equal(92, Stat(3, 1));   // 에르네스트 항해술
+        var m = GameMessages.Load(Path.Combine(AssetDir, "snr", "MESSAGE.DAT"));
+        Assert.StartsWith("포르투갈의 귀공자", m[0x32]);
+        Assert.StartsWith("이슬람인", m[0x32 + 5]);
+    }
+
+    [Fact]
     public void ItemGradesOfTheNewGame()
     {
         // 풀이 창 등급(0x0041F54B) — 새 게임 아이템 표로: 단도 Ｄ · 레이피어 Ｃ · 롱 소드 Ｂ · 일본도 Ａ · 요도촌정 ☆, 플레이트 메일 Ａ · 성기사의 갑옷 ☆.
