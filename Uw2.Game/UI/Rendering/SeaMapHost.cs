@@ -1714,12 +1714,17 @@ public sealed partial class SeaMapHost : HwndHost
         if (Walker.Moving || before) _dirty = true;
     }
 
-    /// <summary>배가 가장자리에 다가오면 화면을 넘긴다. 여백 안에서는 지도가 멈춰 있다.</summary>
+    /// <summary>
+    /// 배가 가운데서 벗어난 만큼 화면을 민다. 벗어나도 되는 몫은 환경 洋上移動値(<see cref="Uw2.Game.UI.Audio.AudioSettings.SeaSlack"/>)다 —
+    /// 원본 화면 반쪽 11 칸 가운데 그 값만큼을 반쪽 너비에 견주어 쓰고, 가장자리 여백(<see cref="FollowMargin"/>)은 넘지 않는다.
+    /// </summary>
     private void FollowShip(int w, int h)
     {
         if (Fleet == null) return;
         double halfW = w / 2.0 * CellsPerPixel, halfH = h / 2.0 * CellsPerPixel;
-        double marginX = FollowMargin * CellsPerPixel, marginY = FollowMargin * CellsPerPixel;
+        double share = 1 - Uw2.Game.UI.Audio.AudioSettings.SeaSlack / 11.0;
+        double marginX = Math.Max(FollowMargin * CellsPerPixel, halfW * share);
+        double marginY = Math.Max(FollowMargin * CellsPerPixel, halfH * share);
 
         double dx = Fleet.X - Center.X;
         if (dx > ChipMap.Width / 2.0) dx -= ChipMap.Width;
