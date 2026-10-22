@@ -58,6 +58,19 @@ public partial class App : Application
             t.Start();
             return;
         }
+        if (Array.IndexOf(e.Args, "--portmap-demo") >= 0)
+        {
+            // 개발 — 첫 주인공 고향 항구의 항구맵을 띄운다.
+            var map = new SeaMapWindow { Title = "대항해시대2 — 항구맵 시험" };
+            map.Show();
+            map.ShowHomePort(0);
+            var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            int pm = Array.IndexOf(e.Args, "--portmap-demo");
+            string? shot = pm + 1 < e.Args.Length ? e.Args[pm + 1] : null;
+            t.Tick += (_, _) => { t.Stop(); map.DevPortMap(shot); if (shot != null) Shutdown(); };
+            t.Start();
+            return;
+        }
         if (Array.IndexOf(e.Args, "--sea-demo") >= 0)
         {
             // 개발 — 첫 주인공 고향 앞바다에 배를 띄운다(바다 배 그림 · 남 함대 보기).

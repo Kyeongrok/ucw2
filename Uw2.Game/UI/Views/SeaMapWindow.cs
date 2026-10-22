@@ -4411,6 +4411,14 @@ public sealed class SeaMapWindow : Window
     /// 개발 — 새 게임에서 고향을 떠나 바다에 나온 남 함대 곁에 서서 「공격」 판을 차리고, 제 기함까지 남 배 생각으로 끝까지 돌린 뒤
     /// 뒤끝을 셈해 <paramref name="outPath"/> 에 적는다(<c>Uw2Play.exe --battle-smoke 파일</c>). 판 그림은 <paramref name="shotPath"/> 에 뜬다.
     /// </summary>
+    /// <summary>개발 — 지금 항구의 항구맵을 띄운다(<c>Uw2Play.exe --portmap-demo</c>).</summary>
+    public void DevPortMap(string? shot = null)
+    {
+        if (_host.TownMap() is not { } town) return;
+        if (shot != null) PortMapWindow.Save(shot, town.Bgra, town.Size, SeaMapHost.TownMapScale, town.Doors, town.Me);
+        else PortMapWindow.Show(this, $"항구맵 — {_host.SceneName}", town.Bgra, town.Size, SeaMapHost.TownMapScale, town.Doors, town.Me);
+    }
+
     /// <summary>개발 — 확인 없이 출항한다(<c>Uw2Play.exe --sea-demo</c>).</summary>
     public void DevPutToSea() => PutToSea(check: false);
 

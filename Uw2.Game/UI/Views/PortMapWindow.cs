@@ -21,6 +21,13 @@ public sealed class PortMapWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = Brushes.Black;
 
+        Content = Build(bgra, size, scale, doors, me);
+        KeyDown += (_, e) => { if (e.Key is System.Windows.Input.Key.Escape or System.Windows.Input.Key.Enter) Close(); };
+        MouseRightButtonUp += (_, _) => Close();
+    }
+
+    private static Canvas Build(uint[] bgra, int size, int scale, (int X, int Y)?[] doors, (double X, double Y)? me)
+    {
         var bmp = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgra32, null, bgra, size * 4);
         bmp.Freeze();
         var canvas = new Canvas { Width = size, Height = size, Margin = new Thickness(8) };
@@ -47,9 +54,22 @@ public sealed class PortMapWindow : Window
             Canvas.SetLeft(mark, cx - 4.5); Canvas.SetTop(mark, cy - 4.5);
             canvas.Children.Add(mark);
         }
-        Content = canvas;
-        KeyDown += (_, e) => { if (e.Key is System.Windows.Input.Key.Escape or System.Windows.Input.Key.Enter) Close(); };
-        MouseRightButtonUp += (_, _) => Close();
+        return canvas;
+    }
+
+    /// <summary>개발 — 창을 띄우지 않고 그림을 PNG 로 남긴다.</summary>
+    public static void Save(string path, uint[] bgra, int size, int scale, (int X, int Y)?[] doors, (double X, double Y)? me)
+    {
+        var canvas = Build(bgra, size, scale, doors, me);
+        canvas.Background = Brushes.Black;
+        canvas.Measure(new Size(size + 16, size + 16));
+        canvas.Arrange(new Rect(0, 0, size + 16, size + 16));
+        var rtb = new RenderTargetBitmap(size + 16, size + 16, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(canvas);
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(rtb));
+        using var f = System.IO.File.Create(path);
+        enc.Save(f);
     }
 
     public static void Show(Window owner, string title, uint[] bgra, int size, int scale, (int X, int Y)?[] doors, (double X, double Y)? me) =>
