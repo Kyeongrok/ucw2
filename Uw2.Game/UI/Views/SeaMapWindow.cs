@@ -4218,7 +4218,7 @@ public sealed class SeaMapWindow : Window
     private bool _over;
 
     /// <summary>
-    /// 게임 끝(<c>0x004042C0</c>) — 끝 깃발 0x10 → 말 0x3F8(서른 해 은퇴), 0x18 → 0x3F6(폭풍), 0x19 → 0x1BA 뒤 0x3F7(선원 없음), 0x1A → 0x3F5(해전).
+    /// 게임 끝(<c>0x004042C0</c>) — 끝 깃발 0x10 → 말 0x3F8(서른 해 은퇴), 0x18 → 0x3F6(폭풍), 0x19 → 0x1BA(배가 없으면 0x241) 뒤 0x3F7(선원 없음), 0x1A → 0x3F5(해전).
     /// 묘비 글은 「１５%w년%w월%w일」 과 주인공 이름 · 성 둘씩이다. 다 보이면 제목으로 돌아간다.
     /// </summary>
     /// <summary>
@@ -4282,7 +4282,9 @@ public sealed class SeaMapWindow : Window
         if (_over) return;
         _over = true;
         _host.Sailing = false;
-        if (reason == SeaMapHost.EndNoCrew) Say(0x1BA, "선원이 한 사람도 안 남았습니다. 더이상 항해를 계속할 수 없습니다.");
+        // 선원 없음(0x00417C40) — 배 칸이 하나라도 서 있으면 0x1BA, 배가 하나도 안 남았으면 「모든 선박이 항해불능」(0x241).
+        if (reason == SeaMapHost.EndNoCrew && _host.Player.Ships.Count > 0) Say(0x1BA, "선원이 한 사람도 안 남았습니다. 더이상 항해를 계속할 수 없습니다.");
+        else if (reason == SeaMapHost.EndNoCrew) Say(0x241, "모든 선박이 항해불능 상태가 되었습니다. 더이상 항해는 불가능합니다.");
         int id = reason switch
         {
             SeaMapHost.EndRetire => 0x3F8, SeaMapHost.EndStorm => 0x3F6, SeaMapHost.EndNoCrew => 0x3F7, _ => 0x3F5,
