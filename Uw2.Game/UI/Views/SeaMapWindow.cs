@@ -1380,7 +1380,7 @@ public sealed class SeaMapWindow : Window
 
     /// <summary>
     /// 「면세증」(<c>0x00427620</c>) — 이 나라 것을 이미 가졌으면 0x368, 아이템 칸이 차면 0x361. 0x369(반 년 · 4월과 10월 갱신),
-    /// 갱신이 가까우면(달 mod 6 &lt; 3) 0x36A 뒤 0x36B 로 묻고 값(0x36D, <see cref="Palace.PermitPrice"/>)을 받는다. 돈이 모자라면 0x36E.
+    /// 갱신이 가까우면(달 mod 6 &lt; 3) 0x36A 뒤 0x36B 로 묻고 왕 앞(0x365 · 0x36C)에서 값(0x36D, <see cref="Palace.PermitPrice"/>)을 받는다. 돈이 모자라면 0x36E.
     /// </summary>
     private void BuyPermit(bool ours)
     {
@@ -1394,6 +1394,10 @@ public sealed class SeaMapWindow : Window
         Say(0x369, "면세증의 유효기한은 반 년이고, ４월과 １０월에 갱신하지 않으면 안됩니다.");
         if (f.Month % 6 < 3) Say(0x36A, "지금 교부 받아도, 곧 갱신해야 합니다.");
         if (MessageBox.Show(this, MsgOr(0x36B, "면세증 교부를 신청하시겠습니까？"), "면세증", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        // 왕 앞으로(0x004276F0) — 「그럼 폐하께 모셔다 드리지요.」(0x365) 뒤 왕이 성으로 맞는다(0x36C — 원본 말은 사략허가서라고 적혀 있다).
+        var (_, family) = _host.HeroName;
+        Say(0x365, "그럼 폐하께 모셔다 드리지요.");
+        Say(0x36C, $"{family}공, 어서 오시오！\n우리 나라가 발행하는 면세증을 교부받고 싶다는 것이군.", family);
         int price = Palace.PermitPrice(ours, _host.HeroRank);
         if (price > 0 && MessageBox.Show(this, MsgOr(0x36D, $"교부에는 금화 {price}닢이 들지. 괜찮소？", price / 10000), "면세증",
                                          MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
@@ -4310,6 +4314,10 @@ public sealed class SeaMapWindow : Window
         };
         var d = _host.Fleet?.Date ?? GameDate.NewGame;
         var (name, family) = _host.HeroName;
+        // 해전에서 지면 묘비 글 앞에 항해일지가 끝났다는 말을 먼저 띄운다(0x0040AEBE — 해는 1501 + 해).
+        if (reason == SeaMapHost.EndBattle)
+            Say(0x3F9, $"{1501 + d.Year}년 {d.Month + 1}월 {d.Day + 1}일\n{name} {family}의 항해일지는 이 페이지에서 끝나 있었다.",
+                1501 + d.Year, d.Month + 1, d.Day + 1, name, family, name, family);
         string yy = $"{(d.Year + 1) % 100:00}";
         Say(id, $"{name} {family}의 항해는 여기서 끝났다.", yy, d.Month + 1, d.Day + 1, name, family, name, family);
         Ended?.Invoke();
