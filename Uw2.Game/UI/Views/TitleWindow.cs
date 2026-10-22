@@ -112,11 +112,34 @@ public sealed class TitleWindow : Window
         MouseLeftButtonUp += (_, e) => OnClick(e.GetPosition(_view));
     }
 
+    private GameMessages? _messages;
+
+    /// <summary>
+    /// 고른 주인공의 신상(<c>0x00416770</c>) — 연령(사람 +0x2A) · 능력치 일곱(+0x1C ~) 과 소개 말(<c>0x32 + 사람 번호</c>, 표 <c>0x00457FB8</c>)을
+    /// 보이고 이 주인공으로 나갈지 묻는다. 원본은 이 뒤에 이름 바꾸기(0x3AC)를 묻는다 — 우리는 바다 창이 묻는다.
+    /// </summary>
+    private bool ConfirmHero(int pick)
+    {
+        int person = HeroFace[pick];
+        var start = _pack?.Start;
+        var raw = start?.PeopleBytes;
+        int at = person * StartData.PersonSize;
+        if (start == null || raw == null || at + StartData.PersonSize > raw.Length) return true;
+        var p = start.People[person];
+        string[] names = ["통솔력", "항해술", "지식", "직감", "용기", "검술", "매력"];
+        string stats = string.Join("  ", names.Select((n, i) => $"{n} {raw[at + 0x1C + i]}"));
+        string intro = _messages?[0x32 + person] ?? "";
+        string text = $"{p.Name} {p.Family}  —  연령 {raw[at + 0x2A]}세\n{stats}\n\n{intro}\n\n이 주인공으로 출항하겠습니까？";
+        return MessageBox.Show(this, text, "주인공", MessageBoxButton.YesNo) == MessageBoxResult.Yes;
+    }
+
     private void LoadAssets()
     {
         PortTable.RegisterEncodings();
         var dir = AssetPack.FindFolder();
         _pack = dir != null ? AssetPack.Load(dir) : null;
+        string msgPath = dir != null ? Path.Combine(dir, "snr", "MESSAGE.DAT") : "";
+        _messages = File.Exists(msgPath) ? GameMessages.Load(msgPath) : null;
         _screen.Font = _pack?.Font;
         _ports = _pack != null && _pack.Ports.Count > 0 ? PortTable.FromPorts(_pack.Ports) : null;
         LayOutPlates();
@@ -326,7 +349,7 @@ public sealed class TitleWindow : Window
                 case 3: Close(); return;
             }
         }
-        else
+        else if (ConfirmHero(_pick))
         {
             HeroChosen?.Invoke(_pick);
         }
