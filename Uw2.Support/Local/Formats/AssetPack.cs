@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -172,6 +173,7 @@ public sealed class AssetPack
         // 배 그림 — 리스본 부두에 매인 배를 오려 낸다. 바다 배 그림 판(DATA1.LZW 11번 뒤쪽)이 있으면 그것을 쓴다.
         BakeShip(maps, sets, Path.Combine(outDir, "ship.png"));
         BakeSeaShips(Find("DATA1.LZW"), Path.Combine(outDir, "seaships.png"));
+        BakeTitles(Find("DATA1.LZW"), Path.Combine(outDir, "titles.json"));
 
         // 사람 그림 — 도시에서 걷는 그것이다. CHAR.LZW 청크 하나가 사람 하나다.
         string charPath = Find("CHAR.LZW");
@@ -218,6 +220,24 @@ public sealed class AssetPack
 
     /// <summary>바다 배 그림 판의 장 번호 — 벌 x 8 + 쪽 x 2 + 걸음(시각 &amp; 1, <c>0x00434044</c>).</summary>
     public static int SeaShipFrame(int set, int heading, int step) => set * 8 + SeaShipFacing[heading & 7] * 2 + (step & 1);
+
+    /// <summary>
+    /// 작위 이름 두 벌 — <c>DATA1.LZW</c> 16번(기사 … 공작)과 17번(사족 … 대재상, 오스만). 9 바이트 x 아홉, 완성형.
+    /// 원본은 새 게임 · 불러오기 때 주인공 사람 번호가 5(알)면 17번, 아니면 16번을 <c>0x00457331</c>(작위 1 칸)에 덮어 쓴다(<c>0x00415B9C</c>).
+    /// EXE 의 <c>0x00457328</c> 표는 일본어 그대로다.
+    /// </summary>
+    public const int TitleChunk = 16, OttomanTitleChunk = 17, OttomanHero = 5;
+
+    private static void BakeTitles(string data1Path, string path)
+    {
+        if (!File.Exists(data1Path)) return;
+        var chunks = LsArchive.ReadAll(data1Path);
+        if (chunks.Length <= OttomanTitleChunk) return;
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var cp949 = Encoding.GetEncoding(949);
+        string[] Read(byte[] d) => [.. Enumerable.Range(0, d.Length / 9).Select(i => cp949.GetString(d, i * 9, 9).Split(' ')[0])];
+        WriteJson(path, new[] { Read(chunks[TitleChunk]), Read(chunks[OttomanTitleChunk]) });
+    }
 
     private static void BakeSeaShips(string data1Path, string path)
     {
@@ -729,6 +749,7 @@ public sealed class AssetPack
                 var r = IndexedPng.Read(routePath);
                 routes = RouteGraph.FromBytes(r.Pixels, r.Height);
             }
+            var titles = ReadJson<string[][]>(Path.Combine(dir, "titles.json"));
             var menuLists = ReadJson<string[][]>(Path.Combine(dir, "menus.json"));
             var menus = menuLists != null ? MenuTable.FromLists(menuLists) : null;
             Economy? economy = null;
@@ -766,6 +787,7 @@ public sealed class AssetPack
                 Routes = routes,
                 Economy = economy,
                 Menus = menus,
+                Titles = titles is { Length: 2 } ? titles : null,
                 Cells = cells.Pixels,
                 WorldAtlas = chips.Pixels,
                 WorldAtlasSize = (chips.Width, chips.Height),
@@ -859,6 +881,9 @@ public sealed class AssetPack
 
     /// <summary>고르기 목록. 구워 두지 않았으면 null.</summary>
     public MenuTable? Menus { get; private init; }
+
+    /// <summary>작위 이름 두 벌(작위 1 ~ 9) — [0] 여느 주인공, [1] 알(오스만). 구워 두지 않았으면 null.</summary>
+    public string[][]? Titles { get; private init; }
 
     /// <summary>교역 표. 구워 두지 않았으면 null.</summary>
     public Economy? Economy { get; private init; }

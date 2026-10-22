@@ -115,6 +115,7 @@ public sealed partial class SeaMapHost : HwndHost
         _economyBase = pack.Economy;
         Economy = _economyBase?.Clone();
         Menus = pack.Menus;
+        TitleSets = pack.Titles;
 
         var cells = Chips.Expand(Map);
         if (!InitRenderer(cells, ChipMap.Width, ChipMap.Height)) return false;
@@ -338,6 +339,21 @@ public sealed partial class SeaMapHost : HwndHost
 
     /// <summary>고르기 목록(MENU.DAT). 없으면 건물에 들어도 고를 것이 없다.</summary>
     public MenuTable? Menus { get; private set; }
+
+    /// <summary>작위 이름 두 벌(<see cref="AssetPack.Titles"/>). 없으면 null.</summary>
+    public string[][]? TitleSets { get; private set; }
+
+    /// <summary>
+    /// 작위 이름 — 알(사람 번호 5)이면 오스만 벌(DATA1.LZW 17번 — 사족 … 대재상), 아니면 16번(기사 … 공작). 0 이면 빈 것(<c>0x00415B9C</c>).
+    /// </summary>
+    public string TitleName(int rank)
+    {
+        if (rank <= 0) return "";
+        var set = TitleSets?[HeroPersonNumber == AssetPack.OttomanHero ? 1 : 0];
+        if (set != null && rank <= set.Length) return set[rank - 1];
+        string[] fallback = ["기사", "준훈작", "훈작", "준남작", "남작", "자작", "백작", "후작", "공작"];
+        return fallback[Math.Min(rank, fallback.Length) - 1];
+    }
 
     /// <summary>교역 표. 없으면 교역소가 비어 있다.</summary>
     public Economy? Economy { get; private set; }

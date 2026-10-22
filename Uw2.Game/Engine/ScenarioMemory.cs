@@ -26,7 +26,7 @@ public sealed class ScenarioMemory
     /// <summary>표 2 +7 — 주인공 사람 번호(<c>0x0049F5AF</c>). 원본은 이것 + 1 로 <c>SNRn</c> 을 고른다(<c>0x00415AD9</c>).</summary>
     public const int HeroField = 7;
 
-    /// <summary>표 1 — 주인공마다 14바이트(0x0045A1E8, 세이브에서 불러 온다 0x004035C6). +0x0D 가 작위(0 없음 · 1 사작 … 9 공작).</summary>
+    /// <summary>표 1 — 주인공마다 14바이트(0x0045A1E8, 세이브에서 불러 온다 0x004035C6). +0x0D 가 작위(0 없음 · 1 기사 … 9 공작, 이름은 DATA1.LZW 16 · 17번).</summary>
     public const int HeroTable = 1, RankField = 0x0D;
 
     /// <summary>표마다 기록 크기(<c>0x0043D510</c> 의 곱).</summary>

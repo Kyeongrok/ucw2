@@ -29,6 +29,16 @@ public class AssetTests
     }
 
     [Fact]
+    public void TitleNamesComeFromData1Chunks16And17()
+    {
+        // 원본은 주인공 사람 번호가 5(알)면 17번, 아니면 16번을 작위 표 1 칸에 덮어 쓴다(0x00415B9C).
+        var t = Pack.Titles!;
+        Assert.Equal(["기사", "준훈작", "훈작", "준남작", "남작", "자작", "백작", "후작", "공작"], t[0]);
+        Assert.Equal("사족", t[1][0]);
+        Assert.Equal("대재상", t[1][8]);
+    }
+
+    [Fact]
     public void SeaShipSheetComesFromData1Chunk11()
     {
         // DATA1.LZW 11번 0x4000 부터 32 x 32 서른두 장(0x00433F1A) — 벌 넷 x 쪽 넷 x 걸음 둘.

@@ -1706,8 +1706,6 @@ public sealed class SeaMapWindow : Window
         }
     }
 
-    /// <summary>작위 이름(<c>0x00457328</c>, 9 바이트씩) — 0 없음 · 1 사작 … 9 공작.</summary>
-    private static readonly string[] Titles = ["", "사작", "준훈작사", "훈작사", "준남작", "남작", "자작", "백작", "후작", "공작"];
 
     /// <summary>
     /// 왕궁 문(<c>0x00427DC0</c>) — 작위가 없고 나라가 있는 주인공은 남의 나라 왕궁, 또는 제 나라라도 SNR0 깃발(<c>0x0049F3E2</c> &amp; 6,
@@ -1725,7 +1723,7 @@ public sealed class SeaMapWindow : Window
             return false;
         }
         var (_, family) = _host.HeroName;
-        if (rank > 0) Say(0x1BC, $"잘 오셨습니다. {family} {Titles[Math.Min(rank, 9)]}님,\n어서 안으로 들어 오세요.", family, Titles[Math.Min(rank, 9)]);
+        if (rank > 0) Say(0x1BC, $"잘 오셨습니다. {family} {_host.TitleName(rank)}님,\n어서 안으로 들어 오세요.", family, _host.TitleName(rank));
         else Say(0x240, "평민은 왕궁에 들어갈 수 없는 것이 원칙이지만, 폐하께서 당신에게 흥미를 가지고 계시니, 특별히 들여보내 주겠소.");
         return true;
     }
@@ -1935,7 +1933,7 @@ public sealed class SeaMapWindow : Window
         }
         // 제독이 외치고(0x21 — 이름 뒤에 작위), 모인 수를 알린다 — 20 명 이상 0x79, 그 아래 0x7A, 없으면 0x7B(0x00424435).
         var (heroName, _) = _host.HeroName;
-        string title = Titles[Math.Clamp(_host.HeroRank, 0, Titles.Length - 1)];
+        string title = _host.TitleName(_host.HeroRank);
         Say(0x21, $"이 중에서 {heroName}{title}의 배를 탈 사람은 없느냐？", heroName, title);
         int available = Pub.AvailableAt(economy, _pubMood, _host.HeroRank);
         if (available == 0) { Say(0x7B, "제독님, 지원자가 한 명도 없었습니다."); return; }
