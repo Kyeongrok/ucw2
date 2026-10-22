@@ -1676,7 +1676,14 @@ public sealed class SeaMapWindow : Window
         var m = vm.Memory;
         int hero = _host.HeroPersonNumber, port = _host.CurrentPort;
         var here = Navigators.InTown(m, port, hero, pub);
-        if (here.Count == 0) { Note($" · 지금 {(pub ? "주점" : "여관")}에 항해자가 없습니다"); return; }
+        if (here.Count == 0)
+        {
+            if (pub) { Note(" · 지금 주점에 항해자가 없습니다"); return; }
+            // 여관에 아무도 없으면 「괜찮은 놈은 눈에 띄지 않는군요.」(0x43), 주점에 누가 있으면 주인이 「…주점에서 술을 마시고 있다는군.」(0x44, 0x0041F070).
+            if (Navigators.InTown(m, port, hero, true).Count > 0) Say(0x44, "괜찮아 보이는 항해자가 주점에서 술을 마시고 있다는군.");
+            else Say(0x43, "괜찮은 놈은 눈에 띄지 않는군요.");
+            return;
+        }
         int who = here.Count == 1 ? 0 : BuildingMenu.Ask(this, "누구와 이야기할까요", here.Select(_host.PersonName).ToList());
         if (who < 0) return;
         int nav = here[who];
@@ -1812,13 +1819,15 @@ public sealed class SeaMapWindow : Window
         if (_host.Scenario is not { } vm) return true;
         var m = vm.Memory;
         int fleet = Navigators.Get(m, nav, Navigators.Fleet);
-        if (pub && fleet != 0xFF && fleet == Navigators.Get(m, _host.HeroPersonNumber, Navigators.Fleet))
+        // 우리 동료면 한마디로 끝 — 주점 0x86 ~ 0x88, 여관 0x45 ~ 0x47(0x0041F143). 해적이면 둘 다 0x35B + rand(2)(0x0041F172).
+        if (fleet != 0xFF && fleet == Navigators.Get(m, _host.HeroPersonNumber, Navigators.Fleet))
         {
             int k = _host.Roll(3);
-            Say(0x86 + k, k == 0 ? "제독님, 역시 육지는 좋군요." : k == 1 ? "제독님, 술은 적당히 합시다." : "제독님, 다음 기항지는 어딥니까？");
+            if (pub) Say(0x86 + k, k == 0 ? "제독님, 역시 육지는 좋군요." : k == 1 ? "제독님, 술은 적당히 합시다." : "제독님, 다음 기항지는 어딥니까？");
+            else Say(0x45 + k, k == 0 ? "제독님, 역시 여관은 마음이 안정되는군요." : k == 1 ? "제독님, 오늘은 그만 쉬도록 하죠." : "제독님, 출항일은 언제입니까？");
             return false;
         }
-        if (pub && fleet is >= 60 and < 70)
+        if (fleet is >= 60 and < 70)
         {
             int k = _host.Roll(2);
             Say(0x35B + k, k == 0 ? "목숨이 아깝거든 썩 꺼져！" : "내게 걸려 살아 남은 놈은 없다.");
