@@ -1063,6 +1063,9 @@ public sealed class SeaMapWindow : Window
     {
         if (_host.Scenario is not { } vm) return;
         var p = _host.Player;
+        // 원본은 목록에서 흐리게 한다(0x0042842F · 0x0042843D) — 동료가 없으면 동료운(가림 8), 카탈리나(사람 1)는 연애운(가림 4). 돈을 받기 전이다.
+        if (pick == 2 && _host.HeroPersonNumber == 1) { Note(" · 카탈리나는 연애운을 볼 수 없습니다"); return; }
+        if (pick == 3 && !Navigators.Mates(vm.Memory).Any()) { Note(" · 동료가 없습니다"); return; }
         if (_host.Messages is { } m && MessageBox.Show(this, m[0x12B], "점술가", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         if (p.Gold < 50) { Say(0x12C, "돈이 모자랍니다."); return; }
         p.SetGold(p.Gold - 50);
